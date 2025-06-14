@@ -11,32 +11,10 @@
   </style>
 </head>
 <body>
-
-
-<nav class="navbar fixed-top navbar-expand-lg navbar-light bg-light">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="#">Green Mind</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarNav">
-      <ul class="navbar-nav">
-        <li class="nav-item">
-          <a class="nav-link" href="longtail-generator.html">Add Longtails</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link active" href="keyword-structuring-tool.html">Keywords Breaker</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="clustering.html">Clustering</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="content-prompt-generator.html">Content Creation</a>
-        </li>
-      </ul>
-    </div>
-  </div>
-</nav>
+<?php
+  $active = 'keyword';
+  include 'header.php';
+?>
 
 
 <div class="container">
@@ -98,12 +76,9 @@ function copyPrompt() {
   const hiddenTextarea = document.getElementById('clipboardArea');
   hiddenTextarea.value = text;
   hiddenTextarea.select();
-  document.execCommand("copy");
-  alert("Prompt copied to clipboard!");
+document.execCommand("copy");
+alert("Prompt copied to clipboard!");
 }
 </script>
+<?php include 'footer.php'; ?>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-</body>
-</html>
