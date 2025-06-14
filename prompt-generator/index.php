@@ -16,7 +16,7 @@ foreach ($files as $file) {
     $tools[] = ['file' => $file, 'title' => $title, 'description' => $description];
 }
 usort($tools, fn($a, $b) => strcmp($a['title'], $b['title']));
-$title = 'Green Mind Tools';
+$title = 'Green Mind Prompt Generators';
 include 'header.php';
 ?>
 <p>Select from our collection of utilities.</p>
