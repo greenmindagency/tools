@@ -7,31 +7,53 @@ include 'header.php';
 </style>
 
 <div class="mb-3">
-  <label class="form-label">Enter Keyword Groups (one group per line):</label>
-  <textarea id="groups" class="form-control" rows="6" placeholder="e.g. seo company | technical seo agency"></textarea>
+  <label class="form-label">Paste Grouped Keywords:</label>
+  <textarea id="keywords" class="form-control" rows="6" placeholder="Group 1: seo tools, blog seo, rank checker
+Group 2: content writing, article writing, blog writing, brand voice, tone guide"></textarea>
 </div>
 
-<button class="btn btn-primary" onclick="generateKeywordsPrompt()">Generate Prompt</button>
+<div class="form-check form-switch mb-4">
+  <input class="form-check-input" type="checkbox" id="includeCanvas" checked>
+  <label class="form-check-label" for="includeCanvas">Include /canvas at top of prompt</label>
+</div>
+
+<button class="btn btn-primary" onclick="generatePrompt()">Generate Prompt</button>
 
 <div class="d-flex align-items-center mt-5">
   <h4 class="mb-0">Generated Prompt:</h4>
-  <button class="btn btn-outline-secondary btn-sm ms-3" onclick="copyKeywordsPrompt()">Copy</button>
+  <button class="btn btn-outline-secondary btn-sm ms-3" onclick="copyPrompt()">Copy</button>
 </div>
 <div id="output" class="form-control" readonly></div>
+
 <textarea id="clipboardArea" style="position: absolute; left: -9999px; top: -9999px;"></textarea>
 
 <script>
-function generateKeywordsPrompt() {
-  const lines = document.getElementById('groups').value.trim().split(/\n+/).filter(Boolean);
+function generatePrompt() {
+  const keywords = document.getElementById('keywords').value.trim();
+  const includeCanvas = document.getElementById('includeCanvas').checked;
+
   let prompt = "";
-  lines.forEach(line => {
-    const words = line.split(/\s*\|\s*/).filter(Boolean);
-    words.forEach(w => { prompt += w + "\n"; });
-  });
+  if (includeCanvas) {
+    prompt += "/canvas\n\n";
+  }
+
+  prompt += "I have a list of the below keywords and their group.\n";
+  prompt += "I need you to break the number of the keywords under each group by adding long tail keywords for keywords of more than 5.\n";
+  prompt += "You can see now some groups have 7 and 8 keywords.\n";
+  prompt += "I need you to break them by adding a long tail for some selected keywords under each group to have its own group.\n\n";
+  prompt += "Please give me only a list of long tails without titles and don’t repeat the list I gave you under each other.\n";
+  prompt += "Each group should have 2 keywords minimum.\n";
+  prompt += "Keep always each keyword at the start and longtails after.\n";
+  prompt += "Please also try to avoid using conjunctive words like (with, of, in, ..) or you can use it occasionally.\n";
+  prompt += "Try to find the most/hieghest keywords based on search volume coming from google keyword planner as possible.\n\n";
+  prompt += "I need also 1 longtail maximum for each keyword, all in lowercase and in bullet points.\n\n";
+
+  prompt += "Keywords List:\n\n" + keywords;
+
   document.getElementById('output').textContent = prompt;
 }
 
-function copyKeywordsPrompt() {
+function copyPrompt() {
   const text = document.getElementById('output').textContent;
   const hiddenTextarea = document.getElementById('clipboardArea');
   hiddenTextarea.value = text;

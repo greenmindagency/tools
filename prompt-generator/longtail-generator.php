@@ -22,6 +22,11 @@ include 'header.php';
   </select>
 </div>
 
+<div class="form-check form-switch mb-4">
+  <input class="form-check-input" type="checkbox" id="includeCanvas" checked>
+  <label class="form-check-label" for="includeCanvas">Include /canvas at top of prompt</label>
+</div>
+
 <button class="btn btn-primary" onclick="generateLongtailPrompt()">Generate Prompt</button>
 
 <div class="d-flex align-items-center mt-5">
@@ -29,19 +34,34 @@ include 'header.php';
   <button class="btn btn-outline-secondary btn-sm ms-3" onclick="copyLongtailPrompt()">Copy</button>
 </div>
 <div id="output" class="form-control" readonly></div>
+
 <textarea id="clipboardArea" style="position: absolute; left: -9999px; top: -9999px;"></textarea>
 
 <script>
 function generateLongtailPrompt() {
-  const keywords = document.getElementById('keywords').value.trim().split(/\n+/).filter(Boolean);
-  const count = parseInt(document.getElementById('longtailCount').value, 10);
+  const input = document.getElementById('keywords').value.trim();
+  const list = input.split('\n').map(k => k.toLowerCase().trim()).filter(Boolean);
+  const count = document.getElementById('longtailCount').value;
+  const includeCanvas = document.getElementById('includeCanvas').checked;
 
   let prompt = "";
-  keywords.forEach(kw => {
-    for (let i = 1; i <= count; i++) {
-      prompt += kw + " longtail" + i + "\n";
-    }
-  });
+  if (includeCanvas) {
+    prompt += "/canvas\n\n";
+  }
+
+  prompt += "I have a list of the below keywords. I need you to search and find long tail keywords for each one.\n";
+  prompt += `Please add up to ${count} longtail keyword(s) max for each.\n`;
+  prompt += "You have to start with the main keyword – it cannot be in the middle or end.\n";
+  prompt += "Don't use prepositions like for / to / the etc.\n";
+  prompt += "Try to make the long tails meaningful.\n";
+  prompt += "Avoid dates and locations.\n";
+  prompt += "Output only the longtails in bullet points, not a table please, listed one under the other.\n";
+  prompt += "Do not repeat the original keyword.\n";
+  prompt += "Try to find the most/hieghest keywords based on search volume coming from google keyword planner as possible.\n\n";
+
+  prompt += "Keywords:\n\n";
+  list.forEach(k => prompt += `- ${k}\n`);
+
   document.getElementById('output').textContent = prompt;
 }
 
