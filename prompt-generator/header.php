@@ -16,7 +16,7 @@ $title = $title ?? 'Green Mind Tools';
 <body>
 <nav class="navbar fixed-top navbar-expand-lg navbar-light bg-light">
   <div class="container-fluid">
-    <a class="navbar-brand" href="index.php">Green Mind Tools</a>
+    <a class="navbar-brand" href="/tools/">Green Mind Tools</a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
       <span class="navbar-toggler-icon"></span>
     </button>
@@ -36,7 +36,31 @@ $title = $title ?? 'Green Mind Tools';
   </div>
 </nav>
 <div class="container">
-  <div class="text-center mb-4">
+  <div class="text-center mb-2">
     <img src="https://i.ibb.co/MyYRCxGx/Green-Mind-Agency-Logo-square.png" class="logo" alt="Green Mind Logo">
     <h2><?= htmlspecialchars($title) ?></h2>
   </div>
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb justify-content-center">
+      <?php
+        $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+        $segments = array_values(array_filter(explode('/', trim($path, '/'))));
+        if (!empty($segments) && $segments[0] === 'tools') {
+          array_shift($segments);
+        }
+        $segments = array_values(array_filter($segments, fn($s) => $s !== 'index.php'));
+
+        echo '<li class="breadcrumb-item"><a href="/tools/">Home</a></li>';
+        $link = '/tools';
+        foreach ($segments as $index => $seg) {
+          $link .= '/' . $seg;
+          $name = ucwords(str_replace(['-', '.php'], [' ', ''], $seg));
+          if ($index === count($segments) - 1) {
+            echo "<li class='breadcrumb-item active' aria-current='page'>$name</li>";
+          } else {
+            echo "<li class='breadcrumb-item'><a href='$link/'>$name</a></li>";
+          }
+        }
+      ?>
+    </ol>
+  </nav>
