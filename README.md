@@ -1,2 +1,2 @@
 # tools
-Green Mind Tools
+Green Mind Tools - Full Page
