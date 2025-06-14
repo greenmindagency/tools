@@ -15,7 +15,7 @@ $title = $title ?? 'Green Mind Tools';
 <body>
 <nav class="navbar fixed-top navbar-expand-lg navbar-light bg-light">
   <div class="container-fluid">
-    <a class="navbar-brand" href="index.php">Green Mind</a>
+    <a class="navbar-brand" href="index.php">Green Mind Tools</a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
       <span class="navbar-toggler-icon"></span>
     </button>
