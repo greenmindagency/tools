@@ -40,8 +40,8 @@ $title = $title ?? 'Green Mind Tools';
     <img src="https://i.ibb.co/MyYRCxGx/Green-Mind-Agency-Logo-square.png" class="logo" alt="Green Mind Logo">
     <h2><?= htmlspecialchars($title) ?></h2>
   </div>
-  <nav aria-label="breadcrumb" class="mb-4">
-    <ol class="breadcrumb justify-content-center">
+  <nav aria-label="breadcrumb" class="border-bottom container-fluid bg-light p-3 my-4">
+    <ol class="breadcrumb mb-0">
       <?php
         $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
         $segments = array_values(array_filter(explode('/', trim($path, '/'))));
