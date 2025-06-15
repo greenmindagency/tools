@@ -86,10 +86,6 @@ if (isset($_POST['update_keywords'])) {
     }
     header('Content-Type: application/json');
     echo json_encode(['status' => 'ok']);
-
-
-    header("Location: dashboard.php?client_id=$client_id");
-
     exit;
 }
 
@@ -172,6 +168,18 @@ updateGroupCounts($pdo, $client_id);
 
 ?>
 
+<?php
+$perPage = 100;
+$page = max(1, (int)($_GET['page'] ?? 1));
+$totalStmt = $pdo->prepare("SELECT COUNT(*) FROM keywords WHERE client_id = ?");
+$totalStmt->execute([$client_id]);
+$totalRows = (int)$totalStmt->fetchColumn();
+$totalPages = (int)ceil($totalRows / $perPage);
+$query = "SELECT * FROM keywords WHERE client_id = ? ORDER BY volume DESC, form ASC LIMIT $perPage OFFSET " . (($page-1)*$perPage);
+$stmt = $pdo->prepare($query);
+$stmt->execute([$client_id]);
+?>
+
 <form method="POST" id="updateForm">
   <div class="d-flex justify-content-between mb-2">
     <button type="submit" name="update_keywords" class="btn btn-success">Update</button>
@@ -180,12 +188,10 @@ updateGroupCounts($pdo, $client_id);
         <option value="keyword">Keyword</option>
         <option value="group_name">Group</option>
         <option value="cluster_name">Cluster</option>
-
         <option value="content_link">Link</option>
-
-
       </select>
       <input type="text" id="filterInput" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
+      <button type="button" id="clearFilter" class="btn btn-outline-secondary btn-sm ms-1">&times;</button>
     </div>
   </div>
 
@@ -203,10 +209,8 @@ updateGroupCounts($pdo, $client_id);
         <th>Cluster</th>
     </tr>
     </thead>
-    <tbody id="kwTableBody">
+<tbody id="kwTableBody">
 <?php
-$stmt = $pdo->prepare("SELECT * FROM keywords WHERE client_id = ? ORDER BY volume DESC, form ASC");
-$stmt->execute([$client_id]);
 foreach ($stmt as $row) {
     $volume = $row['volume'];
     $form   = $row['form'];
@@ -257,6 +261,16 @@ foreach ($stmt as $row) {
 </tbody>
   </table>
 </form>
+<nav id="pagination" class="my-3">
+<?php if ($totalPages > 1): ?>
+  <ul class="pagination pagination-sm">
+  <?php for ($i = 1; $i <= $totalPages; $i++): $active = $i === $page ? ' active' : ''; ?>
+    <li class="page-item<?= $active ?>"><a class="page-link" href="#" data-page="<?= $i ?>"><?= $i ?></a></li>
+  <?php endfor; ?>
+  </ul>
+<?php endif; ?>
+</nav>
+
 <p><a href="index.php">&larr; Back to Clients</a></p>
 
 <script>
@@ -272,35 +286,51 @@ document.addEventListener('click', function(e) {
 
 const filterInput = document.getElementById('filterInput');
 const filterField = document.getElementById('filterField');
-
+const clearFilter = document.getElementById('clearFilter');
 const updateForm = document.getElementById('updateForm');
+const pagination = document.getElementById('pagination');
+const kwTableBody = document.getElementById('kwTableBody');
+let currentPage = <?=$page?>;
 
-
-function fetchRows() {
-  const q = filterInput.value;
+function fetchRows(page = 1) {
+  currentPage = page;
+  const q = filterInput.value.trim();
   const field = filterField.value;
-  const url = 'fetch_keywords.php?client_id=<?=$client_id?>&q=' +
-              encodeURIComponent(q) + '&field=' + encodeURIComponent(field);
+  const url = 'fetch_keywords.php?client_id=<?=$client_id?>&page=' + page +
+              '&q=' + encodeURIComponent(q) + '&field=' + encodeURIComponent(field);
   fetch(url)
-    .then(r => r.text())
-    .then(html => { document.getElementById('kwTableBody').innerHTML = html; });
+    .then(r => r.json())
+    .then(data => {
+      kwTableBody.innerHTML = data.rows;
+      pagination.innerHTML = data.pagination;
+    });
 }
-
 
 updateForm.addEventListener('submit', function(e) {
   e.preventDefault();
   const fd = new FormData(updateForm);
   fd.append('client_id', <?=$client_id?>);
+  fd.append('update_keywords', '1');
   fetch('dashboard.php?client_id=<?=$client_id?>', {
     method: 'POST',
     headers: {'X-Requested-With': 'XMLHttpRequest'},
     body: fd
-  }).then(r => r.json()).then(() => fetchRows());
+  }).then(r => r.json()).then(() => fetchRows(currentPage));
 });
 
+clearFilter.addEventListener('click', () => {
+  filterInput.value = '';
+  fetchRows(1);
+});
 
-filterInput.addEventListener('input', fetchRows);
-filterField.addEventListener('change', fetchRows);
+filterInput.addEventListener('input', () => fetchRows(1));
+filterField.addEventListener('change', () => fetchRows(1));
+pagination.addEventListener('click', e => {
+  if (e.target.dataset.page) {
+    e.preventDefault();
+    fetchRows(parseInt(e.target.dataset.page, 10));
+  }
+});
 </script>
 
 <?php include 'footer.php'; ?>

@@ -1,17 +1,18 @@
 <?php
 require 'config.php';
-header('Content-Type: text/html; charset=utf-8');
+header('Content-Type: application/json; charset=utf-8');
 $client_id = (int)($_GET['client_id'] ?? 0);
 $search = trim($_GET['q'] ?? '');
 $field = $_GET['field'] ?? 'keyword';
 
 $allowed = ['keyword', 'group_name', 'cluster_name', 'content_link'];
 
-$allowed = ['keyword', 'group_name', 'cluster_name'];
-
 if (!in_array($field, $allowed, true)) {
     $field = 'keyword';
 }
+
+$perPage = 100;
+$page = max(1, (int)($_GET['page'] ?? 1));
 
 $query = "SELECT * FROM keywords WHERE client_id = ?";
 $params = [$client_id];
@@ -19,10 +20,20 @@ if ($search !== '') {
     $query .= " AND {$field} LIKE ?";
     $params[] = "%$search%";
 }
-$query .= " ORDER BY volume DESC, form ASC";
+$countStmt = $pdo->prepare(str_replace('*', 'COUNT(*)', $query));
+$countStmt->execute($params);
+$total = (int)$countStmt->fetchColumn();
+$totalPages = $search === '' ? (int)ceil($total / $perPage) : 1;
+if ($search === '') {
+    $offset = ($page - 1) * $perPage;
+    $query .= " ORDER BY volume DESC, form ASC LIMIT $perPage OFFSET $offset";
+} else {
+    $query .= " ORDER BY volume DESC, form ASC";
+}
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
 
+$rows = '';
 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $volume = $row['volume'];
     $form   = $row['form'];
@@ -54,16 +65,28 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $volBg = '';
         }
     }
-    echo "<tr data-id='{$row['id']}'>";
-    echo "<td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button><input type='hidden' name='delete[{$row['id']}]' value='0' class='delete-flag'></td>";
-    echo "<td>" . htmlspecialchars($row['keyword']) . "</td>";
-    echo "<td class='text-center' style='background-color: $volBg'>" . $volume . "</td>";
-    echo "<td class='text-center' style='background-color: $formBg'>" . $form . "</td>";
-    echo "<td><input type='text' name='link[{$row['id']}]' value='" . htmlspecialchars($row['content_link']) . "' class='form-control form-control-sm' style='max-width:200px;'></td>";
-    echo "<td class='text-center'>" . htmlspecialchars($row['page_type']) . "</td>";
-    echo "<td>" . htmlspecialchars($row['group_name']) . "</td>";
-    echo "<td class='text-center'>" . $row['group_count'] . "</td>";
-    echo "<td>" . htmlspecialchars($row['cluster_name']) . "</td>";
-    echo "</tr>";
+    $rows .= "<tr data-id='{$row['id']}'>";
+    $rows .= "<td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button><input type='hidden' name='delete[{$row['id']}]' value='0' class='delete-flag'></td>";
+    $rows .= "<td>" . htmlspecialchars($row['keyword']) . "</td>";
+    $rows .= "<td class='text-center' style='background-color: $volBg'>" . $volume . "</td>";
+    $rows .= "<td class='text-center' style='background-color: $formBg'>" . $form . "</td>";
+    $rows .= "<td><input type='text' name='link[{$row['id']}]' value='" . htmlspecialchars($row['content_link']) . "' class='form-control form-control-sm' style='max-width:200px;'></td>";
+    $rows .= "<td class='text-center'>" . htmlspecialchars($row['page_type']) . "</td>";
+    $rows .= "<td>" . htmlspecialchars($row['group_name']) . "</td>";
+    $rows .= "<td class='text-center'>" . $row['group_count'] . "</td>";
+    $rows .= "<td>" . htmlspecialchars($row['cluster_name']) . "</td>";
+    $rows .= "</tr>";
 }
+
+$pagination = '';
+if ($search === '' && $totalPages > 1) {
+    $pagination .= '<ul class="pagination pagination-sm">';
+    for ($i = 1; $i <= $totalPages; $i++) {
+        $active = $i === $page ? ' active' : '';
+        $pagination .= "<li class='page-item$active'><a class='page-link' href='#' data-page='$i'>$i</a></li>";
+    }
+    $pagination .= '</ul>';
+}
+
+echo json_encode(['rows' => $rows, 'pagination' => $pagination]);
 
