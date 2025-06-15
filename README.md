@@ -2,7 +2,7 @@
 Green Mind Agency Tools
 
 ## Prompt Generator
-https://greenmindagency.com/tools/prompt-generator/
+https://greenmindagency.com/tools/
 
 ### Local Development
 - Open `prompt-generator/index.php` in your browser.
