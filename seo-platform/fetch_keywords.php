@@ -7,11 +7,13 @@ $field = $_GET['field'] ?? 'keyword';
 
 $allowed = ['keyword', 'group_name', 'cluster_name', 'content_link'];
 
-$allowed = ['keyword', 'group_name', 'cluster_name'];
-
 if (!in_array($field, $allowed, true)) {
     $field = 'keyword';
 }
+
+$page  = max(1, (int)($_GET['page'] ?? 1));
+$limit = 100;
+$offset = ($page - 1) * $limit;
 
 $query = "SELECT * FROM keywords WHERE client_id = ?";
 $params = [$client_id];
@@ -19,8 +21,10 @@ if ($search !== '') {
     $query .= " AND {$field} LIKE ?";
     $params[] = "%$search%";
 }
-$query .= " ORDER BY volume DESC, form ASC";
+$query .= " ORDER BY volume DESC, form ASC LIMIT :limit OFFSET :offset";
 $stmt = $pdo->prepare($query);
+$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $stmt->execute($params);
 
 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
