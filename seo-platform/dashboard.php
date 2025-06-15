@@ -34,8 +34,6 @@ if (!$client) die("Client not found");
 
 <!-- Group Keywords -->
 <form method="POST" style="margin-top:20px;">
-    <label><strong>Target keywords for grouping (separated by |):</strong></label>
-    <input type="text" name="target_keywords" placeholder="keyword1|keyword2">
     <button type="submit" name="group_keywords">Group Keywords</button>
 </form>
 
@@ -158,40 +156,7 @@ if (isset($_POST['add_keywords'])) {
 
 
 if (isset($_POST['group_keywords'])) {
-    $targets = array_filter(array_map('trim', explode('|', strtolower($_POST['target_keywords'] ?? ''))));
-    $stmt = $pdo->prepare("SELECT id, keyword FROM keywords WHERE client_id = ?");
-    $stmt->execute([$client_id]);
-    $rows = $stmt->fetchAll();
-    $groups = [];
-    $map = [];
-    foreach ($rows as $r) {
-        $original = $r['keyword'];
-        $lower = strtolower($original);
-        if (in_array($lower, $targets, true)) {
-            $group = '**Parent Keyword**';
-        } else {
-            $words = array_values(array_filter(explode(' ', $lower), function($w) use ($targets) { return $w !== '' && !in_array($w, $targets, true); }));
-            if (!empty($words)) {
-                $common = $words[0];
-                if (!isset($groups[$common])) {
-                    $groups[$common] = $original;
-                }
-                $group = $groups[$common];
-            } else {
-                $group = $original;
-            }
-        }
-        $map[$r['id']] = $group;
-    }
-    $update = $pdo->prepare("UPDATE keywords SET group_name = ? WHERE id = ? AND client_id = ?");
-    foreach ($map as $id => $g) {
-        $update->execute([$g, $id, $client_id]);
-    }
-    $counts = array_count_values($map);
-    $updateCount = $pdo->prepare("UPDATE keywords SET group_count = ? WHERE id = ? AND client_id = ?");
-    foreach ($map as $id => $g) {
-        $updateCount->execute([$counts[$g], $id, $client_id]);
-    }
+    keywordClustering($pdo, $client_id);
     echo "<p class='success'>Keywords grouped successfully.</p>";
 }
 
@@ -215,6 +180,12 @@ if (isset($_POST['delete_keyword'])) {
 }
 
 ?>
+
+<!-- Filters -->
+<div style="text-align:right; margin-top:20px;">
+    <input type="text" id="keywordFilter" placeholder="Filter keywords">
+    <input type="text" id="groupFilter" placeholder="Filter groups">
+</div>
 
 <!-- Keywords Table -->
 <form method="POST">
@@ -256,5 +227,20 @@ if (isset($_POST['delete_keyword'])) {
 </form>
 
 <p><a href="index.php">&larr; Back to Clients</a></p>
+
+<script>
+function filterTable() {
+    const kw = document.getElementById('keywordFilter').value.toLowerCase();
+    const grp = document.getElementById('groupFilter').value.toLowerCase();
+    document.querySelectorAll('table tbody tr').forEach(tr => {
+        const keyword = tr.children[1].innerText.toLowerCase();
+        const group = tr.children[6].innerText.toLowerCase();
+        const show = keyword.includes(kw) && group.includes(grp);
+        tr.style.display = show ? '' : 'none';
+    });
+}
+document.getElementById('keywordFilter').addEventListener('input', filterTable);
+document.getElementById('groupFilter').addEventListener('input', filterTable);
+</script>
 </body>
 </html>
