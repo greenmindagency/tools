@@ -77,6 +77,7 @@ if (isset($_POST['update_keywords'])) {
             $update->execute([$link, $id, $client_id]);
         }
     }
+
     updateGroupCounts($pdo, $client_id);
 
     if (!isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
@@ -85,6 +86,10 @@ if (isset($_POST['update_keywords'])) {
     }
     header('Content-Type: application/json');
     echo json_encode(['status' => 'ok']);
+
+
+    header("Location: dashboard.php?client_id=$client_id");
+
     exit;
 }
 
@@ -175,7 +180,10 @@ updateGroupCounts($pdo, $client_id);
         <option value="keyword">Keyword</option>
         <option value="group_name">Group</option>
         <option value="cluster_name">Cluster</option>
+
         <option value="content_link">Link</option>
+
+
       </select>
       <input type="text" id="filterInput" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
     </div>
@@ -264,7 +272,9 @@ document.addEventListener('click', function(e) {
 
 const filterInput = document.getElementById('filterInput');
 const filterField = document.getElementById('filterField');
+
 const updateForm = document.getElementById('updateForm');
+
 
 function fetchRows() {
   const q = filterInput.value;
@@ -276,6 +286,7 @@ function fetchRows() {
     .then(html => { document.getElementById('kwTableBody').innerHTML = html; });
 }
 
+
 updateForm.addEventListener('submit', function(e) {
   e.preventDefault();
   const fd = new FormData(updateForm);
@@ -286,6 +297,7 @@ updateForm.addEventListener('submit', function(e) {
     body: fd
   }).then(r => r.json()).then(() => fetchRows());
 });
+
 
 filterInput.addEventListener('input', fetchRows);
 filterField.addEventListener('change', fetchRows);

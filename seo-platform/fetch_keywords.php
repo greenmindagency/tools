@@ -4,7 +4,11 @@ header('Content-Type: text/html; charset=utf-8');
 $client_id = (int)($_GET['client_id'] ?? 0);
 $search = trim($_GET['q'] ?? '');
 $field = $_GET['field'] ?? 'keyword';
+
 $allowed = ['keyword', 'group_name', 'cluster_name', 'content_link'];
+
+$allowed = ['keyword', 'group_name', 'cluster_name'];
+
 if (!in_array($field, $allowed, true)) {
     $field = 'keyword';
 }
