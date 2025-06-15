@@ -10,7 +10,7 @@ $title = $title ?? 'Green Mind Tools';
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body { padding: 30px; margin-top: 50px; }
-    img.logo { width: 80px; margin-bottom: 20px; }
+    img.logo { width: 50px; margin-right: 10px; }
   </style>
 </head>
 <body>
@@ -36,9 +36,9 @@ $title = $title ?? 'Green Mind Tools';
   </div>
 </nav>
 <div class="container">
-  <div class="text-center mb-2">
-    <img src="https://i.ibb.co/MyYRCxGx/Green-Mind-Agency-Logo-square.png" class="logo" alt="Green Mind Logo">
-    <h2><?= htmlspecialchars($title) ?></h2>
+  <div class="d-flex align-items-center mb-2">
+    <img src="https://i.ibb.co/MyYRCxGx/Green-Mind-Agency-Logo-square.png" class="logo me-2" alt="Green Mind Logo">
+    <h2 class="mb-0"><?= htmlspecialchars($title) ?></h2>
   </div>
   <nav aria-label="breadcrumb" class="border-bottom container-fluid bg-light p-3 my-4">
     <ol class="breadcrumb mb-0">
