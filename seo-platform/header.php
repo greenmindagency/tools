@@ -11,6 +11,13 @@ $title = $title ?? 'SEO Platform';
   <style>
     body { padding: 30px; margin-top: 50px; }
     img.logo { width: 50px; margin-right: 10px; }
+    .sticky-controls {
+      position: sticky;
+      top: 70px;
+      z-index: 100;
+      background-color: #fff;
+      padding: 8px 0;
+    }
   </style>
 </head>
 <body>

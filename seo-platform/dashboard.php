@@ -181,7 +181,7 @@ $stmt->execute([$client_id]);
 ?>
 
 <form method="POST" id="updateForm">
-  <div class="d-flex justify-content-between mb-2">
+  <div class="d-flex justify-content-between mb-2 sticky-controls">
     <button type="submit" name="update_keywords" class="btn btn-success">Update</button>
     <div class="d-flex">
       <select id="filterField" class="form-select form-select-sm me-2" style="width:auto;">
