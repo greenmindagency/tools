@@ -62,6 +62,72 @@ if (isset($_POST['add_keywords'])) {
 $pdo->query("DELETE k1 FROM keywords k1
 JOIN keywords k2 ON k1.keyword = k2.keyword AND k1.id > k2.id
 WHERE k1.client_id = $client_id AND k2.client_id = $client_id");
+
+// ---------- Auto Grouping Logic ----------
+function getBasePhrases(string $phrase): array {
+    $words = preg_split('/\s+/', trim($phrase));
+    $bases = [];
+    $count = count($words);
+    for ($n = 2; $n <= 8; $n++) {
+        if ($count >= $n) {
+            $bases[] = implode(' ', array_slice($words, 0, $n));
+        }
+    }
+    return $bases;
+}
+
+function findGroup(string $keyword, array $phraseCount): string {
+    $bestGroup = '';
+    $maxWords = 0;
+    $kwWordCount = count(preg_split('/\s+/', $keyword));
+    foreach ($phraseCount as $phrase => $cnt) {
+        $phraseWords = preg_split('/\s+/', $phrase);
+        $numWords = count($phraseWords);
+        if ($numWords > $kwWordCount) {
+            continue;
+        }
+        $regex = '/(^|\s)' . preg_quote($phrase, '/') . '(\s|$)/i';
+        if (preg_match($regex, $keyword) && $numWords > $maxWords) {
+            $bestGroup = $phrase;
+            $maxWords = $numWords;
+        }
+    }
+    return $bestGroup;
+}
+
+function autoUpdateKeywordGroups(PDO $pdo, int $client_id): void {
+    $stmt = $pdo->prepare("SELECT id, keyword FROM keywords WHERE client_id = ?");
+    $stmt->execute([$client_id]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!$rows) {
+        return;
+    }
+
+    $keywords = [];
+    foreach ($rows as $r) {
+        $keywords[$r['id']] = $r['keyword'];
+    }
+
+    $phraseCount = [];
+    foreach ($keywords as $kw) {
+        foreach (getBasePhrases($kw) as $base) {
+            $phraseCount[$base] = ($phraseCount[$base] ?? 0) + 1;
+        }
+    }
+
+    $phraseCount = array_filter($phraseCount, fn($c) => $c > 1);
+
+    $update = $pdo->prepare("UPDATE keywords SET group_name = ?, group_count = ? WHERE id = ?");
+    foreach ($keywords as $id => $kw) {
+        $group = findGroup($kw, $phraseCount);
+        $count = ($group && isset($phraseCount[$group])) ? $phraseCount[$group] : 0;
+        $update->execute([$group, $count, $id]);
+    }
+}
+
+// Run grouping on every page load
+autoUpdateKeywordGroups($pdo, $client_id);
 ?>
 
 <!-- Keywords Table -->
