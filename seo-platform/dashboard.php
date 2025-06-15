@@ -17,17 +17,43 @@ include 'header.php';
 
 <!-- Add Keyword Form -->
 <form method="POST" class="mb-4">
-    <textarea name="keywords" class="form-control" placeholder="Paste keywords – one per line" rows="6"></textarea>
+    <textarea name="keywords" class="form-control" placeholder="Paste keywords with optional volume and form" rows="6"></textarea>
     <button type="submit" name="add_keywords" class="btn btn-primary mt-2">Add Keywords</button>
 </form>
 
 <?php
 if (isset($_POST['add_keywords'])) {
-    $lines = explode("\n", trim($_POST['keywords']));
-    $insert = $pdo->prepare("INSERT IGNORE INTO keywords (client_id, keyword) VALUES (?, ?)");
-    foreach ($lines as $line) {
-        $keyword = trim($line);
-        if ($keyword) $insert->execute([$client_id, $keyword]);
+    $text = trim($_POST['keywords']);
+    $lines = preg_split('/\r\n|\n|\r/', $text);
+    $lines = array_values(array_filter(array_map('trim', $lines), 'strlen'));
+
+    $insert = $pdo->prepare("INSERT IGNORE INTO keywords (client_id, keyword, volume, form) VALUES (?, ?, ?, ?)");
+    $entries = [];
+
+    if (!empty($lines) && preg_match('/\d+$/', $lines[0])) {
+        // Format: keyword volume form per line
+        foreach ($lines as $line) {
+            if (preg_match('/^(.*?)\s+(\S+)\s+(\S+)$/', $line, $m)) {
+                $entries[] = [$m[1], $m[2], $m[3]];
+            } else {
+                $entries[] = [$line, '', ''];
+            }
+        }
+    } else {
+        // Format: keyword line, volume line, form line
+        for ($i = 0; $i < count($lines); $i += 3) {
+            $keyword = $lines[$i] ?? '';
+            $volume  = $lines[$i + 1] ?? '';
+            $form    = $lines[$i + 2] ?? '';
+            if ($keyword !== '') {
+                $entries[] = [$keyword, $volume, $form];
+            }
+        }
+    }
+
+    foreach ($entries as $e) {
+        list($k, $v, $f) = $e;
+        $insert->execute([$client_id, $k, $v, $f]);
     }
     echo "<p>Keywords added.</p>";
 }
