@@ -244,7 +244,7 @@ if (isset($_POST['delete_keyword'])) {
             <td>" . $row['form'] . "</td>
             <td><input type='text' name='content_link[{$row['id']}]' value='" . htmlspecialchars($row['content_link']) . "'></td>
             <td><input type='text' name='page_type[{$row['id']}]' value='" . htmlspecialchars($row['page_type']) . "'></td>
-            <td><input type='text' name='group_name[{$row['id']}]' value='" . htmlspecialchars($row['group_name']) . "'></td>
+            <td>" . htmlspecialchars($row['group_name']) . "<input type='hidden' name='group_name[{$row['id']}]' value='" . htmlspecialchars($row['group_name']) . "'></td>
             <td><input type='number' name='group_count[{$row['id']}]' value='" . $row['group_count'] . "'></td>
             <td><input type='text' name='cluster_name[{$row['id']}]' value='" . htmlspecialchars($row['cluster_name']) . "'></td>
         </tr>";
