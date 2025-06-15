@@ -137,25 +137,14 @@ if (isset($_POST['add_keywords'])) {
                 $cluster = array_shift($parts);
                 array_unshift($parts, $cluster);
                 foreach ($parts as $kw) {
-if (isset($_POST['group_keywords'])) {
-    keywordClustering($pdo, $client_id);
-    echo "<p class='success'>Keywords grouped successfully.</p>";
-}
-<!-- Actions & Filters -->
-<div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px;">
-    <div>
-        <form method="POST" style="display:inline; margin-right:10px;">
-            <button type="submit" name="group_keywords">Group Keywords</button>
-        </form>
-        <button type="submit" form="updateForm" name="update_keywords">Update</button>
-    </div>
-    <div>
-        <input type="text" id="keywordFilter" placeholder="Filter keywords">
-        <input type="text" id="groupFilter" placeholder="Filter groups">
-        <button type="button" id="copyBtn">Copy</button>
-    </div>
-
-<form method="POST" id="updateForm" style="margin-top:10px;">
+                    $insert->execute([$client_id, $kw, 0, 0, $cluster]);
+                }
+            }
+        }
+        // FORMAT 2: tab-separated
+        elseif (strpos($line, "\t") !== false) {
+            [$kw, $vol, $form] = explode("\t", $line) + ["", "", ""];
+            $vol = normalizeVolume($vol);
             $form = is_numeric($form) ? (int)$form : 0;
             if ($kw) $insert->execute([$client_id, $kw, $vol, $form, '']);
         }
@@ -256,10 +245,6 @@ if (isset($_POST['delete_keyword'])) {
             </select></td>
             <td>" . htmlspecialchars($row['group_name']) . "<input type='hidden' name='group_name[{$row['id']}]' value='" . htmlspecialchars($row['group_name']) . "'></td>
             <td>" . $row['group_count'] . "<input type='hidden' name='group_count[{$row['id']}]' value='" . $row['group_count'] . "'></td>
-
-            <td><input type='text' name='page_type[{$row['id']}]' value='" . htmlspecialchars($row['page_type']) . "'></td>
-            <td>" . htmlspecialchars($row['group_name']) . "<input type='hidden' name='group_name[{$row['id']}]' value='" . htmlspecialchars($row['group_name']) . "'></td>
-            <td><input type='number' name='group_count[{$row['id']}]' value='" . $row['group_count'] . "'></td>
 
             <td><input type='text' name='cluster_name[{$row['id']}]' value='" . htmlspecialchars($row['cluster_name']) . "'></td>
         </tr>";
