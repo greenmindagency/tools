@@ -75,7 +75,7 @@ JOIN keywords k2 ON k1.keyword = k2.keyword AND k1.id > k2.id
 WHERE k1.client_id = $client_id AND k2.client_id = $client_id");
 
 
-if (isset($_POST['remove_keywords'])) {
+if (isset($_POST['remove_keywords']) || isset($_POST['confirm_remove'])) {
     $deleteIds = array_keys(array_filter($_POST['delete'] ?? [], fn($v) => $v == '1'));
     if ($deleteIds) {
         $in  = implode(',', array_fill(0, count($deleteIds), '?'));
@@ -204,6 +204,7 @@ $stmt->execute([$client_id]);
   <div class="d-flex justify-content-between mb-2 sticky-controls">
     <div>
       <button type="submit" name="remove_keywords" class="btn btn-danger me-2">Remove Selected</button>
+      <button type="submit" name="confirm_remove" class="btn btn-warning me-2">Confirm Remove</button>
       <button type="submit" name="update_keywords" class="btn btn-success">Update</button>
     </div>
     <div class="d-flex">
@@ -344,7 +345,7 @@ updateForm.addEventListener('submit', function(e) {
   e.preventDefault();
   const fd = new FormData(updateForm);
   fd.append('client_id', <?=$client_id?>);
-  const action = e.submitter && e.submitter.name === 'remove_keywords' ? 'remove_keywords' : 'update_keywords';
+  const action = e.submitter ? e.submitter.name : 'update_keywords';
   fd.append(action, '1');
   fetch('dashboard.php?client_id=<?=$client_id?>', {
     method: 'POST',
