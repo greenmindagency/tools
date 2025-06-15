@@ -33,6 +33,75 @@ if (!$client) die("Client not found");
 </form>
 
 <?php
+
+function keywordClustering(PDO $pdo, int $client_id) {
+    $stmt = $pdo->prepare("SELECT id, keyword FROM keywords WHERE client_id = ?");
+    $stmt->execute([$client_id]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $keywords = [];
+    foreach ($rows as $r) {
+        $keywords[$r['id']] = trim($r['keyword']);
+    }
+
+    $phraseCount = [];
+
+    $getBasePhrases = function($phrase) {
+        $words = explode(' ', $phrase);
+        $base = [];
+        if (count($words) >= 8) $base[] = implode(' ', array_slice($words, 0, 8));
+        if (count($words) >= 7) $base[] = implode(' ', array_slice($words, 0, 7));
+        if (count($words) >= 6) $base[] = implode(' ', array_slice($words, 0, 6));
+        if (count($words) >= 5) $base[] = implode(' ', array_slice($words, 0, 5));
+        if (count($words) >= 4) $base[] = implode(' ', array_slice($words, 0, 4));
+        if (count($words) >= 3) $base[] = implode(' ', array_slice($words, 0, 3));
+        if (count($words) >= 2) $base[] = implode(' ', array_slice($words, 0, 2));
+        return $base;
+    };
+
+    foreach ($keywords as $kw) {
+        foreach ($getBasePhrases(strtolower($kw)) as $phrase) {
+            $phraseCount[$phrase] = ($phraseCount[$phrase] ?? 0) + 1;
+        }
+    }
+
+    $phraseGroupMap = [];
+    foreach ($phraseCount as $phrase => $count) {
+        if ($count > 1) {
+            $phraseGroupMap[$phrase] = $phrase;
+        }
+    }
+
+    $findGroup = function($keyword) use ($phraseGroupMap) {
+        $best = '';
+        $maxWords = 0;
+        $kwWords = count(explode(' ', $keyword));
+        foreach ($phraseGroupMap as $phrase => $_) {
+            $num = count(explode(' ', $phrase));
+            if ($num > $kwWords) continue;
+            if (preg_match('/(^|\s)'.preg_quote($phrase, '/').'(?=\s|$)/i', $keyword)) {
+                if ($num > $maxWords) {
+                    $best = $phrase;
+                    $maxWords = $num;
+                }
+            }
+        }
+        return $best;
+    };
+
+    $groups = [];
+    foreach ($keywords as $id => $kw) {
+        $group = $findGroup(strtolower($kw));
+        $groups[$id] = $group;
+    }
+
+    $counts = array_count_values($groups);
+    $update = $pdo->prepare("UPDATE keywords SET group_name = ?, group_count = ? WHERE id = ? AND client_id = ?");
+    foreach ($groups as $id => $grp) {
+        $update->execute([$grp, $counts[$grp] ?? 0, $id, $client_id]);
+    }
+}
+
 if (isset($_POST['add_keywords'])) {
     function normalizeVolume($text) {
         $map = [
@@ -49,7 +118,7 @@ if (isset($_POST['add_keywords'])) {
     }
 
     $lines = preg_split('/\r\n|\r|\n/', trim($_POST['keywords']));
-    $insert = $pdo->prepare("INSERT IGNORE INTO keywords (client_id, keyword, volume, form) VALUES (?, ?, ?, ?)");
+    $insert = $pdo->prepare("INSERT INTO keywords (client_id, keyword, volume, form) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE volume = VALUES(volume), form = VALUES(form)");
 
     for ($i = 0; $i < count($lines); $i++) {
         $line = trim($lines[$i]);
@@ -76,7 +145,10 @@ if (isset($_POST['add_keywords'])) {
     $pdo->query("DELETE k1 FROM keywords k1
         JOIN keywords k2 ON k1.keyword = k2.keyword AND k1.id > k2.id
         WHERE k1.client_id = $client_id AND k2.client_id = $client_id");
+
+    keywordClustering($pdo, $client_id);
 }
+
 ?>
 
 <!-- Keywords Table -->
