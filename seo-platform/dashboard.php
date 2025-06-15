@@ -137,14 +137,25 @@ if (isset($_POST['add_keywords'])) {
                 $cluster = array_shift($parts);
                 array_unshift($parts, $cluster);
                 foreach ($parts as $kw) {
-                    $insert->execute([$client_id, $kw, 0, 0, $cluster]);
-                }
-            }
-        }
-        // FORMAT 2: tab-separated
-        elseif (strpos($line, "\t") !== false) {
-            [$kw, $vol, $form] = explode("\t", $line) + ["", "", ""];
-            $vol = normalizeVolume($vol);
+if (isset($_POST['group_keywords'])) {
+    keywordClustering($pdo, $client_id);
+    echo "<p class='success'>Keywords grouped successfully.</p>";
+}
+<!-- Actions & Filters -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px;">
+    <div>
+        <form method="POST" style="display:inline; margin-right:10px;">
+            <button type="submit" name="group_keywords">Group Keywords</button>
+        </form>
+        <button type="submit" form="updateForm" name="update_keywords">Update</button>
+    </div>
+    <div>
+        <input type="text" id="keywordFilter" placeholder="Filter keywords">
+        <input type="text" id="groupFilter" placeholder="Filter groups">
+        <button type="button" id="copyBtn">Copy</button>
+    </div>
+
+<form method="POST" id="updateForm" style="margin-top:10px;">
             $form = is_numeric($form) ? (int)$form : 0;
             if ($kw) $insert->execute([$client_id, $kw, $vol, $form, '']);
         }
