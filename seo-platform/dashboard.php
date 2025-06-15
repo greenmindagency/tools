@@ -178,13 +178,20 @@ foreach ($stmt as $row) {
 
     $volBg = '';
     if (is_numeric($volume)) {
-        $max = 5000000;
-        $min = 50;
-        $v = max(min((int)$volume, $max), $min);
-        $ratio = ($v - $min) / ($max - $min); // 0 = min, 1 = max
-        $intensity = round(255 - 102 * $ratio); // 255 -> 153
-        $hex = str_pad(dechex($intensity), 2, '0', STR_PAD_LEFT);
-        $volBg = "#$hex$hex$hex";
+        $v = (int)$volume;
+        if ($v >= 5000000) {
+            $volBg = '#9b9797';
+        } elseif ($v >= 500000) {
+            $volBg = '#b9b3c4';
+        } elseif ($v >= 50000) {
+            $volBg = '#cccccd';
+        } elseif ($v >= 5000) {
+            $volBg = '#d7dad9';
+        } elseif ($v >= 500) {
+            $volBg = '#f2ecf0';
+        } else {
+            $volBg = '';
+        }
     }
 
     echo "<tr>
