@@ -95,6 +95,7 @@ function findGroup(string $keyword, array $phraseCount): string {
     return $bestGroup;
 }
 
+
 function autoUpdateKeywordGroups(PDO $pdo, int $client_id): void {
     $stmt = $pdo->prepare("SELECT id, keyword FROM keywords WHERE client_id = ?");
     $stmt->execute([$client_id]);
@@ -128,6 +129,36 @@ function autoUpdateKeywordGroups(PDO $pdo, int $client_id): void {
 
 // Run grouping on every page load
 autoUpdateKeywordGroups($pdo, $client_id);
+
+// Fetch keywords for grouping
+$stmt = $pdo->prepare("SELECT id, keyword FROM keywords WHERE client_id = ?");
+$stmt->execute([$client_id]);
+$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$keywords = [];
+foreach ($rows as $r) {
+    $keywords[$r['id']] = $r['keyword'];
+}
+
+$phraseCount = [];
+foreach ($keywords as $kw) {
+    foreach (getBasePhrases($kw) as $base) {
+        if (!isset($phraseCount[$base])) {
+            $phraseCount[$base] = 0;
+        }
+        $phraseCount[$base]++;
+    }
+}
+
+$phraseCount = array_filter($phraseCount, fn($c) => $c > 1);
+
+$update = $pdo->prepare("UPDATE keywords SET group_name = ?, group_count = ? WHERE id = ?");
+foreach ($keywords as $id => $kw) {
+    $group = findGroup($kw, $phraseCount);
+    $count = $group && isset($phraseCount[$group]) ? $phraseCount[$group] : 0;
+    $update->execute([$group, $count, $id]);
+}
+
 ?>
 
 <!-- Keywords Table -->
