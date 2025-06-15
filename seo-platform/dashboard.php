@@ -33,6 +33,11 @@ if (!$client) die("Client not found");
 </form>
 
 
+<!-- Group Keywords -->
+<form method="POST" style="margin-top:20px;">
+    <button type="submit" name="group_keywords">Group Keywords</button>
+</form>
+
 
 <?php
 
@@ -164,6 +169,12 @@ if (isset($_POST['add_keywords'])) {
 
 
 
+if (isset($_POST['group_keywords'])) {
+    keywordClustering($pdo, $client_id);
+    echo "<p class='success'>Keywords grouped successfully.</p>";
+}
+
+
 if (isset($_POST['update_keywords']) && isset($_POST['ids'])) {
     $update = $pdo->prepare("UPDATE keywords SET content_link = ?, page_type = ?, group_name = ?, group_count = ?, cluster_name = ? WHERE id = ? AND client_id = ?");
     foreach ($_POST['ids'] as $id) {
@@ -189,7 +200,9 @@ if (isset($_POST['delete_keyword'])) {
 <div style="text-align:right; margin-top:20px;">
     <input type="text" id="keywordFilter" placeholder="Filter keywords">
     <input type="text" id="groupFilter" placeholder="Filter groups">
+
     <button type="button" id="copyBtn">Copy</button>
+
 </div>
 
 <!-- Keywords Table -->
@@ -220,6 +233,7 @@ if (isset($_POST['delete_keyword'])) {
             <td>" . $row['volume'] . "</td>
             <td>" . $row['form'] . "</td>
             <td><input type='text' name='content_link[{$row['id']}]' value='" . htmlspecialchars($row['content_link']) . "'></td>
+
             <td><select name='page_type[{$row['id']}]'>
                 <option value=''" . ($row['page_type']=='' ? ' selected' : '') . "></option>
                 <option value='Home'" . ($row['page_type']=='Home' ? ' selected' : '') . ">Home</option>
@@ -231,6 +245,11 @@ if (isset($_POST['delete_keyword'])) {
             </select></td>
             <td>" . htmlspecialchars($row['group_name']) . "<input type='hidden' name='group_name[{$row['id']}]' value='" . htmlspecialchars($row['group_name']) . "'></td>
             <td>" . $row['group_count'] . "<input type='hidden' name='group_count[{$row['id']}]' value='" . $row['group_count'] . "'></td>
+
+            <td><input type='text' name='page_type[{$row['id']}]' value='" . htmlspecialchars($row['page_type']) . "'></td>
+            <td>" . htmlspecialchars($row['group_name']) . "<input type='hidden' name='group_name[{$row['id']}]' value='" . htmlspecialchars($row['group_name']) . "'></td>
+            <td><input type='number' name='group_count[{$row['id']}]' value='" . $row['group_count'] . "'></td>
+
             <td><input type='text' name='cluster_name[{$row['id']}]' value='" . htmlspecialchars($row['cluster_name']) . "'></td>
         </tr>";
     }
@@ -254,6 +273,7 @@ function filterTable() {
 }
 document.getElementById('keywordFilter').addEventListener('input', filterTable);
 document.getElementById('groupFilter').addEventListener('input', filterTable);
+
 
 function copyVisibleKeywords() {
     const keywords = [];
@@ -279,6 +299,7 @@ function deleteKeyword(id, btn) {
         tr.remove();
     });
 }
+
 </script>
 </body>
 </html>
