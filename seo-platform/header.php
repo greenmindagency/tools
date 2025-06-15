@@ -23,13 +23,8 @@ $title = $title ?? 'SEO Platform';
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav">
         <?php
-        $navFiles = glob('*.php');
-        foreach ($navFiles as $navFile) {
-          if (in_array(basename($navFile), ['index.php', 'header.php', 'footer.php', 'config.php'])) continue;
-          $navTitle = ucwords(str_replace('-', ' ', pathinfo($navFile, PATHINFO_FILENAME)));
-          $active = basename($_SERVER['PHP_SELF']) === basename($navFile) ? 'active' : '';
-          echo "<li class='nav-item'><a class='nav-link $active' href='$navFile'>$navTitle</a></li>";
-        }
+          $active = basename($_SERVER['PHP_SELF']) === 'index.php' ? 'active' : '';
+          echo "<li class='nav-item'><a class='nav-link $active' href='index.php'>Clients</a></li>";
         ?>
       </ul>
     </div>
