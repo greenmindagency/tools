@@ -17,6 +17,7 @@ $title = $title ?? 'SEO Platform';
       z-index: 100;
       background-color: #fff;
       padding: 8px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
   </style>
 </head>

@@ -14,6 +14,7 @@ include 'header.php';
 ?>
 
 <h5 class="mb-3"><?= htmlspecialchars($client['name']) ?> – Keywords</h5>
+<div id="notification" class="alert alert-success position-fixed" style="top:70px;right:20px;display:none;z-index:2000;"></div>
 
 <!-- Add Keyword Form -->
 <form method="POST" class="mb-4">
@@ -24,38 +25,48 @@ include 'header.php';
 <?php
 if (isset($_POST['add_keywords'])) {
     $text = trim($_POST['keywords']);
-    $lines = preg_split('/\r\n|\n|\r/', $text);
-    $lines = array_values(array_filter(array_map('trim', $lines), 'strlen'));
-
-    $insert = $pdo->prepare("INSERT IGNORE INTO keywords (client_id, keyword, volume, form) VALUES (?, ?, ?, ?)");
     $entries = [];
 
-    if (!empty($lines) && preg_match('/\d+$/', $lines[0])) {
-        // Format: keyword volume form per line
-        foreach ($lines as $line) {
-            if (preg_match('/^(.*?)\s+(\S+)\s+(\S+)$/', $line, $m)) {
-                $entries[] = [$m[1], $m[2], $m[3]];
-            } else {
-                $entries[] = [$line, '', ''];
+    if (strpos($text, '|') !== false) {
+        $parts = array_values(array_filter(array_map('trim', explode('|', $text)), 'strlen'));
+        if ($parts) {
+            $cluster = $parts[0];
+            foreach ($parts as $kw) {
+                $entries[] = [$kw, '', '', $cluster];
             }
         }
     } else {
-        // Format: keyword line, volume line, form line
-        for ($i = 0; $i < count($lines); $i += 3) {
-            $keyword = $lines[$i] ?? '';
-            $volume  = $lines[$i + 1] ?? '';
-            $form    = $lines[$i + 2] ?? '';
-            if ($keyword !== '') {
-                $entries[] = [$keyword, $volume, $form];
+        $lines = preg_split('/\r\n|\n|\r/', $text);
+        $lines = array_values(array_filter(array_map('trim', $lines), 'strlen'));
+
+        if (!empty($lines) && preg_match('/\d+$/', $lines[0])) {
+            // Format: keyword volume form per line
+            foreach ($lines as $line) {
+                if (preg_match('/^(.*?)\s+(\S+)\s+(\S+)$/', $line, $m)) {
+                    $entries[] = [$m[1], $m[2], $m[3], ''];
+                } else {
+                    $entries[] = [$line, '', '', ''];
+                }
+            }
+        } else {
+            // Format: keyword line, volume line, form line
+            for ($i = 0; $i < count($lines); $i += 3) {
+                $keyword = $lines[$i] ?? '';
+                $volume  = $lines[$i + 1] ?? '';
+                $form    = $lines[$i + 2] ?? '';
+                if ($keyword !== '') {
+                    $entries[] = [$keyword, $volume, $form, ''];
+                }
             }
         }
     }
 
+    $insert = $pdo->prepare("INSERT IGNORE INTO keywords (client_id, keyword, volume, form, cluster_name) VALUES (?, ?, ?, ?, ?)");
     foreach ($entries as $e) {
-        list($k, $v, $f) = $e;
-        $insert->execute([$client_id, $k, $v, $f]);
+        list($k, $v, $f, $c) = $e;
+        $insert->execute([$client_id, $k, $v, $f, $c]);
     }
-    echo "<p>Keywords added.</p>";
+    echo "<div id='addMsg' class='alert alert-success mt-2'>Keywords added.</div>";
 }
 
 // Remove duplicates for this client
@@ -63,21 +74,14 @@ $pdo->query("DELETE k1 FROM keywords k1
 JOIN keywords k2 ON k1.keyword = k2.keyword AND k1.id > k2.id
 WHERE k1.client_id = $client_id AND k2.client_id = $client_id");
 
-if (isset($_POST['update_keywords'])) {
-    $deleteIds = array_keys(array_filter($_POST['delete'] ?? [], fn($v) => $v === '1'));
+
+if (isset($_POST['remove_keywords'])) {
+    $deleteIds = array_keys(array_filter($_POST['delete'] ?? [], fn($v) => $v == '1'));
     if ($deleteIds) {
         $in  = implode(',', array_fill(0, count($deleteIds), '?'));
         $stmt = $pdo->prepare("DELETE FROM keywords WHERE client_id = ? AND id IN ($in)");
         $stmt->execute(array_merge([$client_id], $deleteIds));
     }
-
-    if (!empty($_POST['link'])) {
-        $update = $pdo->prepare("UPDATE keywords SET content_link = ? WHERE id = ? AND client_id = ?");
-        foreach ($_POST['link'] as $id => $link) {
-            $update->execute([$link, $id, $client_id]);
-        }
-    }
-
     updateGroupCounts($pdo, $client_id);
 
     if (!isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
@@ -85,10 +89,26 @@ if (isset($_POST['update_keywords'])) {
         exit;
     }
     header('Content-Type: application/json');
-    echo json_encode(['status' => 'ok']);
+    echo json_encode(['status' => 'removed']);
     exit;
 }
 
+if (isset($_POST['update_keywords'])) {
+    if (!empty($_POST['link'])) {
+        $update = $pdo->prepare("UPDATE keywords SET content_link = ? WHERE id = ? AND client_id = ?");
+        foreach ($_POST['link'] as $id => $link) {
+            $update->execute([$link, $id, $client_id]);
+        }
+    }
+
+    if (!isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+        header("Location: dashboard.php?client_id=$client_id");
+        exit;
+    }
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'updated']);
+    exit;
+}
 // ---------- Auto Grouping Logic ----------
 function getBasePhrases(string $phrase): array {
     $words = preg_split('/\s+/', trim($phrase));
@@ -182,7 +202,10 @@ $stmt->execute([$client_id]);
 
 <form method="POST" id="updateForm">
   <div class="d-flex justify-content-between mb-2 sticky-controls">
-    <button type="submit" name="update_keywords" class="btn btn-success">Update</button>
+    <div>
+      <button type="submit" name="remove_keywords" class="btn btn-danger me-2">Remove Selected</button>
+      <button type="submit" name="update_keywords" class="btn btn-success">Update</button>
+    </div>
     <div class="d-flex">
       <select id="filterField" class="form-select form-select-sm me-2" style="width:auto;">
         <option value="keyword">Keyword</option>
@@ -290,6 +313,17 @@ const clearFilter = document.getElementById('clearFilter');
 const updateForm = document.getElementById('updateForm');
 const pagination = document.getElementById('pagination');
 const kwTableBody = document.getElementById('kwTableBody');
+const notification = document.getElementById('notification');
+const addMsg = document.getElementById('addMsg');
+function showNotification(msg) {
+  notification.textContent = msg;
+  notification.style.display = 'block';
+  setTimeout(() => { notification.style.display = 'none'; }, 3000);
+}
+if (addMsg) {
+  showNotification(addMsg.textContent);
+  addMsg.remove();
+}
 let currentPage = <?=$page?>;
 
 function fetchRows(page = 1) {
@@ -310,12 +344,16 @@ updateForm.addEventListener('submit', function(e) {
   e.preventDefault();
   const fd = new FormData(updateForm);
   fd.append('client_id', <?=$client_id?>);
-  fd.append('update_keywords', '1');
+  const action = e.submitter && e.submitter.name === 'remove_keywords' ? 'remove_keywords' : 'update_keywords';
+  fd.append(action, '1');
   fetch('dashboard.php?client_id=<?=$client_id?>', {
     method: 'POST',
     headers: {'X-Requested-With': 'XMLHttpRequest'},
     body: fd
-  }).then(r => r.json()).then(() => fetchRows(currentPage));
+  }).then(r => r.json()).then(res => {
+    fetchRows(currentPage);
+    showNotification(res.status === 'removed' ? 'Keywords removed' : 'Keywords updated');
+  });
 });
 
 clearFilter.addEventListener('click', () => {
