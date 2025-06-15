@@ -1,4 +1,26 @@
-<?php require 'config.php'; ?>
+<?php
+require 'config.php';
+
+// Handle new client submission before any output
+$message = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $name = trim($_POST['client_name'] ?? '');
+    if ($name === '') {
+        $message = "<p style='color:red;'>Please enter a client name.</p>";
+    } else {
+        // Prevent duplicate names
+        $check = $pdo->prepare('SELECT id FROM clients WHERE name = ?');
+        $check->execute([$name]);
+        if ($check->fetch()) {
+            $message = "<p style='color:red;'>Client already exists.</p>";
+        } else {
+            $insert = $pdo->prepare('INSERT INTO clients (name) VALUES (?)');
+            $insert->execute([$name]);
+            $message = "<p style='color:green;'>Client added successfully.</p>";
+        }
+    }
+}
+?>
 <!DOCTYPE html>
 <html>
 <head>
@@ -23,19 +45,6 @@
         <input type="text" name="client_name" placeholder="Enter client name" required>
         <button type="submit">Add Client</button>
     </form>
-
-    <?php
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $name = trim($_POST['client_name']);
-        if ($name) {
-            $insert = $pdo->prepare("INSERT INTO clients (name) VALUES (?)");
-            $insert->execute([$name]);
-            header("Location: index.php");
-            exit;
-        } else {
-            echo "<p style='color:red;'>Please enter a client name.</p>";
-        }
-    }
-    ?>
+    <?= $message ?>
 </body>
 </html>
