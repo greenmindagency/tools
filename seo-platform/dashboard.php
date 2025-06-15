@@ -119,45 +119,26 @@ function autoUpdateKeywordGroups(PDO $pdo, int $client_id): void {
 
     $phraseCount = array_filter($phraseCount, fn($c) => $c > 1);
 
-    $update = $pdo->prepare("UPDATE keywords SET group_name = ?, group_count = ? WHERE id = ?");
+    $update = $pdo->prepare("UPDATE keywords SET group_name = ?, group_count = 0 WHERE id = ?");
     foreach ($keywords as $id => $kw) {
         $group = findGroup($kw, $phraseCount);
-        $count = ($group && isset($phraseCount[$group])) ? $phraseCount[$group] : 0;
-        $update->execute([$group, $count, $id]);
+        $update->execute([$group, $id]);
+    }
+}
+
+function updateGroupCounts(PDO $pdo, int $client_id): void {
+    $stmt = $pdo->prepare("SELECT group_name, COUNT(*) as cnt FROM keywords WHERE client_id = ? GROUP BY group_name");
+    $stmt->execute([$client_id]);
+    $counts = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+    $update = $pdo->prepare("UPDATE keywords SET group_count = ? WHERE client_id = ? AND group_name = ?");
+    foreach ($counts as $group => $cnt) {
+        $update->execute([$cnt, $client_id, $group]);
     }
 }
 
 // Run grouping on every page load
 autoUpdateKeywordGroups($pdo, $client_id);
-
-// Fetch keywords for grouping
-$stmt = $pdo->prepare("SELECT id, keyword FROM keywords WHERE client_id = ?");
-$stmt->execute([$client_id]);
-$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$keywords = [];
-foreach ($rows as $r) {
-    $keywords[$r['id']] = $r['keyword'];
-}
-
-$phraseCount = [];
-foreach ($keywords as $kw) {
-    foreach (getBasePhrases($kw) as $base) {
-        if (!isset($phraseCount[$base])) {
-            $phraseCount[$base] = 0;
-        }
-        $phraseCount[$base]++;
-    }
-}
-
-$phraseCount = array_filter($phraseCount, fn($c) => $c > 1);
-
-$update = $pdo->prepare("UPDATE keywords SET group_name = ?, group_count = ? WHERE id = ?");
-foreach ($keywords as $id => $kw) {
-    $group = findGroup($kw, $phraseCount);
-    $count = $group && isset($phraseCount[$group]) ? $phraseCount[$group] : 0;
-    $update->execute([$group, $count, $id]);
-}
+updateGroupCounts($pdo, $client_id);
 
 ?>
 
