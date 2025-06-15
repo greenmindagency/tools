@@ -27,15 +27,17 @@ if (!$client) die("Client not found");
 
 <!-- Add Keyword Form -->
 <form method="POST">
-    <label><strong>Paste Keywords (tab-separated or stacked):</strong></label>
-    <textarea name="keywords" placeholder="Keyword\tVolume\tForm OR stacked format" rows="6"></textarea><br>
+    <label><strong>Paste Keywords</strong> (tab, stacked or <code>|</code> separated for clustering):</label>
+    <textarea name="keywords" placeholder="keyword\tvolume\tform OR kw1|kw2 for cluster" rows="6"></textarea><br>
     <button type="submit" name="add_keywords">Add Keywords</button>
 </form>
+
 
 <!-- Group Keywords -->
 <form method="POST" style="margin-top:20px;">
     <button type="submit" name="group_keywords">Group Keywords</button>
 </form>
+
 
 <?php
 
@@ -123,24 +125,46 @@ if (isset($_POST['add_keywords'])) {
     }
 
     $lines = preg_split('/\r\n|\r|\n/', trim($_POST['keywords']));
-    $insert = $pdo->prepare("INSERT INTO keywords (client_id, keyword, volume, form) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE volume = VALUES(volume), form = VALUES(form)");
+    $insert = $pdo->prepare("INSERT INTO keywords (client_id, keyword, volume, form, cluster_name) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE volume = VALUES(volume), form = VALUES(form), cluster_name = VALUES(cluster_name)");
 
     for ($i = 0; $i < count($lines); $i++) {
         $line = trim($lines[$i]);
 
-        // FORMAT 1: tab-separated
-        if (strpos($line, "\t") !== false) {
-            [$kw, $vol, $form] = explode("\t", $line) + ["", "", ""];
-            $vol = normalizeVolume($vol);
+        // FORMAT 1: cluster keywords separated by |
+        if (strpos($line, '|') !== false) {
+            $parts = array_filter(array_map('trim', explode('|', $line)));
+            if ($parts) {
+                $cluster = array_shift($parts);
+                array_unshift($parts, $cluster);
+                foreach ($parts as $kw) {
+if (isset($_POST['group_keywords'])) {
+    keywordClustering($pdo, $client_id);
+    echo "<p class='success'>Keywords grouped successfully.</p>";
+}
+<!-- Actions & Filters -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px;">
+    <div>
+        <form method="POST" style="display:inline; margin-right:10px;">
+            <button type="submit" name="group_keywords">Group Keywords</button>
+        </form>
+        <button type="submit" form="updateForm" name="update_keywords">Update</button>
+    </div>
+    <div>
+        <input type="text" id="keywordFilter" placeholder="Filter keywords">
+        <input type="text" id="groupFilter" placeholder="Filter groups">
+        <button type="button" id="copyBtn">Copy</button>
+    </div>
+
+<form method="POST" id="updateForm" style="margin-top:10px;">
             $form = is_numeric($form) ? (int)$form : 0;
-            if ($kw) $insert->execute([$client_id, $kw, $vol, $form]);
+            if ($kw) $insert->execute([$client_id, $kw, $vol, $form, '']);
         }
-        // FORMAT 2: stacked format
+        // FORMAT 3: stacked format
         elseif (!empty($line) && isset($lines[$i+1], $lines[$i+2])) {
             $kw = $line;
             $vol = normalizeVolume(trim($lines[$i+1]));
             $form = is_numeric(trim($lines[$i+2])) ? (int)trim($lines[$i+2]) : 0;
-            $insert->execute([$client_id, $kw, $vol, $form]);
+            $insert->execute([$client_id, $kw, $vol, $form, '']);
             $i += 2;
         }
     }
@@ -155,10 +179,12 @@ if (isset($_POST['add_keywords'])) {
 }
 
 
+
 if (isset($_POST['group_keywords'])) {
     keywordClustering($pdo, $client_id);
     echo "<p class='success'>Keywords grouped successfully.</p>";
 }
+
 
 if (isset($_POST['update_keywords']) && isset($_POST['ids'])) {
     $update = $pdo->prepare("UPDATE keywords SET content_link = ?, page_type = ?, group_name = ?, group_count = ?, cluster_name = ? WHERE id = ? AND client_id = ?");
@@ -185,10 +211,14 @@ if (isset($_POST['delete_keyword'])) {
 <div style="text-align:right; margin-top:20px;">
     <input type="text" id="keywordFilter" placeholder="Filter keywords">
     <input type="text" id="groupFilter" placeholder="Filter groups">
+
+    <button type="button" id="copyBtn">Copy</button>
+
 </div>
 
 <!-- Keywords Table -->
-<form method="POST">
+<form method="POST" id="updateForm">
+<button type="submit" name="update_keywords" style="margin-top:10px;">Update</button>
 <table>
     <thead>
         <tr>
@@ -209,21 +239,34 @@ if (isset($_POST['delete_keyword'])) {
     $stmt->execute([$client_id]);
     foreach ($stmt as $row) {
         echo "<tr>
-            <td><button type='submit' name='delete_keyword' value='{$row['id']}'>-</button></td>
+            <td><button type='button' onclick='deleteKeyword({$row['id']}, this)'>-</button></td>
             <td>" . htmlspecialchars($row['keyword']) . "<input type='hidden' name='ids[]' value='{$row['id']}'></td>
             <td>" . $row['volume'] . "</td>
             <td>" . $row['form'] . "</td>
             <td><input type='text' name='content_link[{$row['id']}]' value='" . htmlspecialchars($row['content_link']) . "'></td>
+
+            <td><select name='page_type[{$row['id']}]'>
+                <option value=''" . ($row['page_type']=='' ? ' selected' : '') . "></option>
+                <option value='Home'" . ($row['page_type']=='Home' ? ' selected' : '') . ">Home</option>
+                <option value='Service'" . ($row['page_type']=='Service' ? ' selected' : '') . ">Service</option>
+                <option value='Page'" . ($row['page_type']=='Page' ? ' selected' : '') . ">Page</option>
+                <option value='Blog'" . ($row['page_type']=='Blog' ? ' selected' : '') . ">Blog</option>
+                <option value='Product'" . ($row['page_type']=='Product' ? ' selected' : '') . ">Product</option>
+                <option value='Other'" . ($row['page_type']=='Other' ? ' selected' : '') . ">Other</option>
+            </select></td>
+            <td>" . htmlspecialchars($row['group_name']) . "<input type='hidden' name='group_name[{$row['id']}]' value='" . htmlspecialchars($row['group_name']) . "'></td>
+            <td>" . $row['group_count'] . "<input type='hidden' name='group_count[{$row['id']}]' value='" . $row['group_count'] . "'></td>
+
             <td><input type='text' name='page_type[{$row['id']}]' value='" . htmlspecialchars($row['page_type']) . "'></td>
             <td>" . htmlspecialchars($row['group_name']) . "<input type='hidden' name='group_name[{$row['id']}]' value='" . htmlspecialchars($row['group_name']) . "'></td>
             <td><input type='number' name='group_count[{$row['id']}]' value='" . $row['group_count'] . "'></td>
+
             <td><input type='text' name='cluster_name[{$row['id']}]' value='" . htmlspecialchars($row['cluster_name']) . "'></td>
         </tr>";
     }
     ?>
     </tbody>
 </table>
-<button type="submit" name="update_keywords">Update</button>
 </form>
 
 <p><a href="index.php">&larr; Back to Clients</a></p>
@@ -241,6 +284,33 @@ function filterTable() {
 }
 document.getElementById('keywordFilter').addEventListener('input', filterTable);
 document.getElementById('groupFilter').addEventListener('input', filterTable);
+
+
+function copyVisibleKeywords() {
+    const keywords = [];
+    document.querySelectorAll('table tbody tr').forEach(tr => {
+        if (tr.style.display !== 'none') {
+            keywords.push(tr.children[1].innerText.trim());
+        }
+    });
+    navigator.clipboard.writeText(keywords.join('\n'));
+}
+document.getElementById('copyBtn').addEventListener('click', copyVisibleKeywords);
+
+function deleteKeyword(id, btn) {
+    if (!confirm('Delete keyword?')) return;
+    const params = new URLSearchParams();
+    params.append('delete_keyword', id);
+    fetch(window.location.href, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: params.toString()
+    }).then(() => {
+        const tr = btn.closest('tr');
+        tr.remove();
+    });
+}
+
 </script>
 </body>
 </html>
