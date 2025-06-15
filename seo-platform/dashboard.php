@@ -1,4 +1,5 @@
-<?php require 'config.php';
+<?php
+require 'config.php';
 $client_id = $_GET['client_id'] ?? 0;
 
 // Load client info
@@ -7,17 +8,17 @@ $stmt->execute([$client_id]);
 $client = $stmt->fetch();
 
 if (!$client) die("Client not found");
+
+$title = $client['name'] . ' Dashboard';
+include 'header.php';
 ?>
-<!DOCTYPE html>
-<html>
-<head><title><?= htmlspecialchars($client['name']) ?> Dashboard</title></head>
-<body>
-<h2><?= htmlspecialchars($client['name']) ?> – Keywords</h2>
+
+<h5 class="mb-3"><?= htmlspecialchars($client['name']) ?> – Keywords</h5>
 
 <!-- Add Keyword Form -->
-<form method="POST">
-    <textarea name="keywords" placeholder="Paste keywords – one per line" rows="6" cols="50"></textarea><br>
-    <button type="submit" name="add_keywords">Add Keywords</button>
+<form method="POST" class="mb-4">
+    <textarea name="keywords" class="form-control" placeholder="Paste keywords – one per line" rows="6"></textarea>
+    <button type="submit" name="add_keywords" class="btn btn-primary mt-2">Add Keywords</button>
 </form>
 
 <?php
@@ -38,7 +39,8 @@ WHERE k1.client_id = $client_id AND k2.client_id = $client_id");
 ?>
 
 <!-- Keywords Table -->
-<table border="1" cellpadding="5">
+<table class="table table-bordered table-sm">
+    <thead class="table-light">
     <tr>
         <th>Keyword</th>
         <th>Volume</th>
@@ -49,6 +51,8 @@ WHERE k1.client_id = $client_id AND k2.client_id = $client_id");
         <th># in Group</th>
         <th>Cluster</th>
     </tr>
+    </thead>
+    <tbody>
 <?php
 $stmt = $pdo->prepare("SELECT * FROM keywords WHERE client_id = ? ORDER BY volume DESC, form ASC");
 $stmt->execute([$client_id]);
@@ -65,7 +69,8 @@ foreach ($stmt as $row) {
     </tr>";
 }
 ?>
+</tbody>
 </table>
-<p><a href="index.php">← Back to Clients</a></p>
-</body>
-</html>
+<p><a href="index.php">&larr; Back to Clients</a></p>
+
+<?php include 'footer.php'; ?>
