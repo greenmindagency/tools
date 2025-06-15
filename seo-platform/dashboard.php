@@ -147,12 +147,12 @@ updateGroupCounts($pdo, $client_id);
     <thead class="table-light">
     <tr>
         <th>Keyword</th>
-        <th>Volume</th>
-        <th>Form</th>
+        <th class="text-center">Volume</th>
+        <th class="text-center">Form</th>
         <th>Link</th>
-        <th>Page Type</th>
+        <th class="text-center">Page Type</th>
         <th>Group</th>
-        <th># in Group</th>
+        <th class="text-center"># in Group</th>
         <th>Cluster</th>
     </tr>
     </thead>
@@ -161,14 +161,40 @@ updateGroupCounts($pdo, $client_id);
 $stmt = $pdo->prepare("SELECT * FROM keywords WHERE client_id = ? ORDER BY volume DESC, form ASC");
 $stmt->execute([$client_id]);
 foreach ($stmt as $row) {
+    $volume = $row['volume'];
+    $form   = $row['form'];
+
+    $formBg = '';
+    if (is_numeric($form)) {
+        $f = (int)$form;
+        if ($f < 33) {
+            $formBg = '#beddce';
+        } elseif ($f < 66) {
+            $formBg = '#f9e9b4';
+        } else {
+            $formBg = '#f5c6c2';
+        }
+    }
+
+    $volBg = '';
+    if (is_numeric($volume)) {
+        $max = 5000000;
+        $min = 50;
+        $v = max(min((int)$volume, $max), $min);
+        $ratio = ($v - $min) / ($max - $min); // 0 = min, 1 = max
+        $intensity = round(255 - 102 * $ratio); // 255 -> 153
+        $hex = str_pad(dechex($intensity), 2, '0', STR_PAD_LEFT);
+        $volBg = "#$hex$hex$hex";
+    }
+
     echo "<tr>
         <td>" . htmlspecialchars($row['keyword']) . "</td>
-        <td>" . $row['volume'] . "</td>
-        <td>" . $row['form'] . "</td>
+        <td class='text-center' style='background-color: $volBg'>" . $volume . "</td>
+        <td class='text-center' style='background-color: $formBg'>" . $form . "</td>
         <td><a href='" . htmlspecialchars($row['content_link']) . "' target='_blank'>Link</a></td>
-        <td>" . htmlspecialchars($row['page_type']) . "</td>
+        <td class='text-center'>" . htmlspecialchars($row['page_type']) . "</td>
         <td>" . htmlspecialchars($row['group_name']) . "</td>
-        <td>" . $row['group_count'] . "</td>
+        <td class='text-center'>" . $row['group_count'] . "</td>
         <td>" . htmlspecialchars($row['cluster_name']) . "</td>
     </tr>";
 }
