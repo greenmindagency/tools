@@ -247,7 +247,7 @@ foreach ($stmt as $row) {
     }
 
     echo "<tr data-id='{$row['id']}'>
-        <td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button><input type='hidden' name='delete[{$row['id']}]' value='0' class='delete-flag'></td>
+        <td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button></td>
         <td>" . htmlspecialchars($row['keyword']) . "</td>
         <td class='text-center' style='background-color: $volBg'>" . $volume . "</td>
         <td class='text-center' style='background-color: $formBg'>" . $form . "</td>
@@ -278,6 +278,7 @@ foreach ($stmt as $row) {
 document.addEventListener('click', function(e) {
   if (e.target.classList.contains('remove-row')) {
     const tr = e.target.closest('tr');
+
     let flag = tr.querySelector('.delete-flag');
     if (!flag) {
       flag = document.createElement('input');
@@ -290,6 +291,15 @@ document.addEventListener('click', function(e) {
     const marked = flag.value === '1';
     flag.value = marked ? '0' : '1';
     tr.classList.toggle('text-decoration-line-through', !marked);
+
+    const id = tr.dataset.id;
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = `delete[${id}]`;
+    input.value = '1';
+    updateForm.appendChild(input);
+    tr.remove();
+
   }
 });
 
