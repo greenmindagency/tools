@@ -80,13 +80,7 @@ if (isset($_POST['update_keywords'])) {
 
     updateGroupCounts($pdo, $client_id);
 
-    if (!isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
-        header("Location: dashboard.php?client_id=$client_id");
-        exit;
-    }
-    header('Content-Type: application/json');
-    echo json_encode(['status' => 'ok']);
-    exit;
+    echo "<p>Keywords updated.</p>";
 }
 
 // ---------- Auto Grouping Logic ----------
@@ -287,7 +281,6 @@ document.addEventListener('click', function(e) {
 const filterInput = document.getElementById('filterInput');
 const filterField = document.getElementById('filterField');
 const clearFilter = document.getElementById('clearFilter');
-const updateForm = document.getElementById('updateForm');
 const pagination = document.getElementById('pagination');
 const kwTableBody = document.getElementById('kwTableBody');
 let currentPage = <?=$page?>;
@@ -305,18 +298,6 @@ function fetchRows(page = 1) {
       pagination.innerHTML = data.pagination;
     });
 }
-
-updateForm.addEventListener('submit', function(e) {
-  e.preventDefault();
-  const fd = new FormData(updateForm);
-  fd.append('client_id', <?=$client_id?>);
-  fd.append('update_keywords', '1');
-  fetch('dashboard.php?client_id=<?=$client_id?>', {
-    method: 'POST',
-    headers: {'X-Requested-With': 'XMLHttpRequest'},
-    body: fd
-  }).then(r => r.json()).then(() => fetchRows(currentPage));
-});
 
 clearFilter.addEventListener('click', () => {
   filterInput.value = '';
