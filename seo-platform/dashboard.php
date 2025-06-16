@@ -7,8 +7,34 @@ $stmt = $pdo->prepare("SELECT * FROM clients WHERE id = ?");
 $stmt->execute([$client_id]);
 $client = $stmt->fetch();
 
+$ifPostUpdate = isset($_POST['update_keywords']);
 if (!$client) die("Client not found");
 
+if ($ifPostUpdate) {
+    $deleteIds = array_keys(array_filter($_POST['delete'] ?? [], fn($v) => $v === '1'));
+    if ($deleteIds) {
+        $in  = implode(',', array_fill(0, count($deleteIds), '?'));
+        $stmt = $pdo->prepare("DELETE FROM keywords WHERE client_id = ? AND id IN ($in)");
+        $stmt->execute(array_merge([$client_id], $deleteIds));
+    }
+
+    if (!empty($_POST['link'])) {
+        $update = $pdo->prepare("UPDATE keywords SET content_link = ? WHERE id = ? AND client_id = ?");
+        foreach ($_POST['link'] as $id => $link) {
+            $update->execute([$link, $id, $client_id]);
+        }
+    }
+
+    updateGroupCounts($pdo, $client_id);
+
+    if (!isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+        header("Location: dashboard.php?client_id=$client_id");
+        exit;
+    }
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'ok']);
+    exit;
+}
 $title = $client['name'] . ' Dashboard';
 include 'header.php';
 ?>
@@ -63,31 +89,6 @@ $pdo->query("DELETE k1 FROM keywords k1
 JOIN keywords k2 ON k1.keyword = k2.keyword AND k1.id > k2.id
 WHERE k1.client_id = $client_id AND k2.client_id = $client_id");
 
-if (isset($_POST['update_keywords'])) {
-    $deleteIds = array_keys(array_filter($_POST['delete'] ?? [], fn($v) => $v === '1'));
-    if ($deleteIds) {
-        $in  = implode(',', array_fill(0, count($deleteIds), '?'));
-        $stmt = $pdo->prepare("DELETE FROM keywords WHERE client_id = ? AND id IN ($in)");
-        $stmt->execute(array_merge([$client_id], $deleteIds));
-    }
-
-    if (!empty($_POST['link'])) {
-        $update = $pdo->prepare("UPDATE keywords SET content_link = ? WHERE id = ? AND client_id = ?");
-        foreach ($_POST['link'] as $id => $link) {
-            $update->execute([$link, $id, $client_id]);
-        }
-    }
-
-    updateGroupCounts($pdo, $client_id);
-
-    if (!isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
-        header("Location: dashboard.php?client_id=$client_id");
-        exit;
-    }
-    header('Content-Type: application/json');
-    echo json_encode(['status' => 'ok']);
-    exit;
-}
 
 // ---------- Auto Grouping Logic ----------
 function getBasePhrases(string $phrase): array {
