@@ -283,19 +283,9 @@ kwTableBody.addEventListener('click', e => {
     const marked = flag.value === '1';
     flag.value = marked ? '0' : '1';
     tr.classList.toggle('text-decoration-line-through', !marked);
-    if (filterInput.value.trim() !== '') {
-      fetchRows(currentPage);
-    }
   }
 });
 
-kwTableBody.addEventListener('change', e => {
-  if (e.target.name && e.target.name.startsWith('link[')) {
-    if (filterInput.value.trim() !== '') {
-      fetchRows(currentPage);
-    }
-  }
-});
 
 function fetchRows(page = 1) {
   currentPage = page;
