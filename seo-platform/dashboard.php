@@ -275,6 +275,9 @@ const clearFilter = document.getElementById('clearFilter');
 const pagination = document.getElementById('pagination');
 const kwTableBody = document.getElementById('kwTableBody');
 let currentPage = <?=$page?>;
+const updateForm = document.getElementById('updateForm');
+const pendingDelete = {};
+const pendingLinks = {};
 
 kwTableBody.addEventListener('click', e => {
   if (e.target.classList.contains('remove-row')) {
@@ -283,9 +286,35 @@ kwTableBody.addEventListener('click', e => {
     const marked = flag.value === '1';
     flag.value = marked ? '0' : '1';
     tr.classList.toggle('text-decoration-line-through', !marked);
+    pendingDelete[tr.dataset.id] = flag.value;
   }
 });
 
+kwTableBody.addEventListener('input', e => {
+  if (e.target.name && e.target.name.startsWith('link[')) {
+    const tr = e.target.closest('tr');
+    if (tr) {
+      pendingLinks[tr.dataset.id] = e.target.value;
+    }
+  }
+});
+
+function applyPendingChanges() {
+  kwTableBody.querySelectorAll('tr').forEach(tr => {
+    const id = tr.dataset.id;
+    const delVal = pendingDelete[id];
+    if (delVal !== undefined) {
+      const flag = tr.querySelector('.delete-flag');
+      flag.value = delVal;
+      tr.classList.toggle('text-decoration-line-through', delVal === '1');
+    }
+    const linkVal = pendingLinks[id];
+    if (linkVal !== undefined) {
+      const inp = tr.querySelector(`input[name="link[${id}]"]`);
+      if (inp) inp.value = linkVal;
+    }
+  });
+}
 
 function fetchRows(page = 1) {
   currentPage = page;
@@ -298,6 +327,7 @@ function fetchRows(page = 1) {
     .then(data => {
       kwTableBody.innerHTML = data.rows;
       pagination.innerHTML = data.pagination;
+      applyPendingChanges();
     });
 }
 
@@ -312,6 +342,29 @@ pagination.addEventListener('click', e => {
   if (e.target.dataset.page) {
     e.preventDefault();
     fetchRows(parseInt(e.target.dataset.page, 10));
+  }
+});
+
+document.getElementById('updateForm').addEventListener('submit', () => {
+  for (const [id, val] of Object.entries(pendingDelete)) {
+    let input = updateForm.querySelector(`input[name="delete[${id}]"]`);
+    if (!input) {
+      input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = `delete[${id}]`;
+      updateForm.appendChild(input);
+    }
+    input.value = val;
+  }
+  for (const [id, val] of Object.entries(pendingLinks)) {
+    let input = updateForm.querySelector(`input[name="link[${id}]"]`);
+    if (!input) {
+      input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = `link[${id}]`;
+      updateForm.appendChild(input);
+    }
+    input.value = val;
   }
 });
 </script>
