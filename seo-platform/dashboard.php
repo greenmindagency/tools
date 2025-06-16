@@ -275,16 +275,43 @@ const clearFilter = document.getElementById('clearFilter');
 const pagination = document.getElementById('pagination');
 const kwTableBody = document.getElementById('kwTableBody');
 let currentPage = <?=$page?>;
+const deleteState = {};
+const linkState = {};
 
 kwTableBody.addEventListener('click', e => {
   if (e.target.classList.contains('remove-row')) {
     const tr = e.target.closest('tr');
+    const id = tr.dataset.id;
     const flag = tr.querySelector('.delete-flag');
     const marked = flag.value === '1';
     flag.value = marked ? '0' : '1';
     tr.classList.toggle('text-decoration-line-through', !marked);
+    deleteState[id] = flag.value;
   }
 });
+
+kwTableBody.addEventListener('input', e => {
+  if (e.target.name && e.target.name.startsWith('link[')) {
+    const tr = e.target.closest('tr');
+    const id = tr.dataset.id;
+    linkState[id] = e.target.value;
+  }
+});
+
+function applyStates() {
+  kwTableBody.querySelectorAll('tr').forEach(tr => {
+    const id = tr.dataset.id;
+    const flag = tr.querySelector('.delete-flag');
+    if (deleteState[id] === '1') {
+      flag.value = '1';
+      tr.classList.add('text-decoration-line-through');
+    }
+    if (linkState[id] !== undefined) {
+      const input = tr.querySelector('input[name^="link["]');
+      if (input) input.value = linkState[id];
+    }
+  });
+}
 
 
 function fetchRows(page = 1) {
@@ -298,6 +325,7 @@ function fetchRows(page = 1) {
     .then(data => {
       kwTableBody.innerHTML = data.rows;
       pagination.innerHTML = data.pagination;
+      applyStates();
     });
 }
 
