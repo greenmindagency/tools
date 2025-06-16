@@ -282,6 +282,7 @@ let currentPage = <?=$page?>;
 const deleteState = {};
 const linkState = {};
 
+
 function updateHiddenInputs() {
   persistInputs.innerHTML = '';
   Object.keys(deleteState).forEach(id => {
@@ -304,6 +305,7 @@ function updateHiddenInputs() {
   });
 }
 
+
 kwTableBody.addEventListener('click', e => {
   if (e.target.classList.contains('remove-row')) {
     const tr = e.target.closest('tr');
@@ -313,6 +315,7 @@ kwTableBody.addEventListener('click', e => {
     flag.value = marked ? '0' : '1';
     tr.classList.toggle('text-decoration-line-through', !marked);
     deleteState[id] = flag.value;
+
     updateHiddenInputs();
   }
 });
@@ -328,6 +331,17 @@ kwTableBody.addEventListener('input', e => {
 
 updateForm.addEventListener('submit', () => {
   updateHiddenInputs();
+
+  }
+});
+
+kwTableBody.addEventListener('input', e => {
+  if (e.target.name && e.target.name.startsWith('link[')) {
+    const tr = e.target.closest('tr');
+    const id = tr.dataset.id;
+    linkState[id] = e.target.value;
+  }
+
 });
 
 function applyStates() {
@@ -358,7 +372,9 @@ function fetchRows(page = 1) {
       kwTableBody.innerHTML = data.rows;
       pagination.innerHTML = data.pagination;
       applyStates();
+
       updateHiddenInputs();
+
     });
 }
 
