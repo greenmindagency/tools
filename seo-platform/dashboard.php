@@ -181,6 +181,7 @@ $stmt->execute([$client_id]);
       <select id="filterField" class="form-select form-select-sm me-2" style="width:auto;">
         <option value="keyword">Keyword</option>
         <option value="group_name">Group</option>
+        <option value="group_exact">Group Exact</option>
         <option value="cluster_name">Cluster</option>
         <option value="content_link">Link</option>
       </select>
@@ -285,10 +286,20 @@ const pagination = document.getElementById('pagination');
 const kwTableBody = document.getElementById('kwTableBody');
 let currentPage = <?=$page?>;
 
+document.addEventListener('DOMContentLoaded', () => {
+  const savedField = localStorage.getItem('kwFilterField');
+  const savedInput = localStorage.getItem('kwFilterInput');
+  if (savedField) filterField.value = savedField;
+  if (savedInput) filterInput.value = savedInput;
+  if (savedField || savedInput) fetchRows(currentPage);
+});
+
 function fetchRows(page = 1) {
   currentPage = page;
   const q = filterInput.value.trim();
   const field = filterField.value;
+  localStorage.setItem('kwFilterInput', q);
+  localStorage.setItem('kwFilterField', field);
   const url = 'fetch_keywords.php?client_id=<?=$client_id?>&page=' + page +
               '&q=' + encodeURIComponent(q) + '&field=' + encodeURIComponent(field);
   fetch(url)
@@ -301,6 +312,8 @@ function fetchRows(page = 1) {
 
 clearFilter.addEventListener('click', () => {
   filterInput.value = '';
+  localStorage.removeItem('kwFilterInput');
+  localStorage.removeItem('kwFilterField');
   fetchRows(1);
 });
 
