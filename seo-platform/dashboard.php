@@ -80,7 +80,13 @@ if (isset($_POST['update_keywords'])) {
 
     updateGroupCounts($pdo, $client_id);
 
-    echo "<p>Keywords updated.</p>";
+    if (!isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+        header("Location: dashboard.php?client_id=$client_id");
+        exit;
+    }
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'ok']);
+    exit;
 }
 
 // ---------- Auto Grouping Logic ----------
@@ -181,7 +187,6 @@ $stmt->execute([$client_id]);
       <select id="filterField" class="form-select form-select-sm me-2" style="width:auto;">
         <option value="keyword">Keyword</option>
         <option value="group_name">Group</option>
-        <option value="group_exact">Group Exact</option>
         <option value="cluster_name">Cluster</option>
         <option value="content_link">Link</option>
       </select>
@@ -269,14 +274,7 @@ foreach ($stmt as $row) {
 <p><a href="index.php">&larr; Back to Clients</a></p>
 
 <script>
-const filterInput = document.getElementById('filterInput');
-const filterField = document.getElementById('filterField');
-const clearFilter = document.getElementById('clearFilter');
-const pagination = document.getElementById('pagination');
-const kwTableBody = document.getElementById('kwTableBody');
-let currentPage = <?=$page?>;
-
-kwTableBody.addEventListener('click', e => {
+document.addEventListener('click', function(e) {
   if (e.target.classList.contains('remove-row')) {
     const tr = e.target.closest('tr');
     const flag = tr.querySelector('.delete-flag');
@@ -286,6 +284,13 @@ kwTableBody.addEventListener('click', e => {
   }
 });
 
+const filterInput = document.getElementById('filterInput');
+const filterField = document.getElementById('filterField');
+const clearFilter = document.getElementById('clearFilter');
+const updateForm = document.getElementById('updateForm');
+const pagination = document.getElementById('pagination');
+const kwTableBody = document.getElementById('kwTableBody');
+let currentPage = <?=$page?>;
 
 function fetchRows(page = 1) {
   currentPage = page;
@@ -300,6 +305,18 @@ function fetchRows(page = 1) {
       pagination.innerHTML = data.pagination;
     });
 }
+
+updateForm.addEventListener('submit', function(e) {
+  e.preventDefault();
+  const fd = new FormData(updateForm);
+  fd.append('client_id', <?=$client_id?>);
+  fd.append('update_keywords', '1');
+  fetch('dashboard.php?client_id=<?=$client_id?>', {
+    method: 'POST',
+    headers: {'X-Requested-With': 'XMLHttpRequest'},
+    body: fd
+  }).then(r => r.json()).then(() => fetchRows(currentPage));
+});
 
 clearFilter.addEventListener('click', () => {
   filterInput.value = '';

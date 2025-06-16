@@ -5,7 +5,7 @@ $client_id = (int)($_GET['client_id'] ?? 0);
 $search = trim($_GET['q'] ?? '');
 $field = $_GET['field'] ?? 'keyword';
 
-$allowed = ['keyword', 'group_name', 'cluster_name', 'content_link', 'group_exact'];
+$allowed = ['keyword', 'group_name', 'cluster_name', 'content_link'];
 
 if (!in_array($field, $allowed, true)) {
     $field = 'keyword';
@@ -17,13 +17,8 @@ $page = max(1, (int)($_GET['page'] ?? 1));
 $query = "SELECT * FROM keywords WHERE client_id = ?";
 $params = [$client_id];
 if ($search !== '') {
-    if ($field === 'group_exact') {
-        $query .= " AND group_name = ?";
-        $params[] = $search;
-    } else {
-        $query .= " AND {$field} LIKE ?";
-        $params[] = "%$search%";
-    }
+    $query .= " AND {$field} LIKE ?";
+    $params[] = "%$search%";
 }
 $countStmt = $pdo->prepare(str_replace('*', 'COUNT(*)', $query));
 $countStmt->execute($params);
