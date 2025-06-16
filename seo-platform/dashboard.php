@@ -181,6 +181,7 @@ $stmt->execute([$client_id]);
       <select id="filterField" class="form-select form-select-sm me-2" style="width:auto;">
         <option value="keyword">Keyword</option>
         <option value="group_name">Group</option>
+        <option value="group_exact">Group Exact</option>
         <option value="cluster_name">Cluster</option>
         <option value="content_link">Link</option>
       </select>
@@ -268,22 +269,33 @@ foreach ($stmt as $row) {
 <p><a href="index.php">&larr; Back to Clients</a></p>
 
 <script>
-document.addEventListener('click', function(e) {
-  if (e.target.classList.contains('remove-row')) {
-    const tr = e.target.closest('tr');
-    const flag = tr.querySelector('.delete-flag');
-    const marked = flag.value === '1';
-    flag.value = marked ? '0' : '1';
-    tr.classList.toggle('text-decoration-line-through', !marked);
-  }
-});
-
 const filterInput = document.getElementById('filterInput');
 const filterField = document.getElementById('filterField');
 const clearFilter = document.getElementById('clearFilter');
 const pagination = document.getElementById('pagination');
 const kwTableBody = document.getElementById('kwTableBody');
 let currentPage = <?=$page?>;
+
+kwTableBody.addEventListener('click', e => {
+  if (e.target.classList.contains('remove-row')) {
+    const tr = e.target.closest('tr');
+    const flag = tr.querySelector('.delete-flag');
+    const marked = flag.value === '1';
+    flag.value = marked ? '0' : '1';
+    tr.classList.toggle('text-decoration-line-through', !marked);
+    if (filterInput.value.trim() !== '') {
+      fetchRows(currentPage);
+    }
+  }
+});
+
+kwTableBody.addEventListener('change', e => {
+  if (e.target.name && e.target.name.startsWith('link[')) {
+    if (filterInput.value.trim() !== '') {
+      fetchRows(currentPage);
+    }
+  }
+});
 
 function fetchRows(page = 1) {
   currentPage = page;
