@@ -171,29 +171,47 @@ updateGroupCounts($pdo, $client_id);
 <?php
 $perPage = 100;
 $page = max(1, (int)($_GET['page'] ?? 1));
-$totalStmt = $pdo->prepare("SELECT COUNT(*) FROM keywords WHERE client_id = ?");
-$totalStmt->execute([$client_id]);
-$totalRows = (int)$totalStmt->fetchColumn();
-$totalPages = (int)ceil($totalRows / $perPage);
-$query = "SELECT * FROM keywords WHERE client_id = ? ORDER BY volume DESC, form ASC LIMIT $perPage OFFSET " . (($page-1)*$perPage);
+$q = trim($_GET['q'] ?? '');
+$field = $_GET['field'] ?? 'keyword';
+$allowedFields = ['keyword', 'group_name', 'cluster_name', 'content_link'];
+if (!in_array($field, $allowedFields, true)) {
+    $field = 'keyword';
+}
+
+$baseQuery = "FROM keywords WHERE client_id = ?";
+$params = [$client_id];
+if ($q !== '') {
+    $baseQuery .= " AND {$field} LIKE ?";
+    $params[] = "%$q%";
+}
+$countStmt = $pdo->prepare("SELECT COUNT(*) $baseQuery");
+$countStmt->execute($params);
+$totalRows = (int)$countStmt->fetchColumn();
+$totalPages = $q === '' ? (int)ceil($totalRows / $perPage) : 1;
+$offset = ($page - 1) * $perPage;
+$limit = $q === '' ? " LIMIT $perPage OFFSET $offset" : '';
+$query = "SELECT * $baseQuery ORDER BY volume DESC, form ASC$limit";
 $stmt = $pdo->prepare($query);
-$stmt->execute([$client_id]);
+$stmt->execute($params);
 ?>
 
+<div class="d-flex justify-content-between mb-2 sticky-controls">
+  <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success">Update</button>
+  <form id="filterForm" method="GET" class="d-flex">
+    <input type="hidden" name="client_id" value="<?= $client_id ?>">
+    <select name="field" id="filterField" class="form-select form-select-sm me-2" style="width:auto;">
+      <option value="keyword"<?= $field==='keyword' ? ' selected' : '' ?>>Keyword</option>
+      <option value="group_name"<?= $field==='group_name' ? ' selected' : '' ?>>Group</option>
+      <option value="cluster_name"<?= $field==='cluster_name' ? ' selected' : '' ?>>Cluster</option>
+      <option value="content_link"<?= $field==='content_link' ? ' selected' : '' ?>>Link</option>
+    </select>
+    <input type="text" name="q" id="filterInput" value="<?= htmlspecialchars($q) ?>" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
+    <button type="submit" class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-search"></i></button>
+  </form>
+</div>
+
 <form method="POST" id="updateForm">
-  <div class="d-flex justify-content-between mb-2 sticky-controls">
-    <button type="submit" name="update_keywords" class="btn btn-success">Update</button>
-    <div class="d-flex">
-      <select id="filterField" class="form-select form-select-sm me-2" style="width:auto;">
-        <option value="keyword">Keyword</option>
-        <option value="group_name">Group</option>
-        <option value="cluster_name">Cluster</option>
-        <option value="content_link">Link</option>
-      </select>
-      <input type="text" id="filterInput" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
-      <button type="button" id="clearFilter" class="btn btn-outline-secondary btn-sm ms-1">&times;</button>
-    </div>
-  </div>
+  <input type="hidden" name="client_id" value="<?= $client_id ?>">
 
   <table class="table table-bordered table-sm">
     <thead class="table-light">
@@ -261,11 +279,12 @@ foreach ($stmt as $row) {
 </tbody>
   </table>
 </form>
-<nav id="pagination" class="my-3">
+<nav class="my-3">
 <?php if ($totalPages > 1): ?>
   <ul class="pagination pagination-sm">
-  <?php for ($i = 1; $i <= $totalPages; $i++): $active = $i === $page ? ' active' : ''; ?>
-    <li class="page-item<?= $active ?>"><a class="page-link" href="#" data-page="<?= $i ?>"><?= $i ?></a></li>
+  <?php for ($i = 1; $i <= $totalPages; $i++): $active = $i === $page ? ' active' : '';
+        $qs = http_build_query(['client_id'=>$client_id,'page'=>$i,'field'=>$field,'q'=>$q]); ?>
+    <li class="page-item<?= $active ?>"><a class="page-link" href="dashboard.php?<?= $qs ?>"><?= $i ?></a></li>
   <?php endfor; ?>
   </ul>
 <?php endif; ?>
@@ -281,54 +300,6 @@ document.addEventListener('click', function(e) {
     const marked = flag.value === '1';
     flag.value = marked ? '0' : '1';
     tr.classList.toggle('text-decoration-line-through', !marked);
-  }
-});
-
-const filterInput = document.getElementById('filterInput');
-const filterField = document.getElementById('filterField');
-const clearFilter = document.getElementById('clearFilter');
-const updateForm = document.getElementById('updateForm');
-const pagination = document.getElementById('pagination');
-const kwTableBody = document.getElementById('kwTableBody');
-let currentPage = <?=$page?>;
-
-function fetchRows(page = 1) {
-  currentPage = page;
-  const q = filterInput.value.trim();
-  const field = filterField.value;
-  const url = 'fetch_keywords.php?client_id=<?=$client_id?>&page=' + page +
-              '&q=' + encodeURIComponent(q) + '&field=' + encodeURIComponent(field);
-  fetch(url)
-    .then(r => r.json())
-    .then(data => {
-      kwTableBody.innerHTML = data.rows;
-      pagination.innerHTML = data.pagination;
-    });
-}
-
-updateForm.addEventListener('submit', function(e) {
-  e.preventDefault();
-  const fd = new FormData(updateForm);
-  fd.append('client_id', <?=$client_id?>);
-  fd.append('update_keywords', '1');
-  fetch('dashboard.php?client_id=<?=$client_id?>', {
-    method: 'POST',
-    headers: {'X-Requested-With': 'XMLHttpRequest'},
-    body: fd
-  }).then(r => r.json()).then(() => fetchRows(currentPage));
-});
-
-clearFilter.addEventListener('click', () => {
-  filterInput.value = '';
-  fetchRows(1);
-});
-
-filterInput.addEventListener('input', () => fetchRows(1));
-filterField.addEventListener('change', () => fetchRows(1));
-pagination.addEventListener('click', e => {
-  if (e.target.dataset.page) {
-    e.preventDefault();
-    fetchRows(parseInt(e.target.dataset.page, 10));
   }
 });
 </script>
