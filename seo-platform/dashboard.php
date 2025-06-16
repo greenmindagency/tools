@@ -205,6 +205,7 @@ $stmt->execute([$client_id]);
     </tr>
     </thead>
 <tbody id="kwTableBody">
+
 <?php
 foreach ($stmt as $row) {
     $volume = $row['volume'];
@@ -255,6 +256,7 @@ foreach ($stmt as $row) {
 ?>
 </tbody>
   </table>
+  <div id="persistInputs" style="display:none;"></div>
 </form>
 <nav id="pagination" class="my-3">
 <?php if ($totalPages > 1): ?>
@@ -274,17 +276,74 @@ const filterField = document.getElementById('filterField');
 const clearFilter = document.getElementById('clearFilter');
 const pagination = document.getElementById('pagination');
 const kwTableBody = document.getElementById('kwTableBody');
+const updateForm = document.getElementById('updateForm');
+const persistInputs = document.getElementById('persistInputs');
 let currentPage = <?=$page?>;
+const deleteState = {};
+const linkState = {};
+
+function updateHiddenInputs() {
+  persistInputs.innerHTML = '';
+  Object.keys(deleteState).forEach(id => {
+    if (!kwTableBody.querySelector(`tr[data-id="${id}"]`)) {
+      const inp = document.createElement('input');
+      inp.type = 'hidden';
+      inp.name = `delete[${id}]`;
+      inp.value = deleteState[id];
+      persistInputs.appendChild(inp);
+    }
+  });
+  Object.keys(linkState).forEach(id => {
+    if (!kwTableBody.querySelector(`tr[data-id="${id}"]`)) {
+      const inp = document.createElement('input');
+      inp.type = 'hidden';
+      inp.name = `link[${id}]`;
+      inp.value = linkState[id];
+      persistInputs.appendChild(inp);
+    }
+  });
+}
 
 kwTableBody.addEventListener('click', e => {
   if (e.target.classList.contains('remove-row')) {
     const tr = e.target.closest('tr');
+    const id = tr.dataset.id;
     const flag = tr.querySelector('.delete-flag');
     const marked = flag.value === '1';
     flag.value = marked ? '0' : '1';
     tr.classList.toggle('text-decoration-line-through', !marked);
+    deleteState[id] = flag.value;
+    updateHiddenInputs();
   }
 });
+
+kwTableBody.addEventListener('input', e => {
+  if (e.target.name && e.target.name.startsWith('link[')) {
+    const tr = e.target.closest('tr');
+    const id = tr.dataset.id;
+    linkState[id] = e.target.value;
+    updateHiddenInputs();
+  }
+});
+
+updateForm.addEventListener('submit', () => {
+  updateHiddenInputs();
+});
+
+function applyStates() {
+  kwTableBody.querySelectorAll('tr').forEach(tr => {
+    const id = tr.dataset.id;
+    const flag = tr.querySelector('.delete-flag');
+    if (deleteState[id] === '1') {
+      flag.value = '1';
+      tr.classList.add('text-decoration-line-through');
+    }
+    if (linkState[id] !== undefined) {
+      const input = tr.querySelector('input[name^="link["]');
+      if (input) input.value = linkState[id];
+    }
+  });
+}
 
 
 function fetchRows(page = 1) {
@@ -298,6 +357,8 @@ function fetchRows(page = 1) {
     .then(data => {
       kwTableBody.innerHTML = data.rows;
       pagination.innerHTML = data.pagination;
+      applyStates();
+      updateHiddenInputs();
     });
 }
 
@@ -314,6 +375,9 @@ pagination.addEventListener('click', e => {
     fetchRows(parseInt(e.target.dataset.page, 10));
   }
 });
+
+// initialize hidden inputs on load
+updateHiddenInputs();
 </script>
 
 <?php include 'footer.php'; ?>
