@@ -66,7 +66,7 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         }
     }
     $rows .= "<tr data-id='{$row['id']}'>";
-    $rows .= "<td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button><input type='hidden' name='delete[{$row['id']}]' value='0' class='delete-flag'></td>";
+    $rows .= "<td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button></td>";
     $rows .= "<td>" . htmlspecialchars($row['keyword']) . "</td>";
     $rows .= "<td class='text-center' style='background-color: $volBg'>" . $volume . "</td>";
     $rows .= "<td class='text-center' style='background-color: $formBg'>" . $form . "</td>";
