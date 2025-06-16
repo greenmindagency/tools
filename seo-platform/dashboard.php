@@ -14,7 +14,6 @@ include 'header.php';
 ?>
 
 <h5 class="mb-3"><?= htmlspecialchars($client['name']) ?> – Keywords</h5>
-<div id="notice" class="alert alert-success position-fixed top-0 end-0 mt-4 me-3" style="display:none; z-index:2000;"></div>
 
 <!-- Add Keyword Form -->
 <form method="POST" class="mb-4">
@@ -247,7 +246,7 @@ foreach ($stmt as $row) {
     }
 
     echo "<tr data-id='{$row['id']}'>
-        <td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button></td>
+        <td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button><input type='hidden' name='delete[{$row['id']}]' value='0' class='delete-flag'></td>
         <td>" . htmlspecialchars($row['keyword']) . "</td>
         <td class='text-center' style='background-color: $volBg'>" . $volume . "</td>
         <td class='text-center' style='background-color: $formBg'>" . $form . "</td>
@@ -278,13 +277,10 @@ foreach ($stmt as $row) {
 document.addEventListener('click', function(e) {
   if (e.target.classList.contains('remove-row')) {
     const tr = e.target.closest('tr');
-    const id = tr.dataset.id;
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = `delete[${id}]`;
-    input.value = '1';
-    updateForm.appendChild(input);
-    tr.remove();
+    const flag = tr.querySelector('.delete-flag');
+    const marked = flag.value === '1';
+    flag.value = marked ? '0' : '1';
+    tr.classList.toggle('text-decoration-line-through', !marked);
   }
 });
 
@@ -294,13 +290,6 @@ const clearFilter = document.getElementById('clearFilter');
 const updateForm = document.getElementById('updateForm');
 const pagination = document.getElementById('pagination');
 const kwTableBody = document.getElementById('kwTableBody');
-const noticeBox = document.getElementById('notice');
-
-function showNotice(msg) {
-  noticeBox.textContent = msg;
-  noticeBox.style.display = 'block';
-  setTimeout(() => { noticeBox.style.display = 'none'; }, 3000);
-}
 let currentPage = <?=$page?>;
 
 function fetchRows(page = 1) {
@@ -309,7 +298,7 @@ function fetchRows(page = 1) {
   const field = filterField.value;
   const url = 'fetch_keywords.php?client_id=<?=$client_id?>&page=' + page +
               '&q=' + encodeURIComponent(q) + '&field=' + encodeURIComponent(field);
-  return fetch(url)
+  fetch(url)
     .then(r => r.json())
     .then(data => {
       kwTableBody.innerHTML = data.rows;
@@ -326,7 +315,7 @@ updateForm.addEventListener('submit', function(e) {
     method: 'POST',
     headers: {'X-Requested-With': 'XMLHttpRequest'},
     body: fd
-  }).then(r => r.json()).then(() => fetchRows(currentPage).then(() => showNotice('Updated')));
+  }).then(r => r.json()).then(() => fetchRows(currentPage));
 });
 
 clearFilter.addEventListener('click', () => {
