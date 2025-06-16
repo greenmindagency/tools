@@ -183,7 +183,10 @@ $stmt->execute([$client_id]);
 
 <form method="POST" id="updateForm">
   <div class="d-flex justify-content-between mb-2 sticky-controls">
-    <button type="submit" name="update_keywords" class="btn btn-success">Update</button>
+    <div>
+      <button type="submit" name="update_keywords" class="btn btn-success">Update</button>
+      <span id="notice" class="ms-2 text-success" style="display:none;"></span>
+    </div>
     <div class="d-flex">
       <select id="filterField" class="form-select form-select-sm me-2" style="width:auto;">
         <option value="keyword">Keyword</option>
@@ -247,7 +250,7 @@ foreach ($stmt as $row) {
     }
 
     echo "<tr data-id='{$row['id']}'>
-        <td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button><input type='hidden' name='delete[{$row['id']}]' value='0' class='delete-flag'></td>
+        <td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button></td>
         <td>" . htmlspecialchars($row['keyword']) . "</td>
         <td class='text-center' style='background-color: $volBg'>" . $volume . "</td>
         <td class='text-center' style='background-color: $formBg'>" . $form . "</td>
@@ -275,13 +278,20 @@ foreach ($stmt as $row) {
 <p><a href="index.php">&larr; Back to Clients</a></p>
 
 <script>
+const deletedIds = new Set();
 document.addEventListener('click', function(e) {
   if (e.target.classList.contains('remove-row')) {
     const tr = e.target.closest('tr');
-    const flag = tr.querySelector('.delete-flag');
-    const marked = flag.value === '1';
-    flag.value = marked ? '0' : '1';
-    tr.classList.toggle('text-decoration-line-through', !marked);
+    const id = tr.dataset.id;
+    if (!deletedIds.has(id)) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = `delete[${id}]`;
+      input.value = '1';
+      updateForm.appendChild(input);
+      deletedIds.add(id);
+    }
+    tr.remove();
   }
 });
 
@@ -291,6 +301,13 @@ const clearFilter = document.getElementById('clearFilter');
 const updateForm = document.getElementById('updateForm');
 const pagination = document.getElementById('pagination');
 const kwTableBody = document.getElementById('kwTableBody');
+const noticeBox = document.getElementById('notice');
+
+function showNotice(msg) {
+  noticeBox.textContent = msg;
+  noticeBox.style.display = 'inline';
+  setTimeout(() => { noticeBox.style.display = 'none'; }, 3000);
+}
 let currentPage = <?=$page?>;
 
 function fetchRows(page = 1) {
@@ -304,6 +321,10 @@ function fetchRows(page = 1) {
     .then(data => {
       kwTableBody.innerHTML = data.rows;
       pagination.innerHTML = data.pagination;
+      deletedIds.forEach(id => {
+        const row = kwTableBody.querySelector(`tr[data-id="${id}"]`);
+        if (row) row.remove();
+      });
     });
 }
 
@@ -316,7 +337,11 @@ updateForm.addEventListener('submit', function(e) {
     method: 'POST',
     headers: {'X-Requested-With': 'XMLHttpRequest'},
     body: fd
-  }).then(r => r.json()).then(() => fetchRows(currentPage));
+  }).then(r => r.json()).then(() => {
+    deletedIds.clear();
+    document.querySelectorAll('#updateForm input[name^="delete["]').forEach(el => el.remove());
+    fetchRows(currentPage).then(() => showNotice('Updated'));
+  });
 });
 
 clearFilter.addEventListener('click', () => {
