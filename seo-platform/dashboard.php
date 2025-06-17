@@ -21,11 +21,17 @@ $breadcrumb_client = [
 ];
 
 $title = $client['name'] . ' Dashboard';
-$pageTypes = ['', 'Home', 'Service Page', 'Blog Article', 'Other'];
+$pageTypes = ['', 'Home', 'Service', 'Blog', 'Page', 'Article', 'Product', 'Other'];
 include 'header.php';
 ?>
 
-<h5 class="mb-3"><?= htmlspecialchars($client['name']) ?> – Keywords</h5>
+<h5 class="mb-1"><?= htmlspecialchars($client['name']) ?> – Keywords</h5>
+<div class="mb-3">
+  <span class="me-3">All keywords: <?= (int)$stats['total'] ?></span>
+  <span class="me-3">Grouped Keywords: <?= (int)$stats['grouped'] ?></span>
+  <span class="me-3">Clustered Keywords: <?= (int)$stats['clustered'] ?></span>
+  <span class="me-3">Structured Keywords: <?= (int)$stats['structured'] ?></span>
+</div>
 
 <!-- Add Keyword Form -->
 <form method="POST" id="addKeywordsForm" class="mb-4" style="display:none;">
@@ -326,6 +332,16 @@ function updateGroupCounts(PDO $pdo, int $client_id): void {
 // Update grouping only if keywords changed
 maybeUpdateKeywordGroups($pdo, $client_id);
 
+// Keyword statistics
+$statsStmt = $pdo->prepare("SELECT 
+    COUNT(*) AS total,
+    SUM(CASE WHEN COALESCE(group_name,'') <> '' THEN 1 ELSE 0 END) AS grouped,
+    SUM(CASE WHEN COALESCE(cluster_name,'') <> '' THEN 1 ELSE 0 END) AS clustered,
+    SUM(CASE WHEN COALESCE(group_name,'') <> '' AND group_count <= 5 THEN 1 ELSE 0 END) AS structured
+    FROM keywords WHERE client_id = ?");
+$statsStmt->execute([$client_id]);
+$stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'grouped'=>0,'clustered'=>0,'structured'=>0];
+
 ?>
 
 <?php
@@ -365,11 +381,12 @@ $stmt->execute($params);
 
 <div class="d-flex justify-content-between mb-2 sticky-controls">
   <div class="d-flex">
+    <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success me-2">Update</button>
     <button type="button" id="toggleAddForm" class="btn btn-warning me-2">Update Keywords</button>
     <button type="button" id="toggleClusterForm" class="btn btn-info me-2">Update Clusters</button>
-    <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success">Update</button>
-    <button type="button" id="copyKeywords" class="btn btn-secondary ms-2">Copy Table</button>
-    <button type="button" id="toggleImportForm" class="btn btn-primary ms-2">Import Plan</button>
+    <button type="button" id="copyKeywords" class="btn btn-secondary me-2">Copy Table</button>
+    <button type="button" id="toggleImportForm" class="btn btn-primary me-2">Import Plan</button>
+    <a href="export.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary">Export CSV</a>
   </div>
   <form id="filterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
