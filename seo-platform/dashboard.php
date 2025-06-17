@@ -6,7 +6,7 @@ $slugify = function(string $name): string {
     $name = preg_replace('/[^a-zA-Z0-9]+/', '-', $name);
     return strtolower(trim($name, '-'));
 };
-
+ 
 // Load client info
 $stmt = $pdo->prepare("SELECT * FROM clients WHERE id = ?");
 $stmt->execute([$client_id]);
