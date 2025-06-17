@@ -1,7 +1,7 @@
 <?php
 require 'config.php';
 $client_id = $_GET['client_id'] ?? 0;
-$slugify = fn($name) => strtolower(trim(preg_replace('/[^a-z0-9]+/', '-', $name), '-'));
+$slugify = fn($name) => strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $name), '-'));
 
 // Load client info
 $stmt = $pdo->prepare("SELECT * FROM clients WHERE id = ?");
@@ -11,6 +11,10 @@ $client = $stmt->fetch();
 if (!$client) die("Client not found");
 
 $slug = $slugify($client['name']);
+$breadcrumbClient = [
+    'name' => $client['name'],
+    'url'  => "dashboard.php?client_id=$client_id&slug=$slug",
+];
 
 $title = $client['name'] . ' Dashboard';
 include 'header.php';
