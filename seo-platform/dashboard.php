@@ -22,6 +22,20 @@ $breadcrumb_client = [
 
 $title = $client['name'] . ' Dashboard';
 $pageTypes = ['', 'Home', 'Service', 'Blog', 'Page', 'Article', 'Product', 'Other'];
+maybeUpdateKeywordGroups($pdo, $client_id);
+updateKeywordStats($pdo, $client_id);
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS keyword_stats (
+    client_id INT PRIMARY KEY,
+    total INT DEFAULT 0,
+    grouped INT DEFAULT 0,
+    clustered INT DEFAULT 0,
+    structured INT DEFAULT 0
+)");
+$statsStmt = $pdo->prepare("SELECT total, grouped, clustered, structured FROM keyword_stats WHERE client_id = ?");
+$statsStmt->execute([$client_id]);
+$stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'grouped'=>0,'clustered'=>0,'structured'=>0];
+
 include 'header.php';
 ?>
 
@@ -347,21 +361,6 @@ function updateKeywordStats(PDO $pdo, int $client_id): void {
         (int)$stats['structured']
     ]);
 }
-
-// Update grouping only if keywords changed
-maybeUpdateKeywordGroups($pdo, $client_id);
-
-// Keyword statistics stored in DB
-$pdo->exec("CREATE TABLE IF NOT EXISTS keyword_stats (
-    client_id INT PRIMARY KEY,
-    total INT DEFAULT 0,
-    grouped INT DEFAULT 0,
-    clustered INT DEFAULT 0,
-    structured INT DEFAULT 0
-)");
-$statsStmt = $pdo->prepare("SELECT total, grouped, clustered, structured FROM keyword_stats WHERE client_id = ?");
-$statsStmt->execute([$client_id]);
-$stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'grouped'=>0,'clustered'=>0,'structured'=>0];
 
 ?>
 
