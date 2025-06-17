@@ -1,6 +1,7 @@
 <?php
 require 'config.php';
 $client_id = $_GET['client_id'] ?? 0;
+$slugify = fn($name) => strtolower(trim(preg_replace('/[^a-z0-9]+/', '-', $name), '-'));
 
 // Load client info
 $stmt = $pdo->prepare("SELECT * FROM clients WHERE id = ?");
@@ -8,6 +9,8 @@ $stmt->execute([$client_id]);
 $client = $stmt->fetch();
 
 if (!$client) die("Client not found");
+
+$slug = $slugify($client['name']);
 
 $title = $client['name'] . ' Dashboard';
 include 'header.php';
@@ -80,7 +83,21 @@ if (isset($_POST['update_keywords'])) {
 
     updateGroupCounts($pdo, $client_id);
 
-    echo "<p>Keywords updated.</p>";
+    if (!isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+        $params = [
+            'client_id' => $client_id,
+            'slug' => $slug,
+            'page' => $_GET['page'] ?? null,
+            'field' => $_GET['field'] ?? null,
+            'q' => $_GET['q'] ?? null,
+        ];
+        $qs = http_build_query(array_filter($params, fn($v) => $v !== null && $v !== ''));
+        header('Location: dashboard.php' . ($qs ? "?$qs" : ''));
+        exit;
+    }
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'ok']);
+    exit;
 }
 
 // ---------- Auto Grouping Logic ----------
@@ -165,30 +182,54 @@ updateGroupCounts($pdo, $client_id);
 <?php
 $perPage = 100;
 $page = max(1, (int)($_GET['page'] ?? 1));
-$totalStmt = $pdo->prepare("SELECT COUNT(*) FROM keywords WHERE client_id = ?");
-$totalStmt->execute([$client_id]);
-$totalRows = (int)$totalStmt->fetchColumn();
-$totalPages = (int)ceil($totalRows / $perPage);
-$query = "SELECT * FROM keywords WHERE client_id = ? ORDER BY volume DESC, form ASC LIMIT $perPage OFFSET " . (($page-1)*$perPage);
+$q = trim($_GET['q'] ?? '');
+$field = $_GET['field'] ?? 'keyword';
+$allowedFields = ['keyword', 'group_name', 'group_exact', 'cluster_name', 'content_link'];
+if (!in_array($field, $allowedFields, true)) {
+    $field = 'keyword';
+}
+
+$baseQuery = "FROM keywords WHERE client_id = ?";
+$params = [$client_id];
+if ($q !== '') {
+    if ($field === 'group_exact') {
+        $baseQuery .= " AND group_name = ?";
+        $params[] = $q;
+    } else {
+        $baseQuery .= " AND {$field} LIKE ?";
+        $params[] = "%$q%";
+    }
+}
+$countStmt = $pdo->prepare("SELECT COUNT(*) $baseQuery");
+$countStmt->execute($params);
+$totalRows = (int)$countStmt->fetchColumn();
+$totalPages = $q === '' ? (int)ceil($totalRows / $perPage) : 1;
+$offset = ($page - 1) * $perPage;
+$limit = $q === '' ? " LIMIT $perPage OFFSET $offset" : '';
+$query = "SELECT * $baseQuery ORDER BY volume DESC, form ASC$limit";
 $stmt = $pdo->prepare($query);
-$stmt->execute([$client_id]);
+$stmt->execute($params);
 ?>
 
+<div class="d-flex justify-content-between mb-2 sticky-controls">
+  <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success">Update</button>
+  <form id="filterForm" method="GET" class="d-flex">
+    <input type="hidden" name="client_id" value="<?= $client_id ?>">
+    <input type="hidden" name="slug" value="<?= $slug ?>">
+    <select name="field" id="filterField" class="form-select form-select-sm me-2" style="width:auto;">
+      <option value="keyword"<?= $field==='keyword' ? ' selected' : '' ?>>Keyword</option>
+      <option value="group_name"<?= $field==='group_name' ? ' selected' : '' ?>>Group</option>
+      <option value="group_exact"<?= $field==='group_exact' ? ' selected' : '' ?>>Group Exact</option>
+      <option value="cluster_name"<?= $field==='cluster_name' ? ' selected' : '' ?>>Cluster</option>
+      <option value="content_link"<?= $field==='content_link' ? ' selected' : '' ?>>Link</option>
+    </select>
+    <input type="text" name="q" id="filterInput" value="<?= htmlspecialchars($q) ?>" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
+    <button type="submit" class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-search"></i></button>
+  </form>
+</div>
+
 <form method="POST" id="updateForm">
-  <div class="d-flex justify-content-between mb-2 sticky-controls">
-    <button type="submit" name="update_keywords" class="btn btn-success">Update</button>
-    <div class="d-flex">
-      <select id="filterField" class="form-select form-select-sm me-2" style="width:auto;">
-        <option value="keyword">Keyword</option>
-        <option value="group_name">Group</option>
-        <option value="group_exact">Group Exact</option>
-        <option value="cluster_name">Cluster</option>
-        <option value="content_link">Link</option>
-      </select>
-      <input type="text" id="filterInput" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
-      <button type="button" id="clearFilter" class="btn btn-outline-secondary btn-sm ms-1">&times;</button>
-    </div>
-  </div>
+  <input type="hidden" name="client_id" value="<?= $client_id ?>">
 
   <table class="table table-bordered table-sm">
     <thead class="table-light">
@@ -256,11 +297,12 @@ foreach ($stmt as $row) {
 </tbody>
   </table>
 </form>
-<nav id="pagination" class="my-3">
+<nav class="my-3">
 <?php if ($totalPages > 1): ?>
   <ul class="pagination pagination-sm">
-  <?php for ($i = 1; $i <= $totalPages; $i++): $active = $i === $page ? ' active' : ''; ?>
-    <li class="page-item<?= $active ?>"><a class="page-link" href="#" data-page="<?= $i ?>"><?= $i ?></a></li>
+  <?php for ($i = 1; $i <= $totalPages; $i++): $active = $i === $page ? ' active' : '';
+        $qs = http_build_query(['client_id'=>$client_id,'slug'=>$slug,'page'=>$i,'field'=>$field,'q'=>$q]); ?>
+    <li class="page-item<?= $active ?>"><a class="page-link" href="dashboard.php?<?= $qs ?>"><?= $i ?></a></li>
   <?php endfor; ?>
   </ul>
 <?php endif; ?>
@@ -269,6 +311,7 @@ foreach ($stmt as $row) {
 <p><a href="index.php">&larr; Back to Clients</a></p>
 
 <script>
+
 const filterInput = document.getElementById('filterInput');
 const filterField = document.getElementById('filterField');
 const clearFilter = document.getElementById('clearFilter');
@@ -280,6 +323,9 @@ const pendingDelete = {};
 const pendingLinks = {};
 
 kwTableBody.addEventListener('click', e => {
+
+document.addEventListener('click', function(e) {
+
   if (e.target.classList.contains('remove-row')) {
     const tr = e.target.closest('tr');
     const flag = tr.querySelector('.delete-flag');
@@ -289,6 +335,7 @@ kwTableBody.addEventListener('click', e => {
     pendingDelete[tr.dataset.id] = flag.value;
   }
 });
+
 
 kwTableBody.addEventListener('input', e => {
   if (e.target.name && e.target.name.startsWith('link[')) {
@@ -367,6 +414,7 @@ document.getElementById('updateForm').addEventListener('submit', () => {
     input.value = val;
   }
 });
+
 </script>
 
 <?php include 'footer.php'; ?>
