@@ -21,9 +21,7 @@ $breadcrumb_client = [
 ];
 
 $title = $client['name'] . ' Dashboard';
-
 $pageTypes = ['', 'Home', 'Service Page', 'Blog Article', 'Other'];
-
 include 'header.php';
 ?>
 
@@ -124,6 +122,7 @@ if (isset($_POST['add_keywords'])) {
 $pdo->query("DELETE k1 FROM keywords k1
 JOIN keywords k2 ON k1.keyword = k2.keyword AND k1.id > k2.id
 WHERE k1.client_id = $client_id AND k2.client_id = $client_id");
+maybeUpdateKeywordGroups($pdo, $client_id);
 
 if (isset($_POST['add_clusters'])) {
     $text = trim($_POST['clusters']);
@@ -138,6 +137,31 @@ if (isset($_POST['add_clusters'])) {
         }
     }
     echo "<p>Clusters updated.</p>";
+    maybeUpdateKeywordGroups($pdo, $client_id);
+}
+
+if (isset($_POST['import_plan'])) {
+    if (!empty($_FILES['csv_file']['tmp_name'])) {
+        $pdo->prepare("DELETE FROM keywords WHERE client_id = ?")->execute([$client_id]);
+        $insert = $pdo->prepare(
+            "INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type) VALUES (?, ?, ?, ?, ?, ?)"
+        );
+        if (($handle = fopen($_FILES['csv_file']['tmp_name'], 'r')) !== false) {
+            while (($data = fgetcsv($handle)) !== false) {
+                if (!isset($data[0])) continue;
+                if (stripos($data[0], 'keyword') === 0) continue; // skip header
+                $keyword = $data[0];
+                $vol = $data[1] ?? '';
+                $form = $data[2] ?? '';
+                $link = $data[3] ?? '';
+                $type = $data[4] ?? '';
+                $insert->execute([$client_id, $keyword, $vol, $form, $link, $type]);
+            }
+            fclose($handle);
+        }
+        echo "<p>Plan imported.</p>";
+        maybeUpdateKeywordGroups($pdo, $client_id);
+    }
 }
 
 if (isset($_POST['import_plan'])) {
@@ -185,7 +209,8 @@ if (isset($_POST['update_keywords'])) {
         }
     }
 
-    updateGroupCounts($pdo, $client_id);
+
+    maybeUpdateKeywordGroups($pdo, $client_id);
 
     if (!isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
         $params = [
@@ -237,14 +262,33 @@ function findGroup(string $keyword, array $phraseCount): string {
 }
 
 
-function autoUpdateKeywordGroups(PDO $pdo, int $client_id): void {
-    $stmt = $pdo->prepare("SELECT id, keyword FROM keywords WHERE client_id = ?");
+/**
+ * Update keyword grouping only when keywords have changed.
+ */
+function maybeUpdateKeywordGroups(PDO $pdo, int $client_id): void {
+    $stmt = $pdo->prepare("SELECT id, keyword FROM keywords WHERE client_id = ? ORDER BY id");
     $stmt->execute([$client_id]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     if (!$rows) {
         return;
     }
+
+    $hashInput = '';
+    foreach ($rows as $r) {
+        $hashInput .= $r['id'] . ':' . $r['keyword'] . ';';
+    }
+    $hash = md5($hashInput);
+    $cacheDir = __DIR__ . '/cache';
+    if (!is_dir($cacheDir)) {
+        mkdir($cacheDir, 0777, true);
+    }
+    $cacheFile = $cacheDir . "/groups_{$client_id}.txt";
+    $prev = file_exists($cacheFile) ? trim(file_get_contents($cacheFile)) : '';
+    if ($hash === $prev) {
+        return; // nothing changed
+    }
+    file_put_contents($cacheFile, $hash);
 
     $keywords = [];
     foreach ($rows as $r) {
@@ -265,6 +309,8 @@ function autoUpdateKeywordGroups(PDO $pdo, int $client_id): void {
         $group = findGroup($kw, $phraseCount);
         $update->execute([$group, $id]);
     }
+
+    updateGroupCounts($pdo, $client_id);
 }
 
 function updateGroupCounts(PDO $pdo, int $client_id): void {
@@ -277,9 +323,8 @@ function updateGroupCounts(PDO $pdo, int $client_id): void {
     }
 }
 
-// Run grouping on every page load
-autoUpdateKeywordGroups($pdo, $client_id);
-updateGroupCounts($pdo, $client_id);
+// Update grouping only if keywords changed
+maybeUpdateKeywordGroups($pdo, $client_id);
 
 ?>
 
