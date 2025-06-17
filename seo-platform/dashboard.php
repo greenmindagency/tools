@@ -38,7 +38,11 @@ if (isset($_POST['add_keywords'])) {
     $lines = preg_split('/\r\n|\n|\r/', $text);
     $lines = array_values(array_filter(array_map('trim', $lines), 'strlen'));
 
-    $insert = $pdo->prepare("INSERT IGNORE INTO keywords (client_id, keyword, volume, form) VALUES (?, ?, ?, ?)");
+    $insert = $pdo->prepare(
+        "INSERT INTO keywords (client_id, keyword, volume, form)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE volume = VALUES(volume), form = VALUES(form)"
+    );
     $entries = [];
 
     if (!empty($lines) && preg_match('/\d+$/', $lines[0])) {
