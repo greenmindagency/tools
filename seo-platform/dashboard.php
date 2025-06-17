@@ -27,7 +27,7 @@ include 'header.php';
 <h5 class="mb-3"><?= htmlspecialchars($client['name']) ?> – Keywords</h5>
 
 <!-- Add Keyword Form -->
-<form method="POST" class="mb-4">
+<form method="POST" id="addKeywordsForm" class="mb-4" style="display:none;">
     <textarea name="keywords" class="form-control" placeholder="Paste keywords with optional volume and form" rows="6"></textarea>
     <button type="submit" name="add_keywords" class="btn btn-primary mt-2">Add Keywords</button>
 </form>
@@ -220,7 +220,10 @@ $stmt->execute($params);
 ?>
 
 <div class="d-flex justify-content-between mb-2 sticky-controls">
-  <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success">Update</button>
+  <div class="d-flex">
+    <button type="button" id="toggleAddForm" class="btn btn-warning me-2">Update Keywords</button>
+    <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success">Update</button>
+  </div>
   <form id="filterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
     <input type="hidden" name="slug" value="<?= $slug ?>">
@@ -233,7 +236,11 @@ $stmt->execute($params);
     </select>
     <input type="text" name="q" id="filterInput" value="<?= htmlspecialchars($q) ?>" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
     <button type="submit" class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-search"></i></button>
+<<<<<<< ours
     <a href="dashboard.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>" class="btn btn-outline-secondary btn-sm ms-1" title="Clear filter"><i class="bi bi-x"></i></a>
+=======
+    <a href="dashboard.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>" class="btn btn-outline-secondary btn-sm ms-1 d-flex align-items-center" title="Clear filter"><i class="bi bi-x-lg"></i></a>
+>>>>>>> theirs
   </form>
 </div>
 
@@ -332,6 +339,14 @@ document.addEventListener('click', function(e) {
     const marked = flag.value === '1';
     flag.value = marked ? '0' : '1';
     tr.classList.toggle('text-decoration-line-through', !marked);
+  }
+});
+document.getElementById('toggleAddForm').addEventListener('click', function() {
+  const form = document.getElementById('addKeywordsForm');
+  if (form.style.display === 'none' || form.style.display === '') {
+    form.style.display = 'block';
+  } else {
+    form.style.display = 'none';
   }
 });
 </script>
