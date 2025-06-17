@@ -223,6 +223,7 @@ $stmt->execute($params);
   <div class="d-flex">
     <button type="button" id="toggleAddForm" class="btn btn-warning me-2">Update Keywords</button>
     <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success">Update</button>
+    <button type="button" id="copyKeywords" class="btn btn-secondary ms-2">Copy Table</button>
   </div>
   <form id="filterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
@@ -345,6 +346,22 @@ document.getElementById('toggleAddForm').addEventListener('click', function() {
   } else {
     form.style.display = 'none';
   }
+});
+document.getElementById('copyKeywords').addEventListener('click', function() {
+  const rows = document.querySelectorAll('#kwTableBody tr');
+  const lines = ['Keyword\tVolume\tForm'];
+  rows.forEach(tr => {
+    const cells = tr.querySelectorAll('td');
+    if (cells.length >= 4) {
+      const kw = cells[1].innerText.trim();
+      const vol = cells[2].innerText.trim();
+      const form = cells[3].innerText.trim();
+      lines.push(`${kw}\t${vol}\t${form}`);
+    }
+  });
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    alert('Keywords copied to clipboard');
+  });
 });
 </script>
 
