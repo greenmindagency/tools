@@ -32,6 +32,12 @@ include 'header.php';
     <button type="submit" name="add_keywords" class="btn btn-primary mt-2">Add Keywords</button>
 </form>
 
+<!-- Add Cluster Form -->
+<form method="POST" id="addClustersForm" class="mb-4" style="display:none;">
+    <textarea name="clusters" class="form-control" placeholder="keyword1|keyword2 per line" rows="4"></textarea>
+    <button type="submit" name="add_clusters" class="btn btn-primary mt-2">Add Clusters</button>
+</form>
+
 <?php
 if (isset($_POST['add_keywords'])) {
     $convertVolume = function(string $vol): string {
@@ -109,6 +115,21 @@ if (isset($_POST['add_keywords'])) {
 $pdo->query("DELETE k1 FROM keywords k1
 JOIN keywords k2 ON k1.keyword = k2.keyword AND k1.id > k2.id
 WHERE k1.client_id = $client_id AND k2.client_id = $client_id");
+
+if (isset($_POST['add_clusters'])) {
+    $text = trim($_POST['clusters']);
+    $lines = preg_split('/\r\n|\n|\r/', $text);
+    $update = $pdo->prepare("UPDATE keywords SET cluster_name = ? WHERE client_id = ? AND keyword = ?");
+    foreach ($lines as $line) {
+        $parts = array_values(array_filter(array_map('trim', explode('|', $line)), 'strlen'));
+        if (!$parts) continue;
+        $cluster = $parts[0];
+        foreach ($parts as $kw) {
+            $update->execute([$cluster, $client_id, $kw]);
+        }
+    }
+    echo "<p>Clusters updated.</p>";
+}
 
 if (isset($_POST['update_keywords'])) {
     $deleteIds = array_keys(array_filter($_POST['delete'] ?? [], fn($v) => $v === '1'));
@@ -239,6 +260,9 @@ if ($q !== '') {
     if ($field === 'group_exact') {
         $baseQuery .= " AND group_name = ?";
         $params[] = $q;
+    } elseif ($field === 'cluster_name') {
+        $baseQuery .= " AND cluster_name = ?";
+        $params[] = $q;
     } else {
         $baseQuery .= " AND {$field} LIKE ?";
         $params[] = "%$q%";
@@ -258,6 +282,7 @@ $stmt->execute($params);
 <div class="d-flex justify-content-between mb-2 sticky-controls">
   <div class="d-flex">
     <button type="button" id="toggleAddForm" class="btn btn-warning me-2">Update Keywords</button>
+    <button type="button" id="toggleClusterForm" class="btn btn-info me-2">Update Clusters</button>
     <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success">Update</button>
     <button type="button" id="copyKeywords" class="btn btn-secondary ms-2">Copy Table</button>
   </div>
@@ -377,6 +402,14 @@ document.addEventListener('click', function(e) {
 });
 document.getElementById('toggleAddForm').addEventListener('click', function() {
   const form = document.getElementById('addKeywordsForm');
+  if (form.style.display === 'none' || form.style.display === '') {
+    form.style.display = 'block';
+  } else {
+    form.style.display = 'none';
+  }
+});
+document.getElementById('toggleClusterForm').addEventListener('click', function() {
+  const form = document.getElementById('addClustersForm');
   if (form.style.display === 'none' || form.style.display === '') {
     form.style.display = 'block';
   } else {
