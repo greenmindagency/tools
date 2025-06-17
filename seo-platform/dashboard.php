@@ -21,7 +21,9 @@ $breadcrumb_client = [
 ];
 
 $title = $client['name'] . ' Dashboard';
-$pageTypes = ['Home', 'Service Page', 'Blog Article', 'Other'];
+
+$pageTypes = ['', 'Home', 'Service Page', 'Blog Article', 'Other'];
+
 include 'header.php';
 ?>
 
