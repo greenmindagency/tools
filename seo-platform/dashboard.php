@@ -38,16 +38,13 @@ if (isset($_POST['add_keywords'])) {
     $lines = preg_split('/\r\n|\n|\r/', $text);
     $lines = array_values(array_filter(array_map('trim', $lines), 'strlen'));
 
-    $insert = $pdo->prepare(
+     $insert = $pdo->prepare(
         "INSERT INTO keywords (client_id, keyword, volume, form)
-         VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE volume = VALUES(volume), form = VALUES(form)"
          VALUES (?, ?, ?, ?)"
     );
     $update = $pdo->prepare(
         "UPDATE keywords SET volume = ?, form = ?
          WHERE client_id = ? AND keyword = ?"
->>>>>>> theirs
     );
     $entries = [];
 
