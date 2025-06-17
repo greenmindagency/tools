@@ -361,6 +361,11 @@ foreach ($stmt as $row) {
         $groupBg = '#fff9c4';
     }
 
+    $clusterBg = '';
+    if ($q !== '' && $row['cluster_name'] === '') {
+        $clusterBg = '#efefef';
+    }
+
     echo "<tr data-id='{$row['id']}'>
         <td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button><input type='hidden' name='delete[{$row['id']}]' value='0' class='delete-flag'></td>
         <td>" . htmlspecialchars($row['keyword']) . "</td>
@@ -370,7 +375,7 @@ foreach ($stmt as $row) {
         <td class='text-center'>" . htmlspecialchars($row['page_type']) . "</td>
         <td>" . htmlspecialchars($row['group_name']) . "</td>
         <td class='text-center' style='background-color: $groupBg'>" . $row['group_count'] . "</td>
-        <td>" . htmlspecialchars($row['cluster_name']) . "</td>
+        <td style='background-color: $clusterBg'>" . htmlspecialchars($row['cluster_name']) . "</td>
     </tr>";
 }
 ?>
