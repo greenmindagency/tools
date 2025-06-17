@@ -129,6 +129,7 @@ $pdo->query("DELETE k1 FROM keywords k1
 JOIN keywords k2 ON k1.keyword = k2.keyword AND k1.id > k2.id
 WHERE k1.client_id = $client_id AND k2.client_id = $client_id");
 maybeUpdateKeywordGroups($pdo, $client_id);
+updateKeywordStats($pdo, $client_id);
 
 if (isset($_POST['add_clusters'])) {
     $text = trim($_POST['clusters']);
@@ -144,6 +145,7 @@ if (isset($_POST['add_clusters'])) {
     }
     echo "<p>Clusters updated.</p>";
     maybeUpdateKeywordGroups($pdo, $client_id);
+    updateKeywordStats($pdo, $client_id);
 }
 
 if (isset($_POST['import_plan'])) {
@@ -160,39 +162,21 @@ if (isset($_POST['import_plan'])) {
                 $vol = $data[1] ?? '';
                 $form = $data[2] ?? '';
                 $link = $data[3] ?? '';
-                $type = $data[4] ?? '';
+                $type = trim($data[4] ?? '');
+                if ($type !== '') {
+                    foreach ($pageTypes as $pt) {
+                        if (strcasecmp($pt, $type) === 0) { $type = $pt; break; }
+                    }
+                }
                 $insert->execute([$client_id, $keyword, $vol, $form, $link, $type]);
             }
             fclose($handle);
         }
         echo "<p>Plan imported.</p>";
         maybeUpdateKeywordGroups($pdo, $client_id);
+        updateKeywordStats($pdo, $client_id);
     }
 }
-
-if (isset($_POST['import_plan'])) {
-    if (!empty($_FILES['csv_file']['tmp_name'])) {
-        $pdo->prepare("DELETE FROM keywords WHERE client_id = ?")->execute([$client_id]);
-        $insert = $pdo->prepare(
-            "INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type) VALUES (?, ?, ?, ?, ?, ?)"
-        );
-        if (($handle = fopen($_FILES['csv_file']['tmp_name'], 'r')) !== false) {
-            while (($data = fgetcsv($handle)) !== false) {
-                if (!isset($data[0])) continue;
-                if (stripos($data[0], 'keyword') === 0) continue; // skip header
-                $keyword = $data[0];
-                $vol = $data[1] ?? '';
-                $form = $data[2] ?? '';
-                $link = $data[3] ?? '';
-                $type = $data[4] ?? '';
-                $insert->execute([$client_id, $keyword, $vol, $form, $link, $type]);
-            }
-            fclose($handle);
-        }
-        echo "<p>Plan imported.</p>";
-    }
-}
-
 if (isset($_POST['update_keywords'])) {
     $deleteIds = array_keys(array_filter($_POST['delete'] ?? [], fn($v) => $v === '1'));
     if ($deleteIds) {
@@ -211,12 +195,19 @@ if (isset($_POST['update_keywords'])) {
     if (!empty($_POST['page_type'])) {
         $update = $pdo->prepare("UPDATE keywords SET page_type = ? WHERE id = ? AND client_id = ?");
         foreach ($_POST['page_type'] as $id => $type) {
-            $update->execute([$type, $id, $client_id]);
+            $t = trim($type);
+            if ($t !== '') {
+                foreach ($pageTypes as $pt) {
+                    if (strcasecmp($pt, $t) === 0) { $t = $pt; break; }
+                }
+            }
+            $update->execute([$t, $id, $client_id]);
         }
     }
 
 
     maybeUpdateKeywordGroups($pdo, $client_id);
+    updateKeywordStats($pdo, $client_id);
 
     if (!isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
         $params = [
@@ -329,16 +320,46 @@ function updateGroupCounts(PDO $pdo, int $client_id): void {
     }
 }
 
+function updateKeywordStats(PDO $pdo, int $client_id): void {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS keyword_stats (
+        client_id INT PRIMARY KEY,
+        total INT DEFAULT 0,
+        grouped INT DEFAULT 0,
+        clustered INT DEFAULT 0,
+        structured INT DEFAULT 0
+    )");
+
+    $stmt = $pdo->prepare("SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN COALESCE(group_name,'') <> '' THEN 1 ELSE 0 END) AS grouped,
+        SUM(CASE WHEN COALESCE(cluster_name,'') <> '' THEN 1 ELSE 0 END) AS clustered,
+        SUM(CASE WHEN COALESCE(group_name,'') <> '' AND group_count <= 5 THEN 1 ELSE 0 END) AS structured
+        FROM keywords WHERE client_id = ?");
+    $stmt->execute([$client_id]);
+    $stats = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'grouped'=>0,'clustered'=>0,'structured'=>0];
+
+    $up = $pdo->prepare("REPLACE INTO keyword_stats (client_id,total,grouped,clustered,structured) VALUES (?,?,?,?,?)");
+    $up->execute([
+        $client_id,
+        (int)$stats['total'],
+        (int)$stats['grouped'],
+        (int)$stats['clustered'],
+        (int)$stats['structured']
+    ]);
+}
+
 // Update grouping only if keywords changed
 maybeUpdateKeywordGroups($pdo, $client_id);
 
-// Keyword statistics
-$statsStmt = $pdo->prepare("SELECT 
-    COUNT(*) AS total,
-    SUM(CASE WHEN COALESCE(group_name,'') <> '' THEN 1 ELSE 0 END) AS grouped,
-    SUM(CASE WHEN COALESCE(cluster_name,'') <> '' THEN 1 ELSE 0 END) AS clustered,
-    SUM(CASE WHEN COALESCE(group_name,'') <> '' AND group_count <= 5 THEN 1 ELSE 0 END) AS structured
-    FROM keywords WHERE client_id = ?");
+// Keyword statistics stored in DB
+$pdo->exec("CREATE TABLE IF NOT EXISTS keyword_stats (
+    client_id INT PRIMARY KEY,
+    total INT DEFAULT 0,
+    grouped INT DEFAULT 0,
+    clustered INT DEFAULT 0,
+    structured INT DEFAULT 0
+)");
+$statsStmt = $pdo->prepare("SELECT total, grouped, clustered, structured FROM keyword_stats WHERE client_id = ?");
 $statsStmt->execute([$client_id]);
 $stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'grouped'=>0,'clustered'=>0,'structured'=>0];
 
@@ -470,7 +491,7 @@ foreach ($stmt as $row) {
 
     $options = '';
     foreach ($pageTypes as $pt) {
-        $sel = $row['page_type'] === $pt ? ' selected' : '';
+        $sel = strcasecmp(trim($row['page_type']), $pt) === 0 ? ' selected' : '';
         $options .= "<option value=\"$pt\"$sel>$pt</option>";
     }
 
@@ -539,17 +560,14 @@ document.getElementById('toggleImportForm').addEventListener('click', function()
 });
 document.getElementById('copyKeywords').addEventListener('click', function() {
   const rows = document.querySelectorAll('#kwTableBody tr');
-  const lines = ['Keyword\tVolume\tForm'];
+  const keywords = [];
   rows.forEach(tr => {
-    const cells = tr.querySelectorAll('td');
-    if (cells.length >= 4) {
-      const kw = cells[1].innerText.trim();
-      const vol = cells[2].innerText.trim();
-      const form = cells[3].innerText.trim();
-      lines.push(`${kw}\t${vol}\t${form}`);
+    const cell = tr.querySelector('td:nth-child(2)');
+    if (cell) {
+      keywords.push(cell.innerText.trim());
     }
   });
-  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+  navigator.clipboard.writeText(keywords.join('\n')).then(() => {
     alert('Keywords copied to clipboard');
   });
 });
