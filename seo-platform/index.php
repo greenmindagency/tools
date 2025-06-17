@@ -1,4 +1,5 @@
 <?php
+$slugify = fn($name) => strtolower(trim(preg_replace('/[^a-z0-9]+/', '-', $name), '-'));
 require 'config.php';
 $title = 'SEO Platform';
 include 'header.php';
@@ -9,11 +10,12 @@ include 'header.php';
   <ul class="list-group">
   <?php
   $stmt = $pdo->query("SELECT * FROM clients ORDER BY name ASC");
-  foreach ($stmt as $client) {
-      $id = $client['id'];
-      $name = htmlspecialchars($client['name']);
-      echo "<li class='list-group-item'><a href='dashboard.php?client_id=$id'>$name</a></li>";
-  }
+    foreach ($stmt as $client) {
+        $id = $client['id'];
+        $name = htmlspecialchars($client['name']);
+        $slug = $slugify($client['name']);
+        echo "<li class='list-group-item'><a href='dashboard.php?client_id=$id&slug=$slug'>$name</a></li>";
+    }
   ?>
   </ul>
 </div>

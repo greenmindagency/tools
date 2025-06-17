@@ -1,6 +1,7 @@
 <?php
 require 'config.php';
 $client_id = $_GET['client_id'] ?? 0;
+$slugify = fn($name) => strtolower(trim(preg_replace('/[^a-z0-9]+/', '-', $name), '-'));
 
 // Load client info
 $stmt = $pdo->prepare("SELECT * FROM clients WHERE id = ?");
@@ -8,6 +9,8 @@ $stmt->execute([$client_id]);
 $client = $stmt->fetch();
 
 if (!$client) die("Client not found");
+
+$slug = $slugify($client['name']);
 
 $title = $client['name'] . ' Dashboard';
 include 'header.php';
@@ -81,7 +84,15 @@ if (isset($_POST['update_keywords'])) {
     updateGroupCounts($pdo, $client_id);
 
     if (!isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
-        header("Location: dashboard.php?client_id=$client_id");
+        $params = [
+            'client_id' => $client_id,
+            'slug' => $slug,
+            'page' => $_GET['page'] ?? null,
+            'field' => $_GET['field'] ?? null,
+            'q' => $_GET['q'] ?? null,
+        ];
+        $qs = http_build_query(array_filter($params, fn($v) => $v !== null && $v !== ''));
+        header('Location: dashboard.php' . ($qs ? "?$qs" : ''));
         exit;
     }
     header('Content-Type: application/json');
@@ -173,7 +184,7 @@ $perPage = 100;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $q = trim($_GET['q'] ?? '');
 $field = $_GET['field'] ?? 'keyword';
-$allowedFields = ['keyword', 'group_name', 'cluster_name', 'content_link'];
+$allowedFields = ['keyword', 'group_name', 'group_exact', 'cluster_name', 'content_link'];
 if (!in_array($field, $allowedFields, true)) {
     $field = 'keyword';
 }
@@ -181,8 +192,13 @@ if (!in_array($field, $allowedFields, true)) {
 $baseQuery = "FROM keywords WHERE client_id = ?";
 $params = [$client_id];
 if ($q !== '') {
-    $baseQuery .= " AND {$field} LIKE ?";
-    $params[] = "%$q%";
+    if ($field === 'group_exact') {
+        $baseQuery .= " AND group_name = ?";
+        $params[] = $q;
+    } else {
+        $baseQuery .= " AND {$field} LIKE ?";
+        $params[] = "%$q%";
+    }
 }
 $countStmt = $pdo->prepare("SELECT COUNT(*) $baseQuery");
 $countStmt->execute($params);
@@ -199,9 +215,11 @@ $stmt->execute($params);
   <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success">Update</button>
   <form id="filterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
+    <input type="hidden" name="slug" value="<?= $slug ?>">
     <select name="field" id="filterField" class="form-select form-select-sm me-2" style="width:auto;">
       <option value="keyword"<?= $field==='keyword' ? ' selected' : '' ?>>Keyword</option>
       <option value="group_name"<?= $field==='group_name' ? ' selected' : '' ?>>Group</option>
+      <option value="group_exact"<?= $field==='group_exact' ? ' selected' : '' ?>>Group Exact</option>
       <option value="cluster_name"<?= $field==='cluster_name' ? ' selected' : '' ?>>Cluster</option>
       <option value="content_link"<?= $field==='content_link' ? ' selected' : '' ?>>Link</option>
     </select>
@@ -283,7 +301,7 @@ foreach ($stmt as $row) {
 <?php if ($totalPages > 1): ?>
   <ul class="pagination pagination-sm">
   <?php for ($i = 1; $i <= $totalPages; $i++): $active = $i === $page ? ' active' : '';
-        $qs = http_build_query(['client_id'=>$client_id,'page'=>$i,'field'=>$field,'q'=>$q]); ?>
+        $qs = http_build_query(['client_id'=>$client_id,'slug'=>$slug,'page'=>$i,'field'=>$field,'q'=>$q]); ?>
     <li class="page-item<?= $active ?>"><a class="page-link" href="dashboard.php?<?= $qs ?>"><?= $i ?></a></li>
   <?php endfor; ?>
   </ul>
