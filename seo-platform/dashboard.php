@@ -6,7 +6,7 @@ $slugify = function(string $name): string {
     $name = preg_replace('/[^a-zA-Z0-9]+/', '-', $name);
     return strtolower(trim($name, '-'));
 };
- 
+
 // Load client info
 $stmt = $pdo->prepare("SELECT * FROM clients WHERE id = ?");
 $stmt->execute([$client_id]);
@@ -25,13 +25,7 @@ $pageTypes = ['', 'Home', 'Service', 'Blog', 'Page', 'Article', 'Product', 'Othe
 include 'header.php';
 ?>
 
-<h5 class="mb-1"><?= htmlspecialchars($client['name']) ?> – Keywords</h5>
-<div class="mb-3">
-  <span class="me-3">All keywords: <?= (int)$stats['total'] ?></span>
-  <span class="me-3">Grouped Keywords: <?= (int)$stats['grouped'] ?></span>
-  <span class="me-3">Clustered Keywords: <?= (int)$stats['clustered'] ?></span>
-  <span class="me-3">Structured Keywords: <?= (int)$stats['structured'] ?></span>
-</div>
+<h5 class="mb-3"><?= htmlspecialchars($client['name']) ?> – Keywords</h5>
 
 <!-- Add Keyword Form -->
 <form method="POST" id="addKeywordsForm" class="mb-4" style="display:none;">
@@ -70,39 +64,7 @@ if (isset($_POST['add_keywords'])) {
             return (string)$map[$key];
         }
         if (preg_match('/^(\d+(?:\.\d+)?)([KM]?)$/i', $key, $m)) {
-            $num = (float)$m[1];
-            $suffix = strtoupper($m[2]);
-            if ($suffix === 'K') $num *= 1000;
-            elseif ($suffix === 'M') $num *= 1000000;
-            return (string)(int)$num;
-        }
-        return $v;
-    };
-    $text = trim($_POST['keywords']);
-    $lines = preg_split('/\r\n|\n|\r/', $text);
-    $lines = array_values(array_filter(array_map('trim', $lines), 'strlen'));
-
-
-     $insert = $pdo->prepare(
-        "INSERT INTO keywords (client_id, keyword, volume, form)
-         VALUES (?, ?, ?, ?)"
-    );
-    $update = $pdo->prepare(
-        "UPDATE keywords SET volume = ?, form = ?
-         WHERE client_id = ? AND keyword = ?"
-    );
-    $entries = [];
-
-    if (!empty($lines) && preg_match('/\d+$/', $lines[0])) {
-        // Format: keyword volume form per line
-        foreach ($lines as $line) {
-            if (preg_match('/^(.*?)\s+(\S+)\s+(\S+)$/', $line, $m)) {
-                $entries[] = [$m[1], $convertVolume($m[2]), $m[3]];
-            } else {
-                $entries[] = [$line, '', ''];
-            }
-        }
-    } else {
+@@ -93,82 +100,145 @@ if (isset($_POST['add_keywords'])) {
         // Format: keyword line, volume line, form line
         for ($i = 0; $i < count($lines); $i += 3) {
             $keyword = $lines[$i] ?? '';
@@ -153,43 +115,50 @@ if (isset($_POST['import_plan'])) {
             "INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type) VALUES (?, ?, ?, ?, ?, ?)"
         );
         if (($handle = fopen($_FILES['csv_file']['tmp_name'], 'r')) !== false) {
+            $header = null;
+            $idx = [0, 1, 2, 3, 4];
             while (($data = fgetcsv($handle)) !== false) {
-                if (!isset($data[0])) continue;
-                if (stripos($data[0], 'keyword') === 0) continue; // skip header
-                $keyword = $data[0];
-                $vol = $data[1] ?? '';
-                $form = $data[2] ?? '';
-                $link = $data[3] ?? '';
-                $type = $data[4] ?? '';
+                if ($header === null) {
+                    $maybeHeader = array_map('trim', $data);
+                    if (isset($maybeHeader[0]) && stripos($maybeHeader[0], 'keyword') === 0) {
+                        $header = array_map('strtolower', $maybeHeader);
+                        $map = [
+                            'keyword' => null,
+                            'volume' => null,
+                            'form' => null,
+                            'link' => null,
+                            'content link' => null,
+                            'page type' => null,
+                        ];
+                        foreach ($header as $i => $h) {
+                            if (isset($map[$h])) {
+                                $map[$h] = $i;
+                            }
+                        }
+                        $idx = [
+                            $map['keyword'] ?? 0,
+                            $map['volume'] ?? 1,
+                            $map['form'] ?? 2,
+                            ($map['link'] ?? $map['content link']) ?? 3,
+                            $map['page type'] ?? 4,
+                        ];
+                        continue; // skip header row
+                    } else {
+                        $header = []; // no header present
+                    }
+                }
+                $keyword = $data[$idx[0]] ?? '';
+                if ($keyword === '') continue;
+                $vol  = $data[$idx[1]] ?? '';
+                $form = $data[$idx[2]] ?? '';
+                $link = $data[$idx[3]] ?? '';
+                $type = $data[$idx[4]] ?? '';
                 $insert->execute([$client_id, $keyword, $vol, $form, $link, $type]);
             }
             fclose($handle);
         }
         echo "<p>Plan imported.</p>";
         maybeUpdateKeywordGroups($pdo, $client_id);
-    }
-}
-
-if (isset($_POST['import_plan'])) {
-    if (!empty($_FILES['csv_file']['tmp_name'])) {
-        $pdo->prepare("DELETE FROM keywords WHERE client_id = ?")->execute([$client_id]);
-        $insert = $pdo->prepare(
-            "INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type) VALUES (?, ?, ?, ?, ?, ?)"
-        );
-        if (($handle = fopen($_FILES['csv_file']['tmp_name'], 'r')) !== false) {
-            while (($data = fgetcsv($handle)) !== false) {
-                if (!isset($data[0])) continue;
-                if (stripos($data[0], 'keyword') === 0) continue; // skip header
-                $keyword = $data[0];
-                $vol = $data[1] ?? '';
-                $form = $data[2] ?? '';
-                $link = $data[3] ?? '';
-                $type = $data[4] ?? '';
-                $insert->execute([$client_id, $keyword, $vol, $form, $link, $type]);
-            }
-            fclose($handle);
-        }
-        echo "<p>Plan imported.</p>";
     }
 }
 
@@ -214,7 +183,6 @@ if (isset($_POST['update_keywords'])) {
             $update->execute([$type, $id, $client_id]);
         }
     }
-
 
     maybeUpdateKeywordGroups($pdo, $client_id);
 
@@ -242,7 +210,7 @@ function getBasePhrases(string $phrase): array {
     $count = count($words);
     for ($n = 2; $n <= 8; $n++) {
         if ($count >= $n) {
-            $bases[] = implode(' ', array_slice($words, 0, $n));
+@@ -176,137 +246,158 @@ function getBasePhrases(string $phrase): array {
         }
     }
     return $bases;
@@ -332,16 +300,6 @@ function updateGroupCounts(PDO $pdo, int $client_id): void {
 // Update grouping only if keywords changed
 maybeUpdateKeywordGroups($pdo, $client_id);
 
-// Keyword statistics
-$statsStmt = $pdo->prepare("SELECT 
-    COUNT(*) AS total,
-    SUM(CASE WHEN COALESCE(group_name,'') <> '' THEN 1 ELSE 0 END) AS grouped,
-    SUM(CASE WHEN COALESCE(cluster_name,'') <> '' THEN 1 ELSE 0 END) AS clustered,
-    SUM(CASE WHEN COALESCE(group_name,'') <> '' AND group_count <= 5 THEN 1 ELSE 0 END) AS structured
-    FROM keywords WHERE client_id = ?");
-$statsStmt->execute([$client_id]);
-$stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'grouped'=>0,'clustered'=>0,'structured'=>0];
-
 ?>
 
 <?php
@@ -381,12 +339,11 @@ $stmt->execute($params);
 
 <div class="d-flex justify-content-between mb-2 sticky-controls">
   <div class="d-flex">
-    <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success me-2">Update</button>
     <button type="button" id="toggleAddForm" class="btn btn-warning me-2">Update Keywords</button>
     <button type="button" id="toggleClusterForm" class="btn btn-info me-2">Update Clusters</button>
-    <button type="button" id="copyKeywords" class="btn btn-secondary me-2">Copy Table</button>
-    <button type="button" id="toggleImportForm" class="btn btn-primary me-2">Import Plan</button>
-    <a href="export.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary">Export CSV</a>
+    <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success">Update</button>
+    <button type="button" id="copyKeywords" class="btn btn-secondary ms-2">Copy Table</button>
+    <button type="button" id="toggleImportForm" class="btn btn-primary ms-2">Import Plan</button>
   </div>
   <form id="filterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
@@ -412,37 +369,7 @@ $stmt->execute($params);
     <thead class="table-light">
     <tr>
         <th style="width:1px;"></th>
-        <th>Keyword</th>
-        <th class="text-center">Volume</th>
-        <th class="text-center">Form</th>
-        <th>Link</th>
-        <th class="text-center">Page Type</th>
-        <th>Group</th>
-        <th class="text-center"># in Group</th>
-        <th>Cluster</th>
-    </tr>
-    </thead>
-<tbody id="kwTableBody">
-<?php
-foreach ($stmt as $row) {
-    $volume = $row['volume'];
-    $form   = $row['form'];
-
-    $formBg = '';
-    if (is_numeric($form)) {
-        $f = (int)$form;
-        if ($f < 33) {
-            $formBg = '#beddce';
-        } elseif ($f < 66) {
-            $formBg = '#f9e9b4';
-        } else {
-            $formBg = '#f5c6c2';
-        }
-    }
-
-    $volBg = '';
-    if (is_numeric($volume)) {
-        $v = (int)$volume;
+@@ -344,99 +435,113 @@ foreach ($stmt as $row) {
         if ($v >= 5000000) {
             $volBg = '#9b9797';
         } elseif ($v >= 500000) {
