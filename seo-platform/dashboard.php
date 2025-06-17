@@ -21,6 +21,7 @@ $breadcrumb_client = [
 ];
 
 $title = $client['name'] . ' Dashboard';
+$pageTypes = ['Home', 'Service Page', 'Blog Article', 'Other'];
 include 'header.php';
 ?>
 
@@ -30,6 +31,12 @@ include 'header.php';
 <form method="POST" id="addKeywordsForm" class="mb-4" style="display:none;">
     <textarea name="keywords" class="form-control" placeholder="Paste keywords with optional volume and form" rows="6"></textarea>
     <button type="submit" name="add_keywords" class="btn btn-primary mt-2">Add Keywords</button>
+</form>
+
+<!-- Import Plan Form -->
+<form method="POST" id="importForm" enctype="multipart/form-data" class="mb-4" style="display:none;">
+    <input type="file" name="csv_file" accept=".csv" class="form-control">
+    <button type="submit" name="import_plan" class="btn btn-primary mt-2">Import Plan</button>
 </form>
 
 <!-- Add Cluster Form -->
@@ -131,6 +138,29 @@ if (isset($_POST['add_clusters'])) {
     echo "<p>Clusters updated.</p>";
 }
 
+if (isset($_POST['import_plan'])) {
+    if (!empty($_FILES['csv_file']['tmp_name'])) {
+        $pdo->prepare("DELETE FROM keywords WHERE client_id = ?")->execute([$client_id]);
+        $insert = $pdo->prepare(
+            "INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type) VALUES (?, ?, ?, ?, ?, ?)"
+        );
+        if (($handle = fopen($_FILES['csv_file']['tmp_name'], 'r')) !== false) {
+            while (($data = fgetcsv($handle)) !== false) {
+                if (!isset($data[0])) continue;
+                if (stripos($data[0], 'keyword') === 0) continue; // skip header
+                $keyword = $data[0];
+                $vol = $data[1] ?? '';
+                $form = $data[2] ?? '';
+                $link = $data[3] ?? '';
+                $type = $data[4] ?? '';
+                $insert->execute([$client_id, $keyword, $vol, $form, $link, $type]);
+            }
+            fclose($handle);
+        }
+        echo "<p>Plan imported.</p>";
+    }
+}
+
 if (isset($_POST['update_keywords'])) {
     $deleteIds = array_keys(array_filter($_POST['delete'] ?? [], fn($v) => $v === '1'));
     if ($deleteIds) {
@@ -143,6 +173,13 @@ if (isset($_POST['update_keywords'])) {
         $update = $pdo->prepare("UPDATE keywords SET content_link = ? WHERE id = ? AND client_id = ?");
         foreach ($_POST['link'] as $id => $link) {
             $update->execute([$link, $id, $client_id]);
+        }
+    }
+
+    if (!empty($_POST['page_type'])) {
+        $update = $pdo->prepare("UPDATE keywords SET page_type = ? WHERE id = ? AND client_id = ?");
+        foreach ($_POST['page_type'] as $id => $type) {
+            $update->execute([$type, $id, $client_id]);
         }
     }
 
@@ -285,6 +322,7 @@ $stmt->execute($params);
     <button type="button" id="toggleClusterForm" class="btn btn-info me-2">Update Clusters</button>
     <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success">Update</button>
     <button type="button" id="copyKeywords" class="btn btn-secondary ms-2">Copy Table</button>
+    <button type="button" id="toggleImportForm" class="btn btn-primary ms-2">Import Plan</button>
   </div>
   <form id="filterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
@@ -366,13 +404,19 @@ foreach ($stmt as $row) {
         $clusterBg = '#efefef';
     }
 
+    $options = '';
+    foreach ($pageTypes as $pt) {
+        $sel = $row['page_type'] === $pt ? ' selected' : '';
+        $options .= "<option value=\"$pt\"$sel>$pt</option>";
+    }
+
     echo "<tr data-id='{$row['id']}'>
         <td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button><input type='hidden' name='delete[{$row['id']}]' value='0' class='delete-flag'></td>
         <td>" . htmlspecialchars($row['keyword']) . "</td>
         <td class='text-center' style='background-color: $volBg'>" . $volume . "</td>
         <td class='text-center' style='background-color: $formBg'>" . $form . "</td>
         <td><input type='text' name='link[{$row['id']}]' value='" . htmlspecialchars($row['content_link']) . "' class='form-control form-control-sm' style='max-width:200px;'></td>
-        <td class='text-center'>" . htmlspecialchars($row['page_type']) . "</td>
+        <td class='text-center'><select name='page_type[{$row['id']}]' class='form-select form-select-sm'>$options</select></td>
         <td>" . htmlspecialchars($row['group_name']) . "</td>
         <td class='text-center' style='background-color: $groupBg'>" . $row['group_count'] . "</td>
         <td style='background-color: $clusterBg'>" . htmlspecialchars($row['cluster_name']) . "</td>
@@ -415,6 +459,14 @@ document.getElementById('toggleAddForm').addEventListener('click', function() {
 });
 document.getElementById('toggleClusterForm').addEventListener('click', function() {
   const form = document.getElementById('addClustersForm');
+  if (form.style.display === 'none' || form.style.display === '') {
+    form.style.display = 'block';
+  } else {
+    form.style.display = 'none';
+  }
+});
+document.getElementById('toggleImportForm').addEventListener('click', function() {
+  const form = document.getElementById('importForm');
   if (form.style.display === 'none' || form.style.display === '') {
     form.style.display = 'block';
   } else {
