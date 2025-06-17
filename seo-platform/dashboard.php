@@ -233,6 +233,7 @@ $stmt->execute($params);
     </select>
     <input type="text" name="q" id="filterInput" value="<?= htmlspecialchars($q) ?>" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
     <button type="submit" class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-search"></i></button>
+    <a href="dashboard.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>" class="btn btn-outline-secondary btn-sm ms-1" title="Clear filter"><i class="bi bi-x"></i></a>
   </form>
 </div>
 
@@ -289,6 +290,11 @@ foreach ($stmt as $row) {
         }
     }
 
+    $groupBg = '';
+    if (is_numeric($row['group_count']) && (int)$row['group_count'] > 5) {
+        $groupBg = '#fff9c4';
+    }
+
     echo "<tr data-id='{$row['id']}'>
         <td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button><input type='hidden' name='delete[{$row['id']}]' value='0' class='delete-flag'></td>
         <td>" . htmlspecialchars($row['keyword']) . "</td>
@@ -297,7 +303,7 @@ foreach ($stmt as $row) {
         <td><input type='text' name='link[{$row['id']}]' value='" . htmlspecialchars($row['content_link']) . "' class='form-control form-control-sm' style='max-width:200px;'></td>
         <td class='text-center'>" . htmlspecialchars($row['page_type']) . "</td>
         <td>" . htmlspecialchars($row['group_name']) . "</td>
-        <td class='text-center'>" . $row['group_count'] . "</td>
+        <td class='text-center' style='background-color: $groupBg'>" . $row['group_count'] . "</td>
         <td>" . htmlspecialchars($row['cluster_name']) . "</td>
     </tr>";
 }
