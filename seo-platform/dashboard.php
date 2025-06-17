@@ -34,9 +34,35 @@ include 'header.php';
 
 <?php
 if (isset($_POST['add_keywords'])) {
+    $convertVolume = function(string $vol): string {
+        $v = trim($vol);
+        if ($v === '') return '';
+        $v = str_replace([',', '–'], ['', '-'], $v);
+        $key = preg_replace('/\s+/', '', $v);
+        $map = [
+            '1M-10M'   => 5000000,
+            '100K-1M'  => 500000,
+            '10K-100K' => 50000,
+            '1K-10K'   => 5000,
+            '100-1K'   => 500,
+            '10-100'   => 50,
+        ];
+        if (isset($map[$key])) {
+            return (string)$map[$key];
+        }
+        if (preg_match('/^(\d+(?:\.\d+)?)([KM]?)$/i', $key, $m)) {
+            $num = (float)$m[1];
+            $suffix = strtoupper($m[2]);
+            if ($suffix === 'K') $num *= 1000;
+            elseif ($suffix === 'M') $num *= 1000000;
+            return (string)(int)$num;
+        }
+        return $v;
+    };
     $text = trim($_POST['keywords']);
     $lines = preg_split('/\r\n|\n|\r/', $text);
     $lines = array_values(array_filter(array_map('trim', $lines), 'strlen'));
+
 
      $insert = $pdo->prepare(
         "INSERT INTO keywords (client_id, keyword, volume, form)
@@ -52,7 +78,7 @@ if (isset($_POST['add_keywords'])) {
         // Format: keyword volume form per line
         foreach ($lines as $line) {
             if (preg_match('/^(.*?)\s+(\S+)\s+(\S+)$/', $line, $m)) {
-                $entries[] = [$m[1], $m[2], $m[3]];
+                $entries[] = [$m[1], $convertVolume($m[2]), $m[3]];
             } else {
                 $entries[] = [$line, '', ''];
             }
@@ -64,7 +90,7 @@ if (isset($_POST['add_keywords'])) {
             $volume  = $lines[$i + 1] ?? '';
             $form    = $lines[$i + 2] ?? '';
             if ($keyword !== '') {
-                $entries[] = [$keyword, $volume, $form];
+                $entries[] = [$keyword, $convertVolume($volume), $form];
             }
         }
     }
