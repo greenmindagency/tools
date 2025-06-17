@@ -42,6 +42,12 @@ if (isset($_POST['add_keywords'])) {
         "INSERT INTO keywords (client_id, keyword, volume, form)
          VALUES (?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE volume = VALUES(volume), form = VALUES(form)"
+         VALUES (?, ?, ?, ?)"
+    );
+    $update = $pdo->prepare(
+        "UPDATE keywords SET volume = ?, form = ?
+         WHERE client_id = ? AND keyword = ?"
+>>>>>>> theirs
     );
     $entries = [];
 
@@ -68,7 +74,10 @@ if (isset($_POST['add_keywords'])) {
 
     foreach ($entries as $e) {
         list($k, $v, $f) = $e;
-        $insert->execute([$client_id, $k, $v, $f]);
+        $update->execute([$v, $f, $client_id, $k]);
+        if ($update->rowCount() === 0) {
+            $insert->execute([$client_id, $k, $v, $f]);
+        }
     }
     echo "<p>Keywords added.</p>";
 }
