@@ -55,13 +55,22 @@ $title = $title ?? 'SEO Platform';
 
         echo '<li class="breadcrumb-item"><a href="/tools/">Home</a></li>';
         $link = '/tools';
+        $count = count($segments);
         foreach ($segments as $index => $seg) {
           $link .= '/' . $seg;
           $name = ucwords(str_replace(['-', '.php'], [' ', ''], $seg));
-          if ($index === count($segments) - 1) {
+          $isLast = $index === $count - 1;
+          if ($isLast && isset($breadcrumb_client)) {
+            $cName = htmlspecialchars($breadcrumb_client['name']);
+            $cUrl  = htmlspecialchars($breadcrumb_client['url']);
+            echo "<li class='breadcrumb-item'><a href='$cUrl'>$cName</a></li>";
             echo "<li class='breadcrumb-item active' aria-current='page'>$name</li>";
           } else {
-            echo "<li class='breadcrumb-item'><a href='$link/'>$name</a></li>";
+            if ($isLast) {
+              echo "<li class='breadcrumb-item active' aria-current='page'>$name</li>";
+            } else {
+              echo "<li class='breadcrumb-item'><a href='$link/'>$name</a></li>";
+            }
           }
         }
       ?>

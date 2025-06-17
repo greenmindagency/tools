@@ -1,5 +1,9 @@
 <?php
-$slugify = fn($name) => strtolower(trim(preg_replace('/[^a-z0-9]+/', '-', $name), '-'));
+$slugify = function(string $name): string {
+    $name = iconv('UTF-8', 'ASCII//TRANSLIT', $name);
+    $name = preg_replace('/[^a-zA-Z0-9]+/', '-', $name);
+    return strtolower(trim($name, '-'));
+};
 require 'config.php';
 $title = 'SEO Platform';
 include 'header.php';
