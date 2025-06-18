@@ -166,7 +166,7 @@ if (isset($_POST['import_plan'])) {
     if (!empty($_FILES['csv_file']['tmp_name'])) {
         $pdo->prepare("DELETE FROM keywords WHERE client_id = ?")->execute([$client_id]);
         $insert = $pdo->prepare(
-            "INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type) VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type, group_name, group_count, cluster_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
         if (($handle = fopen($_FILES['csv_file']['tmp_name'], 'r')) !== false) {
             while (($data = fgetcsv($handle)) !== false) {
@@ -177,12 +177,15 @@ if (isset($_POST['import_plan'])) {
                 $form = $data[2] ?? '';
                 $link = $data[3] ?? '';
                 $type = trim($data[4] ?? '');
+                $group = $data[5] ?? '';
+                $groupCnt = is_numeric($data[6] ?? '') ? (int)$data[6] : 0;
+                $cluster = $data[7] ?? '';
                 if ($type !== '') {
                     foreach ($pageTypes as $pt) {
                         if (strcasecmp($pt, $type) === 0) { $type = $pt; break; }
                     }
                 }
-                $insert->execute([$client_id, $keyword, $vol, $form, $link, $type]);
+                $insert->execute([$client_id, $keyword, $vol, $form, $link, $type, $group, $groupCnt, $cluster]);
             }
             fclose($handle);
         }
