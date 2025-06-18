@@ -8,10 +8,25 @@ header('Content-Type: text/csv');
 header('Content-Disposition: attachment; filename="keywords_'.$client_id.'.csv"');
 $out = fopen('php://output', 'w');
 fputcsv($out, ['Keyword','Volume','Form','Link','Page Type','Group','# in Group','Cluster']);
-$stmt = $pdo->prepare("SELECT keyword, volume, form, content_link, page_type, group_name, group_count, cluster_name FROM keywords WHERE client_id = ? ORDER BY id");
+
+$stmt = $pdo->prepare(
+    "SELECT keyword, volume, form, content_link, page_type, group_name, group_count, cluster_name
+     FROM keywords WHERE client_id = ? ORDER BY id"
+);
 $stmt->execute([$client_id]);
 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-    fputcsv($out, [$row['keyword'],$row['volume'],$row['form'],$row['content_link'],$row['page_type'],$row['group_name'],$row['group_count'],$row['cluster_name']]);
+    $cluster   = $row['cluster_name'] ?? '';
+    $groupCnt  = $row['group_count'] ?? '';
+    fputcsv($out, [
+        $row['keyword'],
+        $row['volume'],
+        $row['form'],
+        $row['content_link'],
+        $row['page_type'],
+        $row['group_name'],
+        $groupCnt,
+        $cluster
+    ]);
 }
 fclose($out);
 exit;
