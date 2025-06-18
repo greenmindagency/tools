@@ -15,7 +15,9 @@ $stmt = $pdo->prepare(
 );
 $stmt->execute([$client_id]);
 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-    $cluster   = $row['cluster_name'] ?? '';
+
+    $cluster   = trim($row['cluster_name'] ?? '');
+
     $groupCnt  = $row['group_count'] ?? '';
     fputcsv($out, [
         $row['keyword'],

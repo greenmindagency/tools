@@ -177,9 +177,11 @@ if (isset($_POST['import_plan'])) {
                 $form = $data[2] ?? '';
                 $link = $data[3] ?? '';
                 $type = trim($data[4] ?? '');
-                $group = $data[5] ?? '';
+
+                $group = trim($data[5] ?? '');
                 $groupCnt = is_numeric($data[6] ?? '') ? (int)$data[6] : 0;
-                $cluster = $data[7] ?? '';
+                $cluster = trim($data[7] ?? '');
+
                 if ($type !== '') {
                     foreach ($pageTypes as $pt) {
                         if (strcasecmp($pt, $type) === 0) { $type = $pt; break; }
