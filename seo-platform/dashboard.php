@@ -21,9 +21,49 @@ $breadcrumb_client = [
 ];
 
 $title = $client['name'] . ' Dashboard';
+$restored = false;
 $pageTypes = ['', 'Home', 'Service', 'Blog', 'Page', 'Article', 'Product', 'Other'];
 maybeUpdateKeywordGroups($pdo, $client_id);
 updateKeywordStats($pdo, $client_id);
+
+$backupDir = __DIR__ . '/backups/client_' . $client_id;
+$backups = [];
+if (is_dir($backupDir)) {
+    $files = glob($backupDir . '/*.csv');
+    usort($files, fn($a, $b) => filemtime($b) <=> filemtime($a));
+    foreach ($files as $f) {
+        $backups[] = basename($f);
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
+    $sel = basename($_POST['backup_file'] ?? '');
+    $path = $backupDir . '/' . $sel;
+    if (is_file($path)) {
+        $pdo->prepare("DELETE FROM keywords WHERE client_id = ?")->execute([$client_id]);
+        if (($handle = fopen($path, 'r')) !== false) {
+            fgetcsv($handle); // skip header
+            $ins = $pdo->prepare("INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type, group_name, group_count, cluster_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            while (($data = fgetcsv($handle)) !== false) {
+                $ins->execute([
+                    $client_id,
+                    $data[0] ?? '',
+                    $data[1] ?? '',
+                    $data[2] ?? '',
+                    $data[3] ?? '',
+                    $data[4] ?? '',
+                    $data[5] ?? '',
+                    (int)($data[6] ?? 0),
+                    $data[7] ?? ''
+                ]);
+            }
+            fclose($handle);
+        }
+        maybeUpdateKeywordGroups($pdo, $client_id);
+        updateKeywordStats($pdo, $client_id);
+        $restored = true;
+    }
+}
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS keyword_stats (
     client_id INT PRIMARY KEY,
@@ -40,12 +80,25 @@ include 'header.php';
 ?>
 
 <h5 class="mb-1"><?= htmlspecialchars($client['name']) ?> – Keywords</h5>
-<div class="mb-3">
-  <span class="me-3">All keywords: <?= (int)$stats['total'] ?></span>
-  <span class="me-3">Grouped Keywords: <?= (int)$stats['grouped'] ?></span>
-  <span class="me-3">Clustered Keywords: <?= (int)$stats['clustered'] ?></span>
-  <span class="me-3">Structured Keywords: <?= (int)$stats['structured'] ?></span>
+<div class="mb-3 d-flex justify-content-between align-items-center">
+  <div>
+    <span class="me-3">All keywords: <?= (int)$stats['total'] ?></span>
+    <span class="me-3">Grouped Keywords: <?= (int)$stats['grouped'] ?></span>
+    <span class="me-3">Clustered Keywords: <?= (int)$stats['clustered'] ?></span>
+    <span class="me-3">Structured Keywords: <?= (int)$stats['structured'] ?></span>
+  </div>
+  <form method="POST" class="d-flex">
+    <select name="backup_file" class="form-select form-select-sm me-2" style="width:auto;">
+      <?php foreach ($backups as $b): ?>
+        <option value="<?= htmlspecialchars($b) ?>"><?= htmlspecialchars($b) ?></option>
+      <?php endforeach; ?>
+    </select>
+    <button type="submit" name="restore_backup" class="btn btn-sm btn-secondary">Restore</button>
+  </form>
 </div>
+<?php if (!empty($restored)): ?>
+<p class="text-success">Backup restored.</p>
+<?php endif; ?>
 
 <!-- Add Keyword Form -->
 <form method="POST" id="addKeywordsForm" class="mb-4" style="display:none;">
