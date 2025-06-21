@@ -65,6 +65,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_backup'])) {
+    createCsvBackup($pdo, $client_id, $backupDir);
+    $files = glob($backupDir . '/*.csv');
+    usort($files, fn($a, $b) => filemtime($b) <=> filemtime($a));
+    $backups = array_map('basename', $files);
+}
+
 $pdo->exec("CREATE TABLE IF NOT EXISTS keyword_stats (
     client_id INT PRIMARY KEY,
     total INT DEFAULT 0,
@@ -93,7 +100,8 @@ include 'header.php';
         <option value="<?= htmlspecialchars($b) ?>"><?= htmlspecialchars($b) ?></option>
       <?php endforeach; ?>
     </select>
-    <button type="submit" name="restore_backup" class="btn btn-sm btn-secondary">Restore</button>
+    <button type="submit" name="restore_backup" class="btn btn-sm btn-secondary me-2">Restore</button>
+    <button type="submit" name="create_backup" class="btn btn-sm btn-primary">Backup Now</button>
   </form>
 </div>
 <?php if (!empty($restored)): ?>
@@ -418,6 +426,40 @@ function updateKeywordStats(PDO $pdo, int $client_id): void {
         (int)$stats['clustered'],
         (int)$stats['structured']
     ]);
+}
+
+function createCsvBackup(PDO $pdo, int $client_id, string $dir): void {
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+    date_default_timezone_set('Africa/Cairo');
+    $ts = date('d-m-Y_H-i');
+    $file = "$dir/$ts.csv";
+    $out = fopen($file, 'w');
+    fputcsv($out, ['Keyword','Volume','Form','Link','Page Type','Group','# in Group','Cluster']);
+    $stmt = $pdo->prepare("SELECT keyword, volume, form, content_link, page_type, group_name, group_count, cluster_name FROM keywords WHERE client_id = ? ORDER BY id");
+    $stmt->execute([$client_id]);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        fputcsv($out, [
+            $row['keyword'],
+            $row['volume'],
+            $row['form'],
+            $row['content_link'],
+            $row['page_type'],
+            $row['group_name'],
+            $row['group_count'],
+            $row['cluster_name']
+        ]);
+    }
+    fclose($out);
+
+    $files = glob($dir . '/*.csv');
+    usort($files, fn($a, $b) => filemtime($b) <=> filemtime($a));
+    if (count($files) > 7) {
+        foreach (array_slice($files, 7) as $old) {
+            unlink($old);
+        }
+    }
 }
 
 ?>
