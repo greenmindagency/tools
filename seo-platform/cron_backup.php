@@ -1,12 +1,13 @@
 <?php
 require __DIR__ . '/config.php';
+date_default_timezone_set('Africa/Cairo');
 
 $backupRoot = __DIR__ . '/backups';
 if (!is_dir($backupRoot)) {
     mkdir($backupRoot, 0777, true);
 }
 
-$date = date('d-m-Y');
+$date = date('d-m-Y_H-i');
 
 $clientStmt = $pdo->query("SELECT id FROM clients");
 $clients = $clientStmt->fetchAll(PDO::FETCH_COLUMN);
