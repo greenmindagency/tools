@@ -79,8 +79,8 @@ include 'header.php';
 </div>
 
 <div class="form-check form-switch mb-2">
-  <input class="form-check-input" type="checkbox" id="includeCanvas" checked>
-  <label class="form-check-label" for="includeCanvas">Use /canvas at top of prompt</label>
+  <input class="form-check-input" type="checkbox" id="includeDoc" checked>
+  <label class="form-check-label" for="includeDoc">Use /doc at top of prompt</label>
 </div>
 
 <div class="form-check form-switch mb-4">
@@ -121,14 +121,14 @@ function generatePrompt() {
   const company = document.getElementById('companyName').value.trim();
   const keywords = document.getElementById('keywords').value.trim();
   const auto = document.getElementById('autoSelectKeywords').checked;
-  const canvas = document.getElementById('includeCanvas').checked;
+  const docFlag = document.getElementById('includeDoc').checked;
   const emojis = document.getElementById('includeEmojis').checked;
   const old = document.getElementById('oldContent').value.trim();
   const refine = document.getElementById('refineLevel').value;
   const faq = document.getElementById('includeFAQ').checked;
   const countries = Array.from(document.querySelectorAll('input[name="country[]"]')).map(c => c.value.trim()).filter(Boolean);
   let prompt = "";
-  if (canvas) prompt += "/canvas\n\n";
+  if (docFlag) prompt += "/doc\n\n";
   prompt += `Write a content for a ${type === "Social Media" ? "social media post" : `${type} page`} in ${lang || 'English'}\n\n`;
   prompt += "Please act as a content writer, a very proficient SEO writer who writes fluently.\n\n";
 
@@ -147,7 +147,7 @@ function generatePrompt() {
     prompt += "– Headings: the hierarchy must be formed well – starting with H3, the subheadings will be H4\n";
     prompt += "– Please make the content follow Yoast SEO guidelines\n";
     prompt += "– Please make a quick search for SERP and understand why these pages are ranking and give the best SEO content to compete with them\n";
-    prompt += "– please don't bold the keywords that you are using within the content please focus on this only bold the content that you need to emphasis, and please in the canvas don't add any data classes or classes for easy of copy paste.\n";
+    prompt += "– please don't bold the keywords that you are using within the content; only bold the text needing emphasis, and please in the doc don't add any data classes or classes for easy copy paste.\n";
     prompt += "– focused Keyphrase density is important to not to use it too mush YOAST SEO usually recommend to not repeate the focused keywords too much. \n\n";
     prompt += `Please write a ${type.toLowerCase()} page content for the website ${website} (${company})\n\n`;
   }

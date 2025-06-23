@@ -23,8 +23,8 @@ include 'header.php';
 </div>
 
 <div class="form-check form-switch mb-4">
-  <input class="form-check-input" type="checkbox" id="includeCanvas" checked>
-  <label class="form-check-label" for="includeCanvas">Include /canvas at top of prompt</label>
+  <input class="form-check-input" type="checkbox" id="includeDoc" checked>
+  <label class="form-check-label" for="includeDoc">Include /doc at top of prompt</label>
 </div>
 
 <button class="btn btn-primary" onclick="generateLongtailPrompt()">Generate Prompt</button>
@@ -42,11 +42,11 @@ function generateLongtailPrompt() {
   const input = document.getElementById('keywords').value.trim();
   const list = input.split('\n').map(k => k.toLowerCase().trim()).filter(Boolean);
   const count = document.getElementById('longtailCount').value;
-  const includeCanvas = document.getElementById('includeCanvas').checked;
+  const includeDoc = document.getElementById('includeDoc').checked;
 
   let prompt = "";
-  if (includeCanvas) {
-    prompt += "/canvas\n\n";
+  if (includeDoc) {
+    prompt += "/doc\n\n";
   }
 
   prompt += "I have a list of the below keywords. I need you to search and find long tail keywords for each one.\n";
