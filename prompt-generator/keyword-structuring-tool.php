@@ -13,8 +13,8 @@ Group 2: content writing, article writing, blog writing, brand voice, tone guide
 </div>
 
 <div class="form-check form-switch mb-4">
-  <input class="form-check-input" type="checkbox" id="includeCanvas" checked>
-  <label class="form-check-label" for="includeCanvas">Include /canvas at top of prompt</label>
+  <input class="form-check-input" type="checkbox" id="includeDoc" checked>
+  <label class="form-check-label" for="includeDoc">Include /doc at top of prompt</label>
 </div>
 
 <button class="btn btn-primary" onclick="generatePrompt()">Generate Prompt</button>
@@ -30,11 +30,11 @@ Group 2: content writing, article writing, blog writing, brand voice, tone guide
 <script>
 function generatePrompt() {
   const keywords = document.getElementById('keywords').value.trim();
-  const includeCanvas = document.getElementById('includeCanvas').checked;
+  const includeDoc = document.getElementById('includeDoc').checked;
 
   let prompt = "";
-  if (includeCanvas) {
-    prompt += "/canvas\n\n";
+  if (includeDoc) {
+    prompt += "/doc\n\n";
   }
 
   prompt += "I have a list of the below keywords and their group.\n";
