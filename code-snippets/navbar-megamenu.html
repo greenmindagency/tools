@@ -31,7 +31,7 @@
         left: 25%; 
         transform: translateX(-10%);
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, .15);
-        margin-top: 0.5rem; /* Add a little space from the navbar */
+       
       }
 
       /* This is the fix: Prevents the columns from wrapping and causing overlap */
@@ -59,15 +59,14 @@
         transition: background-color 0.2s ease-in-out;
     }
 
-    .dropdown-menu .dropdown-item:hover {
-        background-color: #e9ecef;
-    }
+	
+	.dropdown-menu {border:0; border-radius: 0px;}
 
   </style>
 </head>
 <body class="bg-light">
 
-  <nav class="navbar navbar-expand-lg bg-body-tertiary">
+  <nav class="navbar navbar-expand-lg bg-white">
     <div class="container-fluid">
       <a class="navbar-brand fw-bold" href="#">Brand</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
