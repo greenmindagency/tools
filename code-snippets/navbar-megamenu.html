@@ -1,69 +1,130 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Mega Menu Navbar</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        /* Show dropdowns on hover for screens >= lg */
-        @media (min-width: 992px) {
-            .navbar .dropdown:hover > .dropdown-menu {
-                display: block;
-				width: 100%
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mega Menu Navbar</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* Use a modern font and add a subtle background color */
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8f9fa;
+    }
+
+    /* Style for the navbar */
+    .navbar {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    /* --- Centered Dropdown Styles --- */
+
+    /* On large screens, we adjust the dropdown menu's position */
+    @media (min-width: 992px) {
+      .navbar .dropdown-menu {
+        /* This was 50%, changing to 25% shifts the menu to the left */
+        left: 25%; 
+        transform: translateX(-10%);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, .15);
+        margin-top: 0.5rem; /* Add a little space from the navbar */
+      }
+
+      /* This is the fix: Prevents the columns from wrapping and causing overlap */
+      .navbar .dropdown-menu .row {
+        flex-wrap: nowrap;
+      }
+
+      /* Show the dropdown on hover */
+      .navbar .dropdown:hover > .dropdown-menu {
+        display: block;
+      }
+    }
+
+    /* Add headers to organize the menu links */
+    .dropdown-menu .dropdown-header {
+        font-weight: 600;
+        color: #0d6efd; /* Bootstrap primary color */
+    }
+
+    /* Style for individual dropdown items for better visual feedback */
+    .dropdown-menu .dropdown-item {
+        padding-top: .5rem;
+        padding-bottom: .5rem;
+        border-radius: .25rem;
+        transition: background-color 0.2s ease-in-out;
+    }
+
+    .dropdown-menu .dropdown-item:hover {
+        background-color: #e9ecef;
+    }
+
+  </style>
 </head>
-<body>
-<nav class="navbar navbar-expand-lg bg-body-tertiary">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="#">Brand</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarNav">
-      <ul class="navbar-nav">
-        <li class="nav-item">
-          <a class="nav-link active" aria-current="page" href="#">Home</a>
-        </li>
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-            Services
-          </a>
-          <div class="dropdown-menu p-3">
-            <div class="row">
-              <div class="col-lg-4">
-                <a class="dropdown-item" href="#">Service 1</a>
-                <a class="dropdown-item" href="#">Service 2</a>
-                <a class="dropdown-item" href="#">Service 3</a>
-              </div>
-              <div class="col-lg-4">
-                <a class="dropdown-item" href="#">Service 4</a>
-                <a class="dropdown-item" href="#">Service 5</a>
-                <a class="dropdown-item" href="#">Service 6</a>
-              </div>
-              <div class="col-lg-4">
-                <a class="dropdown-item" href="#">Service 7</a>
-                <a class="dropdown-item" href="#">Service 8</a>
-                <a class="dropdown-item" href="#">Service 9</a>
+<body class="bg-light">
+
+  <nav class="navbar navbar-expand-lg bg-body-tertiary">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="#">Brand</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="#">Home</a>
+          </li>
+          <!-- This is the dropdown container for the menu -->
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              Services
+            </a>
+            <!-- The dropdown menu content -->
+            <div class="dropdown-menu p-4">
+              <div class="row">
+                <!-- Column 1 -->
+                <div class="col-lg-4 mb-3 mb-lg-0">
+                  <a class="dropdown-item" href="#">Frontend Design</a>
+                  <a class="dropdown-item" href="#">Backend Solutions</a>
+                  <a class="dropdown-item" href="#">E-commerce Platforms</a>
+                </div>
+                <!-- Column 2 -->
+                <div class="col-lg-4 mb-3 mb-lg-0">
+                  <a class="dropdown-item" href="#">SEO Optimization</a>
+                  <a class="dropdown-item" href="#">Content Strategy</a>
+                  <a class="dropdown-item" href="#">Social Media</a>
+                </div>
+                <!-- Column 3 -->
+                <div class="col-lg-4">
+                  <a class="dropdown-item" href="#">Logo & Branding</a>
+                  <a class="dropdown-item" href="#">UI/UX Design</a>
+                  <a class="dropdown-item" href="#">Graphic Design</a>
+                </div>
               </div>
             </div>
-          </div>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="#">About</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="#">Contact</a>
-        </li>
-      </ul>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">About</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">Contact</a>
+          </li>
+        </ul>
+      </div>
     </div>
-  </div>
-</nav>
+  </nav>
 
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- A little bit of content below the navbar -->
+  <div class="container py-5 text-center">
+      <h1>Offset Dropdown Example</h1>
+      <p class="lead">Hover over the "Services" link in the navigation bar to see the offset menu in action.</p>
+  </div>
+
+  <!-- Bootstrap JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
