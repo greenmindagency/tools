@@ -22,22 +22,7 @@ $title = $title ?? 'SEO Platform';
   </style>
 </head>
 <body>
-<nav class="navbar fixed-top navbar-expand-lg navbar-light bg-light">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="/tools/">Green Mind Tools</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarNav">
-      <ul class="navbar-nav">
-        <?php
-          $active = basename($_SERVER['PHP_SELF']) === 'index.php' ? 'active' : '';
-          echo "<li class='nav-item'><a class='nav-link $active' href='index.php'>Clients</a></li>";
-        ?>
-      </ul>
-    </div>
-  </div>
-</nav>
+<?php include __DIR__ . '/../nav.php'; ?>
 <div class="container">
   <div class="d-flex align-items-center mb-2">
     <img src="https://i.ibb.co/MyYRCxGx/Green-Mind-Agency-Logo-square.png" class="logo me-2" alt="Green Mind Logo">
