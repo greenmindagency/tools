@@ -43,7 +43,6 @@ function generatePrompt() {
   prompt += "I need you to break them by adding a long tail for some selected keywords under each group to have its own group.\n\n";
   prompt += "Please give me only a list of long tails without titles and don’t repeat the list I gave you under each other.\n";
   prompt += "Each group should have 2 keywords minimum.\n";
-  prompt += "if there keywords has already longtails and working don't add longtails for them (please focus) only single words that doesn't have a logn tail you can only add.\n";
   prompt += "Keep always each keyword at the start and longtails after.\n";
   prompt += "Please also try to avoid using conjunctive words like (with, of, in, ..) or you can use it occasionally.\n";
   prompt += "Try to find the most/hieghest keywords based on search volume coming from google keyword planner as possible.\n\n";
