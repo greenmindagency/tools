@@ -898,6 +898,7 @@ foreach ($stmt as $row) {
     <button type="submit" form="updatePosForm" name="update_positions" class="btn btn-success me-2">Update</button>
     <button type="button" id="toggleAddPosForm" class="btn btn-warning me-2">Update Keywords</button>
     <button type="button" id="toggleImportPosForm" class="btn btn-primary me-2">Import Positions</button>
+    <button type="button" id="copyPosKeywords" class="btn btn-secondary me-2">Copy Table</button>
   </div>
   <form id="posFilterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
@@ -983,6 +984,20 @@ document.getElementById('toggleImportForm').addEventListener('click', function()
 });
 document.getElementById('copyKeywords').addEventListener('click', function() {
   const rows = document.querySelectorAll('#kwTableBody tr');
+  const keywords = [];
+  rows.forEach(tr => {
+    const cell = tr.querySelector('td:nth-child(2)');
+    if (cell) {
+      keywords.push(cell.innerText.trim());
+    }
+  });
+  navigator.clipboard.writeText(keywords.join('\n')).then(() => {
+    alert('Keywords copied to clipboard');
+  });
+});
+
+document.getElementById('copyPosKeywords').addEventListener('click', function() {
+  const rows = document.querySelectorAll('#posTableBody tr[data-id]');
   const keywords = [];
   rows.forEach(tr => {
     const cell = tr.querySelector('td:nth-child(2)');
