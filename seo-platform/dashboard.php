@@ -104,6 +104,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS keyword_positions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     client_id INT,
     keyword VARCHAR(255),
+    sort_order INT DEFAULT NULL,
     m1 FLOAT DEFAULT NULL,
     m2 FLOAT DEFAULT NULL,
     m3 FLOAT DEFAULT NULL,
@@ -120,6 +121,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS keyword_positions (
 for ($i = 1; $i <= 12; $i++) {
     $pdo->exec("ALTER TABLE keyword_positions ADD COLUMN IF NOT EXISTS m{$i} FLOAT DEFAULT NULL");
 }
+$pdo->exec("ALTER TABLE keyword_positions ADD COLUMN IF NOT EXISTS sort_order INT");
 $pdo->exec("CREATE TABLE IF NOT EXISTS sc_domains (
     client_id INT PRIMARY KEY,
     domain VARCHAR(255)
@@ -180,17 +182,18 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
         $delimiter = $detectCsvDelimiter($firstLine ?: '');
 
         // Map existing keywords to their IDs for quick lookup
-        $mapStmt = $pdo->prepare("SELECT id, keyword FROM keyword_positions WHERE client_id = ?");
+        $mapStmt = $pdo->prepare("SELECT id, keyword, sort_order FROM keyword_positions WHERE client_id = ?");
         $mapStmt->execute([$client_id]);
         $kwMap = [];
         while ($r = $mapStmt->fetch(PDO::FETCH_ASSOC)) {
-            $kwMap[strtolower(trim($r['keyword']))] = $r['id'];
+            $kwMap[strtolower(trim($r['keyword']))] = ['id' => $r['id'], 'sort_order' => $r['sort_order']];
         }
 
-        // Clear current month's data before applying updates
-        $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL WHERE client_id = ?")->execute([$client_id]);
+        // Clear current month's data and reset sort order before applying updates
+        $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE client_id = ?")->execute([$client_id]);
 
-        $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ? WHERE id = ?");
+        $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ?, sort_order = ? WHERE id = ?");
+        $orderIdx = 1;
         while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
             $kw = strtolower(trim($data[0] ?? ''));
             if ($kw === '') continue;
@@ -198,8 +201,9 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
             $pos = $posRaw !== '' ? (float)str_replace(',', '.', $posRaw) : null;
 
             if (isset($kwMap[$kw])) {
-                $update->execute([$pos, $kwMap[$kw]]);
+                $update->execute([$pos, $orderIdx, $kwMap[$kw]['id']]);
             }
+            $orderIdx++;
         }
         fclose($handle);
         // Cleanup any duplicate keywords that may exist
@@ -211,7 +215,7 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
     }
 }
 
-$posStmt = $pdo->prepare("SELECT * FROM keyword_positions WHERE client_id = ? ORDER BY id DESC");
+$posStmt = $pdo->prepare("SELECT * FROM keyword_positions WHERE client_id = ? ORDER BY sort_order IS NULL, sort_order, id DESC");
 $posStmt->execute([$client_id]);
 $positions = $posStmt->fetchAll(PDO::FETCH_ASSOC);
 
