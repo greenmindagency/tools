@@ -244,8 +244,16 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
     }
 }
 
-$posStmt = $pdo->prepare("SELECT * FROM keyword_positions WHERE client_id = ? ORDER BY sort_order IS NULL, sort_order, id DESC");
-$posStmt->execute([$client_id]);
+$posQ = trim($_GET['pos_q'] ?? '');
+$posSql = "SELECT * FROM keyword_positions WHERE client_id = ?";
+$posParams = [$client_id];
+if ($posQ !== '') {
+    $posSql .= " AND keyword LIKE ?";
+    $posParams[] = "%$posQ%";
+}
+$posSql .= " ORDER BY sort_order IS NULL, sort_order, id DESC";
+$posStmt = $pdo->prepare($posSql);
+$posStmt->execute($posParams);
 $positions = $posStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $firstPagePerc = [];
@@ -877,6 +885,14 @@ foreach ($stmt as $row) {
     <button type="button" id="toggleAddPosForm" class="btn btn-warning me-2">Update Keywords</button>
     <button type="button" id="toggleImportPosForm" class="btn btn-primary me-2">Import Positions</button>
   </div>
+  <form id="posFilterForm" method="GET" class="d-flex">
+    <input type="hidden" name="client_id" value="<?= $client_id ?>">
+    <input type="hidden" name="slug" value="<?= $slug ?>">
+    <input type="hidden" name="tab" value="position">
+    <input type="text" name="pos_q" value="<?= htmlspecialchars($posQ) ?>" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
+    <button type="submit" class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-search"></i></button>
+    <a href="dashboard.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>&tab=position" class="btn btn-outline-secondary btn-sm ms-1 d-flex align-items-center" title="Clear filter"><i class="bi bi-x-lg"></i></a>
+  </form>
 </div>
 
 <form method="POST" id="updatePosForm">
