@@ -44,15 +44,17 @@ $pageTypes = ['', 'Home', 'Service', 'Blog', 'Page', 'Article', 'Product', 'Othe
 function normalizePageType(string $type, array $pageTypes): string {
     $t = trim($type);
     if ($t === '') return '';
+    $lower = strtolower($t);
     foreach ($pageTypes as $pt) {
-        if (strcasecmp($pt, $t) === 0) {
-            return $pt === '' ? '' : $pt;
+        if ($pt === '') continue;
+        if (strtolower($pt) === $lower) {
+            return $pt;
         }
     }
-    if (strcasecmp($t, 'page') === 0) {
+    if (in_array($lower, ['page', 'webpage', 'web page'], true)) {
         return 'Page';
     }
-    return $t;
+    return ucfirst($lower);
 }
 maybeUpdateKeywordGroups($pdo, $client_id);
 updateKeywordStats($pdo, $client_id);
@@ -801,9 +803,10 @@ foreach ($stmt as $row) {
         $clusterBg = '#efefef';
     }
 
+    $row['page_type'] = normalizePageType($row['page_type'], $pageTypes);
     $options = '';
     foreach ($pageTypes as $pt) {
-        $sel = strcasecmp(trim($row['page_type']), $pt) === 0 ? ' selected' : '';
+        $sel = strcasecmp($row['page_type'], $pt) === 0 ? ' selected' : '';
         $options .= "<option value=\"$pt\"$sel>$pt</option>";
     }
 
