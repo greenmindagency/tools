@@ -83,8 +83,52 @@ $statsStmt = $pdo->prepare("SELECT total, grouped, clustered, structured FROM ke
 $statsStmt->execute([$client_id]);
 $stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'grouped'=>0,'clustered'=>0,'structured'=>0];
 
+$pdo->exec("CREATE TABLE IF NOT EXISTS keyword_positions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    client_id INT,
+    keyword VARCHAR(255)
+)");
+
+if (isset($_POST['add_position_keywords'])) {
+    $text = trim($_POST['pos_keywords'] ?? '');
+    $lines = array_values(array_filter(array_map('trim', preg_split('/\r\n|\n|\r/', $text)), 'strlen'));
+    $ins = $pdo->prepare("INSERT INTO keyword_positions (client_id, keyword) VALUES (?, ?)");
+    foreach ($lines as $kw) {
+        $ins->execute([$client_id, $kw]);
+    }
+}
+
+if (isset($_POST['update_positions'])) {
+    $deleteIds = array_keys(array_filter($_POST['delete_pos'] ?? [], fn($v) => $v == '1'));
+    if ($deleteIds) {
+        $in = implode(',', array_fill(0, count($deleteIds), '?'));
+        $del = $pdo->prepare("DELETE FROM keyword_positions WHERE client_id = ? AND id IN ($in)");
+        $del->execute(array_merge([$client_id], $deleteIds));
+    }
+}
+
+$posStmt = $pdo->prepare("SELECT * FROM keyword_positions WHERE client_id = ? ORDER BY id DESC");
+$posStmt->execute([$client_id]);
+$positions = $posStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$months = [];
+for ($i = 0; $i < 12; $i++) {
+    $months[] = date('M Y', strtotime("-$i month"));
+}
+
 include 'header.php';
 ?>
+
+<ul class="nav nav-tabs mb-3" id="dashTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="kw-tab" data-bs-toggle="tab" data-bs-target="#kw-pane" type="button" role="tab">Keywords</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="pos-tab" data-bs-toggle="tab" data-bs-target="#pos-pane" type="button" role="tab">Keyword Position</button>
+  </li>
+</ul>
+<div class="tab-content" id="dashTabsContent">
+<div class="tab-pane fade show active" id="kw-pane" role="tabpanel" aria-labelledby="kw-tab">
 
 <h5 class="mb-1"><?= htmlspecialchars($client['name']) ?> – Keywords</h5>
 <div class="mb-3 d-flex justify-content-between align-items-center">
@@ -622,6 +666,65 @@ foreach ($stmt as $row) {
 </nav>
 
 <p><a href="index.php">&larr; Back to Clients</a></p>
+</div><!-- end keywords tab -->
+
+<div class="tab-pane fade" id="pos-pane" role="tabpanel" aria-labelledby="pos-tab">
+<div class="mb-4">
+  <div class="row g-2">
+    <div class="col-sm"><input type="text" id="scDomain" class="form-control" placeholder="Domain"></div>
+    <div class="col-sm"><input type="date" id="scFrom" class="form-control"></div>
+    <div class="col-sm"><input type="date" id="scTo" class="form-control"></div>
+    <div class="col-sm">
+      <select id="scCountry" class="form-select">
+        <option value="">Worldwide</option>
+        <option value="egy">Egypt</option>
+        <option value="sau">Saudi Arabia</option>
+        <option value="are">United Arab Emirates</option>
+      </select>
+    </div>
+  </div>
+  <input type="text" id="scLink" readonly class="form-control mt-2">
+</div>
+
+<!-- Add Position Keywords -->
+<form method="POST" id="addPosForm" class="mb-4" style="display:none;">
+  <textarea name="pos_keywords" class="form-control" rows="6" placeholder="One keyword per line"></textarea>
+  <button type="submit" name="add_position_keywords" class="btn btn-primary mt-2">Add Keywords</button>
+</form>
+
+<div class="d-flex justify-content-between mb-2 sticky-controls">
+  <div class="d-flex">
+    <button type="submit" form="updatePosForm" name="update_positions" class="btn btn-success me-2">Update</button>
+    <button type="button" id="toggleAddPosForm" class="btn btn-warning me-2">Update Keywords</button>
+  </div>
+</div>
+
+<form method="POST" id="updatePosForm">
+  <input type="hidden" name="client_id" value="<?= $client_id ?>">
+  <table class="table table-bordered table-sm">
+    <thead class="table-light">
+      <tr>
+        <th style="width:1px;"></th>
+        <th>Keyword</th>
+        <?php foreach (array_reverse($months) as $m): ?>
+        <th class="text-center"><?= $m ?></th>
+        <?php endforeach; ?>
+      </tr>
+    </thead>
+    <tbody id="posTableBody">
+    <?php foreach ($positions as $row): ?>
+      <tr data-id="<?= $row['id'] ?>">
+        <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-row">-</button><input type="hidden" name="delete_pos[<?= $row['id'] ?>]" value="0" class="delete-flag"></td>
+        <td><?= htmlspecialchars($row['keyword']) ?></td>
+        <?php for ($i=0;$i<12;$i++): ?><td></td><?php endfor; ?>
+      </tr>
+    <?php endforeach; ?>
+    </tbody>
+  </table>
+</form>
+
+</div><!-- end position tab -->
+</div><!-- end tab content -->
 
 <script>
 document.addEventListener('click', function(e) {
@@ -669,6 +772,34 @@ document.getElementById('copyKeywords').addEventListener('click', function() {
   navigator.clipboard.writeText(keywords.join('\n')).then(() => {
     alert('Keywords copied to clipboard');
   });
+});
+
+document.getElementById('toggleAddPosForm').addEventListener('click', function() {
+  const form = document.getElementById('addPosForm');
+  if (form.style.display === 'none' || form.style.display === '') {
+    form.style.display = 'block';
+  } else {
+    form.style.display = 'none';
+  }
+});
+
+function updateSCLink() {
+  const domain = document.getElementById('scDomain').value.trim();
+  const from = document.getElementById('scFrom').value;
+  const to = document.getElementById('scTo').value;
+  const country = document.getElementById('scCountry').value;
+  if (!domain) { document.getElementById('scLink').value = ''; return; }
+  let url = 'https://search.google.com/search-console/performance/search-analytics?resource_id=' + encodeURIComponent(domain) + '&metrics=POSITION';
+  if (from) url += '&start_date=' + from;
+  if (to) url += '&end_date=' + to;
+  if (country) url += '&country=' + country;
+  document.getElementById('scLink').value = url;
+}
+['input','change'].forEach(evt => {
+  document.getElementById('scDomain').addEventListener(evt, updateSCLink);
+  document.getElementById('scFrom').addEventListener(evt, updateSCLink);
+  document.getElementById('scTo').addEventListener(evt, updateSCLink);
+  document.getElementById('scCountry').addEventListener(evt, updateSCLink);
 });
 </script>
 
