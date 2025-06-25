@@ -159,10 +159,17 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
     $tmp = $_FILES['csv_file']['tmp_name'];
     if (is_uploaded_file($tmp) && ($handle = fopen($tmp, 'r')) !== false) {
         $firstLine = fgets($handle);
-        $delimiter = $detectCsvDelimiter($firstLine);
-        // header already consumed by fgets, start reading next lines
+
+        $delimiter = $detectCsvDelimiter($firstLine ?: '');
+        // Reset existing values for this month
+        $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL WHERE client_id = ?")
+            ->execute([$client_id]);
+
         $select = $pdo->prepare("SELECT id FROM keyword_positions WHERE client_id = ? AND keyword = ?");
         $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ? WHERE id = ?");
+        $insert = $pdo->prepare("INSERT INTO keyword_positions (client_id, keyword, `$col`) VALUES (?, ?, ?)");
+
+
         while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
             $kw = trim($data[0] ?? '');
             $pos = isset($data[4]) ? (float)str_replace(',', '.', $data[4]) : null;
@@ -171,8 +178,9 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
             $id = $select->fetchColumn();
             if ($id) {
                 $update->execute([$pos, $id]);
+            } else {
+                $insert->execute([$client_id, $kw, $pos]);
             }
-
         }
         fclose($handle);
     }
