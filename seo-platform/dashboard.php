@@ -792,8 +792,21 @@ foreach ($stmt as $row) {
 <div class="mb-4">
   <div class="row g-2">
     <div class="col-sm"><input type="text" id="scDomain" name="sc_domain" value="<?= htmlspecialchars($scDomain) ?>" class="form-control" placeholder="Domain"></div>
-    <div class="col-sm"><input type="date" id="scFrom" class="form-control"></div>
-    <div class="col-sm"><input type="date" id="scTo" class="form-control"></div>
+
+    <div class="col-sm">
+      <select id="scMonth" class="form-select">
+        <?php
+        for ($i = 0; $i < 12; $i++) {
+            $ts = strtotime("first day of -$i month");
+            $label = date('M Y', $ts);
+            $start = date('Ymd', $ts);
+            $end = date('Ymd', strtotime("last day of -$i month"));
+            echo "<option data-start='$start' data-end='$end' value='$i'>$label</option>";
+        }
+        ?>
+      </select>
+    </div>
+
     <div class="col-sm d-flex">
       <select id="scCountry" class="form-select me-2">
         <option value="">Worldwide</option>
@@ -940,12 +953,16 @@ document.getElementById('toggleImportPosForm').addEventListener('click', functio
 function buildSCLink() {
   const domain = document.getElementById('scDomain').value.trim();
   if (!domain) return '';
-  const from = document.getElementById('scFrom').value;
-  const to = document.getElementById('scTo').value;
+  const sel = document.getElementById('scMonth');
+  const start = sel.selectedOptions[0].dataset.start;
+  const end = sel.selectedOptions[0].dataset.end;
   const country = document.getElementById('scCountry').value;
-  let url = 'https://search.google.com/search-console/performance/search-analytics?resource_id=' + encodeURIComponent(domain) + '&metrics=POSITION';
-  if (from) url += '&start_date=' + from;
-  if (to) url += '&end_date=' + to;
+  const active = document.querySelector('#dashTabs .nav-link.active')?.id || '';
+  let url = 'https://search.google.com/search-console/performance/search-analytics?resource_id=' + encodeURIComponent(domain);
+  if (active === 'pos-tab') {
+    url += '&metrics=POSITION';
+  }
+  url += '&start_date=' + start + '&end_date=' + end;
   if (country) url += '&country=' + country;
   return url;
 }
