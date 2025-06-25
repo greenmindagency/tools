@@ -136,6 +136,12 @@ if (isset($_POST['add_position_keywords'])) {
     foreach ($lines as $kw) {
         $ins->execute([$client_id, $kw]);
     }
+    // Remove any duplicate position keywords for this client
+    $pdo->query("DELETE kp1 FROM keyword_positions kp1
+                  JOIN keyword_positions kp2
+                    ON kp1.keyword = kp2.keyword AND kp1.id > kp2.id
+                 WHERE kp1.client_id = $client_id
+                   AND kp2.client_id = $client_id");
 }
 
 if (isset($_POST['update_positions'])) {
@@ -179,12 +185,18 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
             $posRaw = $data[4] ?? '';
             $pos = $posRaw !== '' ? (float)str_replace(',', '.', $posRaw) : null;
 
+
             if (isset($kwMap[$kw])) {
                 $update->execute([$pos, $kwMap[$kw]]);
-
             }
         }
         fclose($handle);
+        // Cleanup any duplicate keywords that may exist
+        $pdo->query("DELETE kp1 FROM keyword_positions kp1
+                      JOIN keyword_positions kp2
+                        ON kp1.keyword = kp2.keyword AND kp1.id > kp2.id
+                     WHERE kp1.client_id = $client_id
+                       AND kp2.client_id = $client_id");
     }
 }
 
