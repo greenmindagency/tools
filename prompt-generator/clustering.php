@@ -44,6 +44,8 @@ function generateClusteringPrompt() {
 
   prompt += "Please cluster those split the same meaning with | no spaces between the |\n";
   prompt += "Please split clusters with a horizontal line\n";
+  prompt += "Please don't give titles for each cluster\n";
+  prompt += "Please you have to recheck the whole list to make sure there's no one keyword has a cluster try to find a relevent cluster for it.\n";
   prompt += "If you are using one of the keywords in the cluster don’t repeat it on another cluster\n";
   prompt += "Try to split as possible the same meaning groups, and cluster only the same meaning, if not keep it in a standalone cluster\n";
   prompt += "Don’t ever add keywords from your side, use only the list below I gave you\n";
