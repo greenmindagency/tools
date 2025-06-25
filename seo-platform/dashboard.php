@@ -6,6 +6,23 @@ $slugify = function(string $name): string {
     $name = preg_replace('/[^a-zA-Z0-9]+/', '-', $name);
     return strtolower(trim($name, '-'));
 };
+
+/**
+ * Guess the delimiter used in a CSV line.
+ */
+$detectCsvDelimiter = function(string $line): string {
+    $delimiters = [",", ";", "\t"];
+    $best = ",";
+    $maxCount = 0;
+    foreach ($delimiters as $d) {
+        $count = substr_count($line, $d);
+        if ($count > $maxCount) {
+            $maxCount = $count;
+            $best = $d;
+        }
+    }
+    return $best;
+};
  
 // Load client info
 $stmt = $pdo->prepare("SELECT * FROM clients WHERE id = ?");
@@ -141,10 +158,12 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
     $col = 'm' . ($monthIndex + 1);
     $tmp = $_FILES['csv_file']['tmp_name'];
     if (is_uploaded_file($tmp) && ($handle = fopen($tmp, 'r')) !== false) {
-        fgetcsv($handle); // header
+        $firstLine = fgets($handle);
+        $delimiter = $detectCsvDelimiter($firstLine);
+        // header already consumed by fgets, start reading next lines
         $select = $pdo->prepare("SELECT id FROM keyword_positions WHERE client_id = ? AND keyword = ?");
         $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ? WHERE id = ?");
-        while (($data = fgetcsv($handle)) !== false) {
+        while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
             $kw = trim($data[0] ?? '');
             $pos = isset($data[4]) ? (float)str_replace(',', '.', $data[4]) : null;
             if ($kw === '') continue;
