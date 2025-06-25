@@ -1066,7 +1066,7 @@ const barLabelPlugin = {
     ctx.save();
     ctx.fillStyle = '#000';
     ctx.textAlign = 'center';
-    ctx.font = '10px sans-serif';
+    ctx.font = '20px sans-serif';
     chart.getDatasetMeta(0).data.forEach((bar, i) => {
       const val = chart.data.datasets[0].data[i] + '%';
       ctx.fillText(val, bar.x, bar.y - 2);
