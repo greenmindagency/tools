@@ -711,7 +711,8 @@ $stmt->execute($params);
     <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success me-2">Update</button>
     <button type="button" id="toggleAddForm" class="btn btn-warning me-2">Update Keywords</button>
     <button type="button" id="toggleClusterForm" class="btn btn-info me-2">Update Clusters</button>
-    <button type="button" id="copyKeywords" class="btn btn-secondary me-2">Copy Table</button>
+    <button type="button" id="copyKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
+    <button type="button" id="copyLinks" class="btn btn-secondary btn-sm me-2">Copy Links</button>
     <button type="button" id="toggleImportForm" class="btn btn-primary me-2">Import Plan</button>
     <a href="export.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary">Export CSV</a>
   </div>
@@ -899,7 +900,7 @@ foreach ($stmt as $row) {
     <button type="submit" form="updatePosForm" name="update_positions" class="btn btn-success me-2">Update</button>
     <button type="button" id="toggleAddPosForm" class="btn btn-warning me-2">Update Keywords</button>
     <button type="button" id="toggleImportPosForm" class="btn btn-primary me-2">Import Positions</button>
-    <button type="button" id="copyPosKeywords" class="btn btn-secondary me-2">Copy Table</button>
+    <button type="button" id="copyPosKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
   </div>
   <form id="posFilterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
@@ -994,6 +995,20 @@ document.getElementById('copyKeywords').addEventListener('click', function() {
   });
   navigator.clipboard.writeText(keywords.join('\n')).then(() => {
     alert('Keywords copied to clipboard');
+  });
+});
+
+document.getElementById('copyLinks').addEventListener('click', function() {
+  const rows = document.querySelectorAll('#kwTableBody tr');
+  const links = [];
+  rows.forEach(tr => {
+    const input = tr.querySelector('td:nth-child(5) input');
+    if (input) {
+      links.push(input.value.trim());
+    }
+  });
+  navigator.clipboard.writeText(links.join('\n')).then(() => {
+    alert('Links copied to clipboard');
   });
 });
 
