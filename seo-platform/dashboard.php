@@ -193,19 +193,48 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
         $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE client_id = ?")->execute([$client_id]);
 
         $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ?, sort_order = ? WHERE id = ?");
-        $orderIdx = 1;
-        while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
+
+        // Parse all rows so we can sort them by impressions before applying
+        $rows = [];
+        $parseRow = function(array $data) {
             $kw = strtolower(trim($data[0] ?? ''));
-            if ($kw === '') continue;
+            if ($kw === '') return null;
+            $imprRaw = $data[2] ?? '';
+            $impr = $imprRaw !== '' ? (float)str_replace(',', '', $imprRaw) : 0;
             $posRaw = $data[4] ?? '';
             $pos = $posRaw !== '' ? (float)str_replace(',', '.', $posRaw) : null;
+            return ['kw' => $kw, 'impr' => $impr, 'pos' => $pos];
+        };
 
-            if (isset($kwMap[$kw])) {
-                $update->execute([$pos, $orderIdx, $kwMap[$kw]['id']]);
+        $firstData = str_getcsv($firstLine ?: '', $delimiter);
+        $hasHeader = false;
+        if ($firstData) {
+            $imprCheck = str_replace(',', '', $firstData[2] ?? '');
+            if (!is_numeric($imprCheck)) {
+                $hasHeader = true;
+            }
+        }
+        if (!$hasHeader && ($row = $parseRow($firstData))) {
+            $rows[] = $row;
+        }
+
+        while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
+            if ($row = $parseRow($data)) {
+                $rows[] = $row;
+            }
+        }
+        fclose($handle);
+
+        usort($rows, fn($a, $b) => $b['impr'] <=> $a['impr']);
+
+        $orderIdx = 1;
+        foreach ($rows as $r) {
+            if (isset($kwMap[$r['kw']])) {
+                $update->execute([$r['pos'], $orderIdx, $kwMap[$r['kw']]['id']]);
             }
             $orderIdx++;
         }
-        fclose($handle);
+
         // Cleanup any duplicate keywords that may exist
         $pdo->query("DELETE kp1 FROM keyword_positions kp1
                       JOIN keyword_positions kp2
