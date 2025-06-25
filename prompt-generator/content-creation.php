@@ -128,7 +128,7 @@ function generatePrompt() {
   const faq = document.getElementById('includeFAQ').checked;
   const countries = Array.from(document.querySelectorAll('input[name="country[]"]')).map(c => c.value.trim()).filter(Boolean);
   let prompt = "";
-  if (docFlag) prompt += "/doc\n\n";
+  if (docFlag) prompt += "/doc Please open a doc for edit\n\n";
   prompt += `Write a content for a ${type === "Social Media" ? "social media post" : `${type} page`} in ${lang || 'English'}\n\n`;
   prompt += "Please act as a content writer, a very proficient SEO writer who writes fluently.\n\n";
 

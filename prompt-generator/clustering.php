@@ -39,7 +39,7 @@ function generateClusteringPrompt() {
 
   let prompt = "";
   if (includeDoc) {
-    prompt += "/doc\n\n";
+    prompt += "/doc Please open a doc for edit\n\n";
   }
 
   prompt += "Please cluster those split the same meaning with | no spaces between the |\n";
