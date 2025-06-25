@@ -159,22 +159,29 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
     $tmp = $_FILES['csv_file']['tmp_name'];
     if (is_uploaded_file($tmp) && ($handle = fopen($tmp, 'r')) !== false) {
         $firstLine = fgets($handle);
-
         $delimiter = $detectCsvDelimiter($firstLine ?: '');
-        $select = $pdo->prepare("SELECT id FROM keyword_positions WHERE client_id = ? AND keyword = ?");
+
+        // Map existing keywords to their IDs for quick lookup
+        $mapStmt = $pdo->prepare("SELECT id, keyword FROM keyword_positions WHERE client_id = ?");
+        $mapStmt->execute([$client_id]);
+        $kwMap = [];
+        while ($r = $mapStmt->fetch(PDO::FETCH_ASSOC)) {
+            $kwMap[strtolower(trim($r['keyword']))] = $r['id'];
+        }
+
+        // Clear current month's data before applying updates
+        $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL WHERE client_id = ?")->execute([$client_id]);
+
         $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ? WHERE id = ?");
-
-
         while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
-            $kw = trim($data[0] ?? '');
-            $pos = isset($data[4]) ? (float)str_replace(',', '.', $data[4]) : null;
+            $kw = strtolower(trim($data[0] ?? ''));
             if ($kw === '') continue;
-            $select->execute([$client_id, $kw]);
-            $id = $select->fetchColumn();
-            if ($id) {
-                $update->execute([$pos, $id]);
-            } else {
-                $insert->execute([$client_id, $kw, $pos]);
+            $posRaw = $data[4] ?? '';
+            $pos = $posRaw !== '' ? (float)str_replace(',', '.', $posRaw) : null;
+
+            if (isset($kwMap[$kw])) {
+                $update->execute([$pos, $kwMap[$kw]]);
+
             }
         }
         fclose($handle);
