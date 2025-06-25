@@ -143,7 +143,6 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
     if (is_uploaded_file($tmp) && ($handle = fopen($tmp, 'r')) !== false) {
         fgetcsv($handle); // header
         $select = $pdo->prepare("SELECT id FROM keyword_positions WHERE client_id = ? AND keyword = ?");
-        $insert = $pdo->prepare("INSERT INTO keyword_positions (client_id, keyword) VALUES (?, ?)");
         $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ? WHERE id = ?");
         while (($data = fgetcsv($handle)) !== false) {
             $kw = trim($data[0] ?? '');
@@ -151,11 +150,10 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
             if ($kw === '') continue;
             $select->execute([$client_id, $kw]);
             $id = $select->fetchColumn();
-            if (!$id) {
-                $insert->execute([$client_id, $kw]);
-                $id = $pdo->lastInsertId();
+            if ($id) {
+                $update->execute([$pos, $id]);
             }
-            $update->execute([$pos, $id]);
+
         }
         fclose($handle);
     }
