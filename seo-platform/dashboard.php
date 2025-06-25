@@ -216,16 +216,18 @@ $posStmt->execute([$client_id]);
 $positions = $posStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $firstPagePerc = [];
-$totalKeywords = count($positions);
 for ($i = 1; $i <= 12; $i++) {
     $good = 0;
+    $count = 0;
     foreach ($positions as $row) {
         $val = $row['m'.$i];
-        if ($val !== null && $val !== '' && (float)$val <= 10) {
+        if ($val === null || $val === '') continue;
+        $count++;
+        if ((float)$val <= 10) {
             $good++;
         }
     }
-    $firstPagePerc[$i] = $totalKeywords ? round($good * 100 / $totalKeywords) : 0;
+    $firstPagePerc[$i] = $count ? round($good * 100 / $count) : 0;
 }
 
 $months = [];
