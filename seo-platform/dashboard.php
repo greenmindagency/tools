@@ -40,6 +40,20 @@ $breadcrumb_client = [
 $title = $client['name'] . ' Dashboard';
 $restored = false;
 $pageTypes = ['', 'Home', 'Service', 'Blog', 'Page', 'Article', 'Product', 'Other'];
+
+function normalizePageType(string $type, array $pageTypes): string {
+    $t = trim($type);
+    if ($t === '') return '';
+    foreach ($pageTypes as $pt) {
+        if (strcasecmp($pt, $t) === 0) {
+            return $pt === '' ? '' : $pt;
+        }
+    }
+    if (strcasecmp($t, 'page') === 0) {
+        return 'Page';
+    }
+    return $t;
+}
 maybeUpdateKeywordGroups($pdo, $client_id);
 updateKeywordStats($pdo, $client_id);
 
@@ -450,11 +464,7 @@ if (isset($_POST['import_plan'])) {
                 $groupCnt = is_numeric($data[6] ?? '') ? (int)$data[6] : 0;
                 $cluster = trim($data[7] ?? '');
 
-                if ($type !== '') {
-                    foreach ($pageTypes as $pt) {
-                        if (strcasecmp($pt, $type) === 0) { $type = $pt; break; }
-                    }
-                }
+                $type = normalizePageType($type, $pageTypes);
                 $insert->execute([$client_id, $keyword, $vol, $form, $link, $type, $group, $groupCnt, $cluster]);
             }
             fclose($handle);
@@ -482,13 +492,7 @@ if (isset($_POST['update_keywords'])) {
     if (!empty($_POST['page_type'])) {
         $update = $pdo->prepare("UPDATE keywords SET page_type = ? WHERE id = ? AND client_id = ?");
         foreach ($_POST['page_type'] as $id => $type) {
-            $t = trim($type);
-            if ($t !== '') {
-                foreach ($pageTypes as $pt) {
-                    if (strcasecmp($pt, $t) === 0) { $t = $pt; break; }
-                }
-                if (strcasecmp($t, 'page') === 0) { $t = 'Page'; }
-            }
+            $t = normalizePageType($type, $pageTypes);
             $update->execute([$t, $id, $client_id]);
         }
     }
