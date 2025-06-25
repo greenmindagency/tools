@@ -792,7 +792,6 @@ foreach ($stmt as $row) {
 <div class="mb-4">
   <div class="row g-2">
     <div class="col-sm"><input type="text" id="scDomain" name="sc_domain" value="<?= htmlspecialchars($scDomain) ?>" class="form-control" placeholder="Domain"></div>
-
     <div class="col-sm">
       <select id="scMonth" class="form-select">
         <?php
@@ -806,7 +805,6 @@ foreach ($stmt as $row) {
         ?>
       </select>
     </div>
-
     <div class="col-sm d-flex">
       <select id="scCountry" class="form-select me-2">
         <option value="">Worldwide</option>
@@ -976,6 +974,16 @@ document.getElementById('openScLink').addEventListener('click', function() {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
     body: new URLSearchParams({save_sc_domain: '1', sc_domain: domain})
+  });
+});
+
+// Keep the ?tab= query parameter in sync with the active tab
+document.querySelectorAll('#dashTabs button[data-bs-toggle="tab"]').forEach(btn => {
+  btn.addEventListener('shown.bs.tab', e => {
+    const tab = e.target.id === 'pos-tab' ? 'position' : 'keywords';
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tab);
+    history.replaceState(null, '', url);
   });
 });
 </script>
