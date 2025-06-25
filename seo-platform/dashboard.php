@@ -487,6 +487,7 @@ if (isset($_POST['update_keywords'])) {
                 foreach ($pageTypes as $pt) {
                     if (strcasecmp($pt, $t) === 0) { $t = $pt; break; }
                 }
+                if (strcasecmp($t, 'page') === 0) { $t = 'Page'; }
             }
             $update->execute([$t, $id, $client_id]);
         }
