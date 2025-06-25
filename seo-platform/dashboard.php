@@ -232,7 +232,6 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
             if (isset($kwMap[$r['kw']])) {
                 $update->execute([$r['pos'], $orderIdx, $kwMap[$r['kw']]['id']]);
             }
-            $orderIdx++;
         }
 
         // Cleanup any duplicate keywords that may exist
@@ -860,6 +859,21 @@ foreach ($stmt as $row) {
   </div>
 </div>
 
+<div class="accordion mb-3" id="posChartAcc">
+  <div class="accordion-item">
+    <h2 class="accordion-header" id="posChartHead">
+      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#posChartCollapse" aria-expanded="false" aria-controls="posChartCollapse">
+        Monthly % Chart
+      </button>
+    </h2>
+    <div id="posChartCollapse" class="accordion-collapse collapse" aria-labelledby="posChartHead" data-bs-parent="#posChartAcc">
+      <div class="accordion-body">
+        <canvas id="posChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Add Position Keywords -->
 <form method="POST" id="addPosForm" class="mb-4" style="display:none;">
   <input type="hidden" name="tab" value="position">
@@ -1025,6 +1039,31 @@ document.getElementById('openScLink').addEventListener('click', function() {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
     body: new URLSearchParams({save_sc_domain: '1', sc_domain: domain})
+  });
+});
+
+let posChart;
+document.getElementById('posChartCollapse').addEventListener('shown.bs.collapse', function () {
+  if (posChart) return;
+  const ctx = document.getElementById('posChart').getContext('2d');
+  posChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: <?= json_encode(array_reverse($months)) ?>,
+      datasets: [{
+        label: '% in Top 10',
+        data: <?= json_encode(array_reverse($firstPagePerc)) ?>,
+        borderColor: '#0d6efd',
+        backgroundColor: 'rgba(13,110,253,0.2)',
+        fill: false,
+        tension: 0.3
+      }]
+    },
+    options: {
+      scales: {
+        y: { beginAtZero: true, max: 100 }
+      }
+    }
   });
 });
 
