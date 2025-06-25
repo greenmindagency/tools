@@ -16,10 +16,6 @@ $title = $title ?? 'Green Mind Tools';
 <body>
 <?php include __DIR__ . '/../nav.php'; ?>
 <div class="container">
-  <div class="d-flex align-items-center mb-2">
-    <img src="https://i.ibb.co/MyYRCxGx/Green-Mind-Agency-Logo-square.png" class="logo me-2" alt="Green Mind Logo">
-    <h2 class="mb-0"><?= htmlspecialchars($title) ?></h2>
-  </div>
   <nav aria-label="breadcrumb" class="border-bottom container-fluid bg-light p-3 my-4">
     <ol class="breadcrumb mb-0">
       <?php
