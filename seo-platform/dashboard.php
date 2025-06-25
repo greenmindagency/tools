@@ -232,6 +232,7 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
             if (isset($kwMap[$r['kw']])) {
                 $update->execute([$r['pos'], $orderIdx, $kwMap[$r['kw']]['id']]);
             }
+            $orderIdx++;
         }
 
         // Cleanup any duplicate keywords that may exist
@@ -868,7 +869,7 @@ foreach ($stmt as $row) {
     </h2>
     <div id="posChartCollapse" class="accordion-collapse collapse" aria-labelledby="posChartHead" data-bs-parent="#posChartAcc">
       <div class="accordion-body">
-        <canvas id="posChart" height="200"></canvas>
+        <canvas id="posChart" height="150"></canvas>
       </div>
     </div>
   </div>
@@ -1058,27 +1059,39 @@ document.getElementById('openScLink').addEventListener('click', function() {
 });
 
 let posChart;
+const barLabelPlugin = {
+  id: 'barLabel',
+  afterDatasetsDraw(chart) {
+    const {ctx} = chart;
+    ctx.save();
+    ctx.fillStyle = '#000';
+    ctx.textAlign = 'center';
+    ctx.font = '10px sans-serif';
+    chart.getDatasetMeta(0).data.forEach((bar, i) => {
+      const val = chart.data.datasets[0].data[i] + '%';
+      ctx.fillText(val, bar.x, bar.y - 2);
+    });
+    ctx.restore();
+  }
+};
 document.getElementById('posChartCollapse').addEventListener('shown.bs.collapse', function () {
   if (posChart) return;
   const ctx = document.getElementById('posChart').getContext('2d');
   posChart = new Chart(ctx, {
-    type: 'line',
+    type: 'bar',
     data: {
       labels: <?= json_encode(array_reverse($months)) ?>,
       datasets: [{
         label: '% in Top 10',
         data: <?= json_encode(array_reverse($firstPagePerc)) ?>,
-        borderColor: '#0d6efd',
-        backgroundColor: 'rgba(13,110,253,0.2)',
-        fill: false,
-        tension: 0.3
+        backgroundColor: '#0d6efd'
       }]
     },
     options: {
-      scales: {
-        y: { beginAtZero: true, max: 100 }
-      }
-    }
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, max: 100 } }
+    },
+    plugins: [barLabelPlugin]
   });
 });
 
