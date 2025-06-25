@@ -161,13 +161,8 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
         $firstLine = fgets($handle);
 
         $delimiter = $detectCsvDelimiter($firstLine ?: '');
-        // Reset existing values for this month
-        $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL WHERE client_id = ?")
-            ->execute([$client_id]);
-
         $select = $pdo->prepare("SELECT id FROM keyword_positions WHERE client_id = ? AND keyword = ?");
         $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ? WHERE id = ?");
-        $insert = $pdo->prepare("INSERT INTO keyword_positions (client_id, keyword, `$col`) VALUES (?, ?, ?)");
 
 
         while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
