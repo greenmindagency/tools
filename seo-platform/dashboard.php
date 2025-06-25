@@ -129,6 +129,18 @@ $scDomainStmt = $pdo->prepare("SELECT domain FROM sc_domains WHERE client_id = ?
 $scDomainStmt->execute([$client_id]);
 $scDomain = $scDomainStmt->fetchColumn() ?: '';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_sc_domain'])) {
+    $newDomain = trim($_POST['sc_domain'] ?? '');
+    if ($newDomain !== '') {
+        $up = $pdo->prepare("INSERT INTO sc_domains (client_id, domain) VALUES (?, ?) ON DUPLICATE KEY UPDATE domain = VALUES(domain)");
+        $up->execute([$client_id, $newDomain]);
+        $scDomain = $newDomain;
+    }
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'ok']);
+    exit;
+}
+
 if (isset($_POST['add_position_keywords'])) {
     $text = trim($_POST['pos_keywords'] ?? '');
     $lines = array_values(array_filter(array_map('trim', preg_split('/\r\n|\n|\r/', $text)), 'strlen'));
@@ -185,7 +197,6 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
             $posRaw = $data[4] ?? '';
             $pos = $posRaw !== '' ? (float)str_replace(',', '.', $posRaw) : null;
 
-
             if (isset($kwMap[$kw])) {
                 $update->execute([$pos, $kwMap[$kw]]);
             }
@@ -203,6 +214,19 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
 $posStmt = $pdo->prepare("SELECT * FROM keyword_positions WHERE client_id = ? ORDER BY id DESC");
 $posStmt->execute([$client_id]);
 $positions = $posStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$firstPagePerc = [];
+$totalKeywords = count($positions);
+for ($i = 1; $i <= 12; $i++) {
+    $good = 0;
+    foreach ($positions as $row) {
+        $val = $row['m'.$i];
+        if ($val !== null && $val !== '' && (float)$val <= 10) {
+            $good++;
+        }
+    }
+    $firstPagePerc[$i] = $totalKeywords ? round($good * 100 / $totalKeywords) : 0;
+}
 
 $months = [];
 for ($i = 0; $i < 12; $i++) {
@@ -770,18 +794,15 @@ foreach ($stmt as $row) {
     <div class="col-sm"><input type="text" id="scDomain" name="sc_domain" value="<?= htmlspecialchars($scDomain) ?>" class="form-control" placeholder="Domain"></div>
     <div class="col-sm"><input type="date" id="scFrom" class="form-control"></div>
     <div class="col-sm"><input type="date" id="scTo" class="form-control"></div>
-    <div class="col-sm">
-      <select id="scCountry" class="form-select">
+    <div class="col-sm d-flex">
+      <select id="scCountry" class="form-select me-2">
         <option value="">Worldwide</option>
         <option value="egy">Egypt</option>
         <option value="sau">Saudi Arabia</option>
         <option value="are">United Arab Emirates</option>
       </select>
+      <button type="button" id="openScLink" class="btn btn-outline-secondary"><i class="bi bi-box-arrow-up-right"></i></button>
     </div>
-  </div>
-  <div class="d-flex align-items-center mt-2">
-    <input type="text" id="scLink" readonly class="form-control">
-    <button type="button" id="copyScLink" class="btn btn-outline-secondary ms-2"><i class="bi bi-clipboard"></i></button>
   </div>
 </div>
 
@@ -826,12 +847,20 @@ foreach ($stmt as $row) {
       </tr>
     </thead>
     <tbody id="posTableBody">
+    <tr class="table-info">
+      <td></td>
+      <td><strong>% in Top 10</strong></td>
+      <?php for ($i=11;$i>=0;$i--): $p = $firstPagePerc[$i+1]; ?>
+        <td class="text-center fw-bold"><?= $p ?>%</td>
+      <?php endfor; ?>
+    </tr>
     <?php foreach ($positions as $row): ?>
       <tr data-id="<?= $row['id'] ?>">
         <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-row">-</button><input type="hidden" name="delete_pos[<?= $row['id'] ?>]" value="0" class="delete-flag"></td>
         <td><?= htmlspecialchars($row['keyword']) ?></td>
         <?php for ($i=11;$i>=0;$i--): $col = 'm'.($i+1); ?>
-          <td class="text-center"><?= $row[$col] !== null ? htmlspecialchars($row[$col]) : '' ?></td>
+          <?php $val = $row[$col]; $bg = ''; if ($val !== null && $val !== '') { $bg = ((float)$val <= 10) ? '#d4edda' : '#f8d7da'; } ?>
+          <td class="text-center" style="background-color: <?= $bg ?>;"><?= $val !== null ? htmlspecialchars($val) : '' ?></td>
         <?php endfor; ?>
       </tr>
     <?php endforeach; ?>
@@ -908,30 +937,29 @@ document.getElementById('toggleImportPosForm').addEventListener('click', functio
   }
 });
 
-document.getElementById('copyScLink').addEventListener('click', function() {
-  const link = document.getElementById('scLink').value;
-  if (link) {
-    navigator.clipboard.writeText(link).then(() => alert('Link copied to clipboard'));
-  }
-});
-
-function updateSCLink() {
+function buildSCLink() {
   const domain = document.getElementById('scDomain').value.trim();
+  if (!domain) return '';
   const from = document.getElementById('scFrom').value;
   const to = document.getElementById('scTo').value;
   const country = document.getElementById('scCountry').value;
-  if (!domain) { document.getElementById('scLink').value = ''; return; }
   let url = 'https://search.google.com/search-console/performance/search-analytics?resource_id=' + encodeURIComponent(domain) + '&metrics=POSITION';
   if (from) url += '&start_date=' + from;
   if (to) url += '&end_date=' + to;
   if (country) url += '&country=' + country;
-  document.getElementById('scLink').value = url;
+  return url;
 }
-['input','change'].forEach(evt => {
-  document.getElementById('scDomain').addEventListener(evt, updateSCLink);
-  document.getElementById('scFrom').addEventListener(evt, updateSCLink);
-  document.getElementById('scTo').addEventListener(evt, updateSCLink);
-  document.getElementById('scCountry').addEventListener(evt, updateSCLink);
+
+document.getElementById('openScLink').addEventListener('click', function() {
+  const url = buildSCLink();
+  const domain = document.getElementById('scDomain').value.trim();
+  if (!url) return;
+  window.open(url, '_blank');
+  fetch('dashboard.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({save_sc_domain: '1', sc_domain: domain})
+  });
 });
 </script>
 
