@@ -30,7 +30,7 @@ include 'header.php';
         <input type="text" name="client_name" class="form-control" placeholder="Add new client..." required>
       </div>
       <div class="col-auto">
-        <button type="submit" class="btn btn-primary">Add Client</button>
+        <button type="submit" class="btn btn-primary btn-sm">Add Client</button>
       </div>
   </form>
 </div>

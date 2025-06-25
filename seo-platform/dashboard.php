@@ -317,20 +317,20 @@ include 'header.php';
 <!-- Add Keyword Form -->
 <form method="POST" id="addKeywordsForm" class="mb-4" style="display:none;">
     <textarea name="keywords" class="form-control" placeholder="Paste keywords with optional volume and form" rows="6"></textarea>
-    <button type="submit" name="add_keywords" class="btn btn-primary mt-2">Add Keywords</button>
+    <button type="submit" name="add_keywords" class="btn btn-primary btn-sm mt-2">Add Keywords</button>
 </form>
 
 
 <!-- Import Plan Form -->
 <form method="POST" id="importForm" enctype="multipart/form-data" class="mb-4" style="display:none;">
     <input type="file" name="csv_file" accept=".csv" class="form-control">
-    <button type="submit" name="import_plan" class="btn btn-primary mt-2">Import Plan</button>
+    <button type="submit" name="import_plan" class="btn btn-primary btn-sm mt-2">Import Plan</button>
 </form>
 
 <!-- Add Cluster Form -->
 <form method="POST" id="addClustersForm" class="mb-4" style="display:none;">
     <textarea name="clusters" class="form-control" placeholder="keyword1|keyword2 per line" rows="4"></textarea>
-    <button type="submit" name="add_clusters" class="btn btn-primary mt-2">Add Clusters</button>
+    <button type="submit" name="add_clusters" class="btn btn-primary btn-sm mt-2">Add Clusters</button>
 </form>
 
 <?php
@@ -708,13 +708,13 @@ $stmt->execute($params);
 
 <div class="d-flex justify-content-between mb-2 sticky-controls">
   <div class="d-flex">
-    <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success me-2">Update</button>
-    <button type="button" id="toggleAddForm" class="btn btn-warning me-2">Update Keywords</button>
-    <button type="button" id="toggleClusterForm" class="btn btn-info me-2">Update Clusters</button>
+    <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success btn-sm me-2">Update</button>
+    <button type="button" id="toggleAddForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
+    <button type="button" id="toggleClusterForm" class="btn btn-info btn-sm me-2">Update Clusters</button>
     <button type="button" id="copyKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
-    <button type="button" id="copyLinks" class="btn btn-secondary btn-sm me-2">Copy Links</button>
-    <button type="button" id="toggleImportForm" class="btn btn-primary me-2">Import Plan</button>
-    <a href="export.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary">Export CSV</a>
+    <button type="button" id="copyLinks" class="btn btn-dark btn-sm me-2">Copy Links</button>
+    <button type="button" id="toggleImportForm" class="btn btn-primary btn-sm me-2">Import Plan</button>
+    <a href="export.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary btn-sm">Export CSV</a>
   </div>
   <form id="filterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
@@ -856,7 +856,7 @@ foreach ($stmt as $row) {
         <option value="sau">Saudi Arabia</option>
         <option value="are">United Arab Emirates</option>
       </select>
-      <button type="button" id="openScLink" class="btn btn-outline-secondary"><i class="bi bi-box-arrow-up-right"></i></button>
+      <button type="button" id="openScLink" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right"></i></button>
     </div>
   </div>
 </div>
@@ -880,7 +880,7 @@ foreach ($stmt as $row) {
 <form method="POST" id="addPosForm" class="mb-4" style="display:none;">
   <input type="hidden" name="tab" value="position">
   <textarea name="pos_keywords" class="form-control" rows="6" placeholder="One keyword per line"></textarea>
-  <button type="submit" name="add_position_keywords" class="btn btn-primary mt-2">Add Keywords</button>
+  <button type="submit" name="add_position_keywords" class="btn btn-primary btn-sm mt-2">Add Keywords</button>
 </form>
 
 <!-- Import Positions Form -->
@@ -892,14 +892,14 @@ foreach ($stmt as $row) {
     <?php endforeach; ?>
   </select>
   <input type="file" name="csv_file" accept=".csv" class="form-control">
-  <button type="submit" name="import_positions" class="btn btn-primary mt-2">Import Positions</button>
+  <button type="submit" name="import_positions" class="btn btn-primary btn-sm mt-2">Import Positions</button>
 </form>
 
 <div class="d-flex justify-content-between mb-2 sticky-controls">
   <div class="d-flex">
-    <button type="submit" form="updatePosForm" name="update_positions" class="btn btn-success me-2">Update</button>
-    <button type="button" id="toggleAddPosForm" class="btn btn-warning me-2">Update Keywords</button>
-    <button type="button" id="toggleImportPosForm" class="btn btn-primary me-2">Import Positions</button>
+    <button type="submit" form="updatePosForm" name="update_positions" class="btn btn-success btn-sm me-2">Update</button>
+    <button type="button" id="toggleAddPosForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
+    <button type="button" id="toggleImportPosForm" class="btn btn-primary btn-sm me-2">Import Positions</button>
     <button type="button" id="copyPosKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
   </div>
   <form id="posFilterForm" method="GET" class="d-flex">
@@ -1000,14 +1000,15 @@ document.getElementById('copyKeywords').addEventListener('click', function() {
 
 document.getElementById('copyLinks').addEventListener('click', function() {
   const rows = document.querySelectorAll('#kwTableBody tr');
-  const links = [];
+  const links = new Set();
   rows.forEach(tr => {
     const input = tr.querySelector('td:nth-child(5) input');
     if (input) {
-      links.push(input.value.trim());
+      const val = input.value.trim();
+      if (val) links.add(val);
     }
   });
-  navigator.clipboard.writeText(links.join('\n')).then(() => {
+  navigator.clipboard.writeText(Array.from(links).join('\n')).then(() => {
     alert('Links copied to clipboard');
   });
 });
