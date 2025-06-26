@@ -1128,6 +1128,27 @@ document.querySelectorAll('#dashTabs button[data-bs-toggle="tab"]').forEach(btn 
     history.replaceState(null, '', url);
   });
 });
+
+// Highlight keywords present in both tables
+document.addEventListener('DOMContentLoaded', () => {
+  const kwCells = Array.from(document.querySelectorAll('#kwTableBody tr td:nth-child(2)'));
+  const posCells = Array.from(document.querySelectorAll('#posTableBody tr[data-id] td:nth-child(2)'));
+
+  const kwSet = new Set(kwCells.map(c => c.innerText.trim().toLowerCase()));
+  const posSet = new Set(posCells.map(c => c.innerText.trim().toLowerCase()));
+
+  kwCells.forEach(c => {
+    if (posSet.has(c.innerText.trim().toLowerCase())) {
+      c.style.backgroundColor = '#e9e9e9';
+    }
+  });
+
+  posCells.forEach(c => {
+    if (kwSet.has(c.innerText.trim().toLowerCase())) {
+      c.style.backgroundColor = '#e9e9e9';
+    }
+  });
+});
 </script>
 
 <?php include 'footer.php'; ?>
