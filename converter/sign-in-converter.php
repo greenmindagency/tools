@@ -31,7 +31,10 @@ function toHours(ms) {
   return (ms / 3600000).toFixed(2);
 }
 function dateKey(d) {
-  return d.toISOString().slice(0,10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 function addBankHoliday(value = '') {
   const container = document.getElementById('bankHolidaysContainer');
@@ -85,9 +88,11 @@ function convert() {
   end.setMonth(end.getMonth() + 1);
   end.setDate(25);
 
+  // 5 = Friday, 6 = Saturday
+  const weekend = [5, 6];
   const dateKeys = [];
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    if (d.getDay() !== 5 && d.getDay() !== 6) {
+    if (!weekend.includes(d.getDay())) {
       dateKeys.push(dateKey(new Date(d)));
     }
   }
