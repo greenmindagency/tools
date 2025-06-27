@@ -23,11 +23,18 @@ include 'header.php';
 <button class="btn btn-primary" onclick="convert()">Convert</button>
 <div class="d-flex justify-content-between align-items-center mt-4 mb-2">
   <div id="monthDays" class="fw-bold"></div>
-  <button id="copyBtn" class="btn btn-outline-secondary btn-sm d-none" onclick="copyTable()">Copy</button>
-  <button id="copyMissingBtn" class="btn btn-outline-secondary btn-sm d-none ms-2" onclick="copyMissing()">Copy Missing</button>
+  <div class="ms-auto">
+    <button id="copyBtn" class="btn btn-success btn-sm d-none" onclick="copyTable()">Copy</button>
+    <button id="copyMissingBtn" class="btn btn-warning btn-sm d-none ms-2" onclick="copyMissing()">Copy Missing</button>
+  </div>
 </div>
 <div class="table-responsive">
   <table id="outputTable" class="table table-bordered table-striped"></table>
+</div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="copyToast" class="toast" role="status" aria-live="assertive" aria-atomic="true">
+    <div class="toast-body">Copied to clipboard</div>
+  </div>
 </div>
 <script>
 function parseDate(str) {
@@ -197,13 +204,20 @@ function renderTable(headers, rows) {
   table.appendChild(tbody);
 }
 
+function showCopiedToast(msg) {
+  const el = document.getElementById('copyToast');
+  el.querySelector('.toast-body').textContent = msg;
+  const toast = bootstrap.Toast.getOrCreateInstance(el);
+  toast.show();
+}
+
 function copyTable() {
   const rows = [];
   document.querySelectorAll('#outputTable tr').forEach(tr => {
     const cells = Array.from(tr.children).map(td => td.textContent);
     rows.push(cells.join('\t'));
   });
-  navigator.clipboard.writeText(rows.join('\n'));
+  navigator.clipboard.writeText(rows.join('\n')).then(() => showCopiedToast('Table copied'));
 }
 
 function copyMissing() {
@@ -215,7 +229,9 @@ function copyMissing() {
       rows.push([cells[0], cells[1], note].join('\t'));
     }
   });
-  if (rows.length) navigator.clipboard.writeText(rows.join('\n'));
+  if (rows.length) {
+    navigator.clipboard.writeText(rows.join('\n')).then(() => showCopiedToast('Missing rows copied'));
+  }
 }
 window.addEventListener('load', () => {
   const saved = localStorage.getItem('signinRaw');
