@@ -32,6 +32,7 @@ function toHours(ms) {
 }
 function dateKey(d) {
   return d.toISOString().slice(0,10);
+}
 function addBankHoliday(value = '') {
   const container = document.getElementById('bankHolidaysContainer');
   const div = document.createElement('div');
@@ -39,7 +40,6 @@ function addBankHoliday(value = '') {
   div.innerHTML = `<input type="date" class="form-control bank-holiday" value="${value}">` +
     '<button type="button" class="btn btn-outline-secondary" onclick="addBankHoliday()">+</button>';
   container.appendChild(div);
-}
 }
 function getBankHolidays() {
   const inputs = document.querySelectorAll('.bank-holiday');
@@ -93,13 +93,16 @@ function convert() {
   }
 
   const rows = [];
-  dateKeys.forEach(dk => {
-    names.forEach(name => {
+  names.forEach(name => {
+    dateKeys.forEach(dk => {
       const entry = (data[name] && data[name][dk]) || {in:'', out:'', shift:''};
       const inDate = parseDate(entry.in);
       const outDate = parseDate(entry.out);
       let invalidIn = !inDate;
       let invalidOut = !outDate || (inDate && outDate < inDate);
+      if (!invalidOut && inDate && outDate && dateKey(inDate) !== dateKey(outDate)) {
+        invalidOut = true;
+      }
       const stdIn = inDate ? new Date(inDate) : null;
       if (stdIn) stdIn.setHours(9,15,0,0);
       const stdOut = outDate ? new Date(outDate) : null;
