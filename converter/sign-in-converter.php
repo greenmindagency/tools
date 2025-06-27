@@ -11,11 +11,13 @@ include 'header.php';
   <label class="form-label">Paste Sign In Data (tab separated):</label>
   <textarea id="input" class="form-control" placeholder="Name\tClock In\tClock Out\tShift Total\n..."></textarea>
 </div>
-<div class="mb-3" id="bankHolidaysContainer">
+<div class="mb-3">
   <label class="form-label">Bank Holidays:</label>
-  <div class="input-group mb-1">
-    <input type="date" class="form-control bank-holiday">
-    <button type="button" class="btn btn-outline-secondary">+</button>
+  <div id="bankHolidays">
+    <div class="input-group mb-1">
+      <input type="date" class="form-control bank-holiday">
+      <button type="button" class="btn btn-outline-secondary" onclick="addBankHoliday(this)">+</button>
+    </div>
   </div>
 </div>
 <button class="btn btn-primary" onclick="convert()">Convert</button>
@@ -40,37 +42,24 @@ function dateKey(d) {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
-function addBankHoliday(value = '') {
-  const container = document.getElementById('bankHolidaysContainer');
-  const div = document.createElement('div');
-  div.className = 'input-group mb-1';
-  div.innerHTML = `<input type="date" class="form-control bank-holiday" value="${value}">` +
-    '<button type="button" class="btn btn-outline-secondary">+</button>';
-  container.appendChild(div);
-  updateBankButtons();
+function addBankHoliday(button, value = '') {
+  const container = document.getElementById('bankHolidays');
+  const group = button.closest('.input-group');
+  const clone = group.cloneNode(true);
+  clone.querySelector('input').value = value;
+  const btn = clone.querySelector('button');
+  btn.textContent = '-';
+  btn.classList.replace('btn-outline-secondary', 'btn-outline-danger');
+  btn.setAttribute('onclick', 'removeBankHoliday(this)');
+  container.appendChild(clone);
 }
 
-function removeBankHoliday(btn) {
-  btn.parentElement.remove();
-  if (document.querySelectorAll('#bankHolidaysContainer .input-group').length === 0) {
-    addBankHoliday();
-  } else {
-    updateBankButtons();
+function removeBankHoliday(button) {
+  const container = document.getElementById('bankHolidays');
+  button.closest('.input-group').remove();
+  if (container.children.length === 0) {
+    container.innerHTML = '<div class="input-group mb-1"><input type="date" class="form-control bank-holiday"><button type="button" class="btn btn-outline-secondary" onclick="addBankHoliday(this)">+</button></div>';
   }
-}
-
-function updateBankButtons() {
-  const groups = document.querySelectorAll('#bankHolidaysContainer .input-group');
-  groups.forEach((g, idx) => {
-    const btn = g.querySelector('button');
-    if (idx === groups.length - 1) {
-      btn.textContent = '+';
-      btn.onclick = () => addBankHoliday();
-    } else {
-      btn.textContent = '-';
-      btn.onclick = () => removeBankHoliday(btn);
-    }
-  });
 }
 function getBankHolidays() {
   const inputs = document.querySelectorAll('.bank-holiday');
@@ -207,19 +196,25 @@ function renderTable(headers, rows) {
 }
 
 function copyTable() {
-  const html = document.getElementById('outputTable').outerHTML;
-  navigator.clipboard.writeText(html);
+  const rows = [];
+  document.querySelectorAll('#outputTable tr').forEach(tr => {
+    const cells = Array.from(tr.children).map(td => td.textContent);
+    rows.push(cells.join('\t'));
+  });
+  navigator.clipboard.writeText(rows.join('\n'));
 }
 window.addEventListener('load', () => {
   const saved = localStorage.getItem('signinRaw');
   if (saved) document.getElementById('input').value = saved;
   const banks = JSON.parse(localStorage.getItem('signinBanks') || '[]');
-  const container = document.getElementById('bankHolidaysContainer');
-  container.innerHTML = '<label class="form-label">Bank Holidays:</label>';
+  const container = document.getElementById('bankHolidays');
+  container.innerHTML = '<div class="input-group mb-1"><input type="date" class="form-control bank-holiday"><button type="button" class="btn btn-outline-secondary" onclick="addBankHoliday(this)">+</button></div>';
   if (banks.length) {
-    banks.forEach(b => addBankHoliday(b));
-  } else {
-    addBankHoliday();
+    const first = container.querySelector('input');
+    first.value = banks[0];
+    for (let i = 1; i < banks.length; i++) {
+      addBankHoliday(container.querySelector('button'), banks[i]);
+    }
   }
   if (saved) convert();
 });
