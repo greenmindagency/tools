@@ -19,7 +19,11 @@ include 'header.php';
   </div>
 </div>
 <button class="btn btn-primary" onclick="convert()">Convert</button>
-<div class="table-responsive mt-4">
+<div class="d-flex justify-content-between align-items-center mt-4 mb-2">
+  <div id="monthDays" class="fw-bold"></div>
+  <button id="copyBtn" class="btn btn-outline-secondary btn-sm d-none" onclick="copyTable()">Copy</button>
+</div>
+<div class="table-responsive">
   <table id="outputTable" class="table table-bordered table-striped"></table>
 </div>
 <script>
@@ -120,6 +124,7 @@ function convert() {
       dateKeys.push(dateKey(new Date(d)));
     }
   }
+  document.getElementById('monthDays').textContent = `Working Days: ${dateKeys.length}`;
 
   const rows = [];
   names.forEach(name => {
@@ -149,8 +154,10 @@ function convert() {
         note = 'Missing Sign Out';
       }
       let net = 8;
-      if (note === "Annual Leave" || note === "Bank Holiday") {
+      if (note === "Annual Leave") {
         net = 0;
+      } else if (note === "Bank Holiday") {
+        net = 8;
       } else {
         if (!invalidIn && inDate > stdIn) {
           net -= (inDate - stdIn) / 3600000;
@@ -175,6 +182,7 @@ function convert() {
 
   renderTable(['Date','Name','Clock In','Clock Out','Net','Note'], rows);
   localStorage.setItem('signinTable', document.getElementById('outputTable').outerHTML);
+  document.getElementById('copyBtn').classList.remove('d-none');
 }
 function renderTable(headers, rows) {
   const table = document.getElementById('outputTable');
@@ -196,6 +204,11 @@ function renderTable(headers, rows) {
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
+}
+
+function copyTable() {
+  const html = document.getElementById('outputTable').outerHTML;
+  navigator.clipboard.writeText(html);
 }
 window.addEventListener('load', () => {
   const saved = localStorage.getItem('signinRaw');
