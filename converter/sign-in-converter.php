@@ -24,6 +24,7 @@ include 'header.php';
 <div class="d-flex justify-content-between align-items-center mt-4 mb-2">
   <div id="monthDays" class="fw-bold"></div>
   <button id="copyBtn" class="btn btn-outline-secondary btn-sm d-none" onclick="copyTable()">Copy</button>
+  <button id="copyMissingBtn" class="btn btn-outline-secondary btn-sm d-none ms-2" onclick="copyMissing()">Copy Missing</button>
 </div>
 <div class="table-responsive">
   <table id="outputTable" class="table table-bordered table-striped"></table>
@@ -172,6 +173,7 @@ function convert() {
   renderTable(['Date','Name','Clock In','Clock Out','Net','Note'], rows);
   localStorage.setItem('signinTable', document.getElementById('outputTable').outerHTML);
   document.getElementById('copyBtn').classList.remove('d-none');
+  document.getElementById('copyMissingBtn').classList.remove('d-none');
 }
 function renderTable(headers, rows) {
   const table = document.getElementById('outputTable');
@@ -202,6 +204,18 @@ function copyTable() {
     rows.push(cells.join('\t'));
   });
   navigator.clipboard.writeText(rows.join('\n'));
+}
+
+function copyMissing() {
+  const rows = [];
+  document.querySelectorAll('#outputTable tbody tr').forEach(tr => {
+    const cells = Array.from(tr.children).map(td => td.textContent);
+    const note = cells[5] || '';
+    if (/Missing/i.test(note)) {
+      rows.push([cells[0], cells[1], note].join('\t'));
+    }
+  });
+  if (rows.length) navigator.clipboard.writeText(rows.join('\n'));
 }
 window.addEventListener('load', () => {
   const saved = localStorage.getItem('signinRaw');
