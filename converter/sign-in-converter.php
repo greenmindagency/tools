@@ -15,7 +15,7 @@ include 'header.php';
   <label class="form-label">Bank Holidays:</label>
   <div class="input-group mb-1">
     <input type="date" class="form-control bank-holiday">
-    <button type="button" class="btn btn-outline-secondary" onclick="addBankHoliday()">+</button>
+    <button type="button" class="btn btn-outline-secondary">+</button>
   </div>
 </div>
 <button class="btn btn-primary" onclick="convert()">Convert</button>
@@ -41,8 +41,32 @@ function addBankHoliday(value = '') {
   const div = document.createElement('div');
   div.className = 'input-group mb-1';
   div.innerHTML = `<input type="date" class="form-control bank-holiday" value="${value}">` +
-    '<button type="button" class="btn btn-outline-secondary" onclick="addBankHoliday()">+</button>';
+    '<button type="button" class="btn btn-outline-secondary">+</button>';
   container.appendChild(div);
+  updateBankButtons();
+}
+
+function removeBankHoliday(btn) {
+  btn.parentElement.remove();
+  if (document.querySelectorAll('#bankHolidaysContainer .input-group').length === 0) {
+    addBankHoliday();
+  } else {
+    updateBankButtons();
+  }
+}
+
+function updateBankButtons() {
+  const groups = document.querySelectorAll('#bankHolidaysContainer .input-group');
+  groups.forEach((g, idx) => {
+    const btn = g.querySelector('button');
+    if (idx === groups.length - 1) {
+      btn.textContent = '+';
+      btn.onclick = () => addBankHoliday();
+    } else {
+      btn.textContent = '-';
+      btn.onclick = () => removeBankHoliday(btn);
+    }
+  });
 }
 function getBankHolidays() {
   const inputs = document.querySelectorAll('.bank-holiday');
@@ -180,13 +204,7 @@ window.addEventListener('load', () => {
   const container = document.getElementById('bankHolidaysContainer');
   container.innerHTML = '<label class="form-label">Bank Holidays:</label>';
   if (banks.length) {
-    banks.forEach(b => {
-      const div = document.createElement('div');
-      div.className = 'input-group mb-1';
-      div.innerHTML = `<input type="date" class="form-control bank-holiday" value="${b}">` +
-        '<button type="button" class="btn btn-outline-secondary" onclick="addBankHoliday()">+</button>';
-      container.appendChild(div);
-    });
+    banks.forEach(b => addBankHoliday(b));
   } else {
     addBankHoliday();
   }
