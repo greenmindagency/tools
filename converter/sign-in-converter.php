@@ -112,12 +112,6 @@ function convert() {
       if (stdIn) stdIn.setHours(9,15,0,0);
       const stdOut = outDate ? new Date(outDate) : null;
       if (stdOut) stdOut.setHours(17,0,0,0);
-      let working = 0;
-      if (!invalidIn && !invalidOut) {
-        const startW = inDate > stdIn ? inDate : stdIn;
-        const endW = outDate < stdOut ? outDate : stdOut;
-        working = Math.max(0, endW - startW);
-      }
       let note = '';
       if (/annual\s*leave/i.test(entry.in) || /annual\s*leave/i.test(entry.out) || /annual\s*leave/i.test(entry.shift)) {
         note = 'Annual Leave';
@@ -130,12 +124,24 @@ function convert() {
       } else if (invalidOut) {
         note = 'Missing Sign Out';
       }
+      let net = 8;
+      if (note === "Annual Leave" || note === "Bank Holiday") {
+        net = 0;
+      } else {
+        if (!invalidIn && inDate > stdIn) {
+          net -= (inDate - stdIn) / 3600000;
+        }
+        if (!invalidOut && outDate < stdOut) {
+          net -= (stdOut - outDate) / 3600000;
+        }
+        if (net < 0) net = 0;
+      }
       rows.push({
         Date: dk,
         Name: name,
         'Clock In': entry.in,
         'Clock Out': entry.out,
-        Net: toHours(working),
+        Net: net.toFixed(2),
         Note: note,
         _invalidIn: invalidIn,
         _invalidOut: invalidOut
