@@ -11,9 +11,12 @@ include 'header.php';
   <label class="form-label">Paste Sign In Data (tab separated):</label>
   <textarea id="input" class="form-control" placeholder="Name\tClock In\tClock Out\tShift Total\n..."></textarea>
 </div>
-<div class="mb-3">
-  <label class="form-label">Bank Holidays (comma separated dates):</label>
-  <input id="bank" class="form-control" placeholder="2025-06-01, 2025-06-18">
+<div class="mb-3" id="bankHolidaysContainer">
+  <label class="form-label">Bank Holidays:</label>
+  <div class="input-group mb-1">
+    <input type="date" class="form-control bank-holiday">
+    <button type="button" class="btn btn-outline-secondary" onclick="addBankHoliday()">+</button>
+  </div>
 </div>
 <button class="btn btn-primary" onclick="convert()">Convert</button>
 <div class="table-responsive mt-4">
@@ -29,65 +32,110 @@ function toHours(ms) {
 }
 function dateKey(d) {
   return d.toISOString().slice(0,10);
+function addBankHoliday(value = '') {
+  const container = document.getElementById('bankHolidaysContainer');
+  const div = document.createElement('div');
+  div.className = 'input-group mb-1';
+  div.innerHTML = `<input type="date" class="form-control bank-holiday" value="${value}">` +
+    '<button type="button" class="btn btn-outline-secondary" onclick="addBankHoliday()">+</button>';
+  container.appendChild(div);
 }
+}
+function getBankHolidays() {
+  const inputs = document.querySelectorAll('.bank-holiday');
+  const values = [];
+  inputs.forEach(i => { if (i.value) values.push(i.value); });
+  localStorage.setItem('signinBanks', JSON.stringify(values));
+  return values.map(v => dateKey(new Date(v)));
+}
+
 function convert() {
   const raw = document.getElementById('input').value.trim();
-  const bankRaw = document.getElementById('bank').value.trim();
+  const bankHolidays = getBankHolidays();
   localStorage.setItem('signinRaw', raw);
-  localStorage.setItem('signinBank', bankRaw);
   if (!raw) return;
-  const bankHolidays = bankRaw
-    ? bankRaw.split(/[,\n]+/).map(s => parseDate(s.trim())).filter(d => d)
-        .map(d => dateKey(d))
-    : [];
+
   const lines = raw.split(/\n+/);
-  const header = lines.shift().split(/\t/).map(s => s.trim());
-  const rows = [];
+  lines.shift();
+
+  const data = {};
+  const allDates = [];
+
   lines.forEach(line => {
     if (!line.trim()) return;
     const cols = line.split(/\t/);
     const name = cols[0].split(',').pop().trim();
-    const row = {
-      Name: name,
-      'Clock In': cols[1] ? cols[1].trim() : '',
-      'Clock Out': cols[2] ? cols[2].trim() : '',
-      'Shift Total': cols[3] ? cols[3].trim() : ''
-    };
-    const inDate = parseDate(row['Clock In']);
-    const outDate = parseDate(row['Clock Out']);
-    let invalidIn = !inDate;
-    let invalidOut = !outDate || (inDate && outDate < inDate);
-    const stdIn = inDate ? new Date(inDate) : null;
-    if (stdIn) { stdIn.setHours(9,15,0,0); }
-    const stdOut = outDate ? new Date(outDate) : null;
-    if (stdOut) { stdOut.setHours(17,0,0,0); }
-    let working = 0;
-    if (!invalidIn && !invalidOut) {
-      const start = inDate > stdIn ? inDate : stdIn;
-      const end = outDate < stdOut ? outDate : stdOut;
-      working = Math.max(0, end - start);
+    const clockIn = cols[1] ? cols[1].trim() : '';
+    const clockOut = cols[2] ? cols[2].trim() : '';
+    const dateObj = parseDate(clockIn) || parseDate(clockOut);
+    if (!data[name]) data[name] = {};
+    if (dateObj) {
+      const key = dateKey(dateObj);
+      allDates.push(dateObj);
+      data[name][key] = {in: clockIn, out: clockOut, shift: cols[3] ? cols[3].trim() : ''};
     }
-    const noteDate = inDate || outDate;
-    let note = '';
-    if (/annual\s*leave/i.test(row['Clock In']) || /annual\s*leave/i.test(row['Clock Out']) || /annual\s*leave/i.test(row['Shift Total'])) {
-      note = 'Annual Leave';
-    } else if (noteDate && bankHolidays.includes(dateKey(noteDate))) {
-      note = 'Bank Holiday';
-    } else if (invalidIn && invalidOut) {
-      note = 'Missing Sign In/Out';
-    } else if (invalidIn) {
-      note = 'Missing Sign In';
-    } else if (invalidOut) {
-      note = 'Missing Sign Out';
-    }
-    row['Net'] = toHours(working);
-    row['Note'] = note;
-    row._invalidIn = invalidIn;
-    row._invalidOut = invalidOut;
-    rows.push(row);
   });
-  rows.sort((a,b) => a.Name.localeCompare(b.Name));
-  renderTable(['Name','Clock In','Clock Out','Shift Total','Net','Note'], rows);
+
+  const names = Object.keys(data).sort((a,b) => a.localeCompare(b));
+  if (!allDates.length) return;
+
+  const earliest = new Date(Math.min.apply(null, allDates.map(d => d.getTime())));
+  let start = earliest.getDate() >= 26 ? new Date(earliest.getFullYear(), earliest.getMonth(), 26) : new Date(earliest.getFullYear(), earliest.getMonth()-1, 26);
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + 1);
+  end.setDate(25);
+
+  const dateKeys = [];
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    if (d.getDay() !== 5 && d.getDay() !== 6) {
+      dateKeys.push(dateKey(new Date(d)));
+    }
+  }
+
+  const rows = [];
+  dateKeys.forEach(dk => {
+    names.forEach(name => {
+      const entry = (data[name] && data[name][dk]) || {in:'', out:'', shift:''};
+      const inDate = parseDate(entry.in);
+      const outDate = parseDate(entry.out);
+      let invalidIn = !inDate;
+      let invalidOut = !outDate || (inDate && outDate < inDate);
+      const stdIn = inDate ? new Date(inDate) : null;
+      if (stdIn) stdIn.setHours(9,15,0,0);
+      const stdOut = outDate ? new Date(outDate) : null;
+      if (stdOut) stdOut.setHours(17,0,0,0);
+      let working = 0;
+      if (!invalidIn && !invalidOut) {
+        const startW = inDate > stdIn ? inDate : stdIn;
+        const endW = outDate < stdOut ? outDate : stdOut;
+        working = Math.max(0, endW - startW);
+      }
+      let note = '';
+      if (/annual\s*leave/i.test(entry.in) || /annual\s*leave/i.test(entry.out) || /annual\s*leave/i.test(entry.shift)) {
+        note = 'Annual Leave';
+      } else if (bankHolidays.includes(dk)) {
+        note = 'Bank Holiday';
+      } else if (invalidIn && invalidOut) {
+        note = 'Missing Sign In/Out';
+      } else if (invalidIn) {
+        note = 'Missing Sign In';
+      } else if (invalidOut) {
+        note = 'Missing Sign Out';
+      }
+      rows.push({
+        Date: dk,
+        Name: name,
+        'Clock In': entry.in,
+        'Clock Out': entry.out,
+        Net: toHours(working),
+        Note: note,
+        _invalidIn: invalidIn,
+        _invalidOut: invalidOut
+      });
+    });
+  });
+
+  renderTable(['Date','Name','Clock In','Clock Out','Net','Note'], rows);
   localStorage.setItem('signinTable', document.getElementById('outputTable').outerHTML);
 }
 function renderTable(headers, rows) {
@@ -114,8 +162,20 @@ function renderTable(headers, rows) {
 window.addEventListener('load', () => {
   const saved = localStorage.getItem('signinRaw');
   if (saved) document.getElementById('input').value = saved;
-  const savedBank = localStorage.getItem('signinBank');
-  if (savedBank) document.getElementById('bank').value = savedBank;
+  const banks = JSON.parse(localStorage.getItem('signinBanks') || '[]');
+  const container = document.getElementById('bankHolidaysContainer');
+  container.innerHTML = '<label class="form-label">Bank Holidays:</label>';
+  if (banks.length) {
+    banks.forEach(b => {
+      const div = document.createElement('div');
+      div.className = 'input-group mb-1';
+      div.innerHTML = `<input type="date" class="form-control bank-holiday" value="${b}">` +
+        '<button type="button" class="btn btn-outline-secondary" onclick="addBankHoliday()">+</button>';
+      container.appendChild(div);
+    });
+  } else {
+    addBankHoliday();
+  }
   if (saved) convert();
 });
 </script>
