@@ -1,11 +1,19 @@
 <?php
 $generator_files = glob(__DIR__ . '/prompt-generator/*.php');
 $generators = [];
+$converter_files = glob(__DIR__ . '/converter/*.php');
+$converters = [];
 foreach ($generator_files as $file) {
     $base = basename($file);
     if (in_array($base, ['index.php','header.php','footer.php'])) continue;
     $title = ucwords(str_replace('-', ' ', pathinfo($base, PATHINFO_FILENAME)));
     $generators[$base] = $title;
+}
+foreach ($converter_files as $file) {
+    $base = basename($file);
+    if (in_array($base, ['index.php','header.php','footer.php'])) continue;
+    $title = ucwords(str_replace('-', ' ', pathinfo($base, PATHINFO_FILENAME)));
+    $converters[$base] = $title;
 }
 $current = $_SERVER['REQUEST_URI'] ?? '';
 ?>
@@ -25,6 +33,17 @@ $current = $_SERVER['REQUEST_URI'] ?? '';
           <ul class="dropdown-menu" aria-labelledby="generatorsDropdown">
             <?php foreach ($generators as $file => $title): ?>
               <li><a class="dropdown-item" href="/tools/prompt-generator/<?= $file ?>"><?= $title ?></a></li>
+            <?php endforeach; ?>
+          </ul>
+        </li>
+        <li class="nav-item dropdown">
+          <?php $active = strpos($current, '/converter/') !== false ? 'active' : ''; ?>
+          <a class="nav-link dropdown-toggle <?= $active ?>" href="#" id="convertersDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Converters
+          </a>
+          <ul class="dropdown-menu" aria-labelledby="convertersDropdown">
+            <?php foreach ($converters as $file => $title): ?>
+              <li><a class="dropdown-item" href="/tools/converter/<?= $file ?>"><?= $title ?></a></li>
             <?php endforeach; ?>
           </ul>
         </li>
