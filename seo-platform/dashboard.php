@@ -657,7 +657,7 @@ foreach ($stmt as $row) {
 <p><a href="index.php">&larr; Back to Clients</a></p>
 
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
-  <div id="copyToast" class="toast" role="status" aria-live="assertive" aria-atomic="true">
+  <div id="copyToast" class="toast" role="status" aria-live="assertive" aria-atomic="true" data-bs-delay="1500">
     <div class="toast-body">Copied to clipboard</div>
   </div>
 </div>
@@ -728,22 +728,7 @@ document.getElementById('copyLinks').addEventListener('click', function() {
     }
   });
   navigator.clipboard.writeText(Array.from(links).join('\n')).then(() => {
-    showCopiedToast('Links copied to clipboard');
-  });
-});
-
-document.getElementById('copyLinks').addEventListener('click', function() {
-  const rows = document.querySelectorAll('#kwTableBody tr');
-  const links = new Set();
-  rows.forEach(tr => {
-    const input = tr.querySelector('td:nth-child(5) input');
-    if (input) {
-      const val = input.value.trim();
-      if (val) links.add(val);
-    }
-  });
-  navigator.clipboard.writeText(Array.from(links).join('\n')).then(() => {
-    alert('Links copied to clipboard');
+    showCopiedToast('Links copied to clipboard.');
   });
 });
 </script>
