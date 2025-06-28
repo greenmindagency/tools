@@ -1152,23 +1152,28 @@ document.querySelectorAll('#dashTabs button[data-bs-toggle="tab"]').forEach(btn 
   });
 });
 
-// Highlight keywords present in both tables
+// Highlight keywords that appear in both tables
 document.addEventListener('DOMContentLoaded', () => {
-  const kwCells = Array.from(document.querySelectorAll('#kwTableBody tr td:nth-child(2)'));
-  const posCells = Array.from(document.querySelectorAll('#posTableBody tr[data-id] td:nth-child(2)'));
+  const kwRows = Array.from(document.querySelectorAll('#kwTableBody tr[data-id]'));
+  const posRows = Array.from(document.querySelectorAll('#posTableBody tr[data-id]'));
 
-  const kwSet = new Set(kwCells.map(c => c.innerText.trim().toLowerCase()));
-  const posSet = new Set(posCells.map(c => c.innerText.trim().toLowerCase()));
-
-  kwCells.forEach(c => {
-    if (posSet.has(c.innerText.trim().toLowerCase())) {
-      c.style.backgroundColor = '#e9e9e9';
-    }
+  const kwMap = new Map();
+  kwRows.forEach(r => {
+    const cell = r.querySelector('td:nth-child(2)');
+    if (cell) kwMap.set(cell.innerText.trim().toLowerCase(), r);
   });
 
-  posCells.forEach(c => {
-    if (kwSet.has(c.innerText.trim().toLowerCase())) {
-      c.style.backgroundColor = '#e9e9e9';
+  const posMap = new Map();
+  posRows.forEach(r => {
+    const cell = r.querySelector('td:nth-child(2)');
+    if (cell) posMap.set(cell.innerText.trim().toLowerCase(), r);
+  });
+
+  kwMap.forEach((kwRow, kw) => {
+    const posRow = posMap.get(kw);
+    if (posRow) {
+      kwRow.style.backgroundColor = '#e9e9e9';
+      posRow.style.backgroundColor = '#e9e9e9';
     }
   });
 });
