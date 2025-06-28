@@ -727,10 +727,10 @@ if ($field === 'keyword_empty_cluster') {
 $countStmt = $pdo->prepare("SELECT COUNT(*) $baseQuery");
 $countStmt->execute($params);
 $totalRows = (int)$countStmt->fetchColumn();
-$totalPages = $q === '' ? (int)ceil($totalRows / $perPage) : 1;
+$totalPages = (int)ceil($totalRows / $perPage);
+$page = max(1, min($page, $totalPages));
 $offset = ($page - 1) * $perPage;
-$limit = $q === '' ? " LIMIT $perPage OFFSET $offset" : '';
-$query = "SELECT * $baseQuery ORDER BY volume DESC, form ASC$limit";
+$query = "SELECT * $baseQuery ORDER BY volume DESC, form ASC LIMIT $perPage OFFSET $offset";
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
 
