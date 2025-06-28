@@ -294,6 +294,12 @@ for ($i = 0; $i < 12; $i++) {
 
 $activeTab = $_POST['tab'] ?? ($_GET['tab'] ?? 'keywords');
 
+// Load all keywords for highlighting across pages
+$kwAllStmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ?");
+$kwAllStmt->execute([$client_id]);
+$allKeywords = array_map('strtolower', array_map('trim', $kwAllStmt->fetchAll(PDO::FETCH_COLUMN)));
+$allKeywords = array_values(array_unique($allKeywords));
+
 include 'header.php';
 ?>
 
@@ -988,6 +994,7 @@ foreach ($stmt as $row) {
 </div><!-- end tab content -->
 
 <script>
+const allKeywords = <?= json_encode($allKeywords) ?>;
 document.addEventListener('click', function(e) {
   if (e.target.classList.contains('remove-row')) {
     const tr = e.target.closest('tr');
@@ -1165,6 +1172,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const kwSet = new Set(kwCells.map(c => c.innerText.trim().toLowerCase()));
   const posSet = new Set(posCells.map(c => c.innerText.trim().toLowerCase()));
+  const allKwSet = new Set(allKeywords);
 
   kwCells.forEach(cell => {
     if (posSet.has(cell.innerText.trim().toLowerCase())) {
@@ -1173,7 +1181,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   posCells.forEach(cell => {
-    if (kwSet.has(cell.innerText.trim().toLowerCase())) {
+    if (allKwSet.has(cell.innerText.trim().toLowerCase())) {
       cell.classList.add('highlight-cell');
     }
   });
