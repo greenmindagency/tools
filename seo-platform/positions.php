@@ -335,6 +335,12 @@ include 'header.php';
 
 <p><a href="index.php">&larr; Back to Clients</a></p>
 
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="copyToast" class="toast" role="status" aria-live="assertive" aria-atomic="true">
+    <div class="toast-body">Copied to clipboard</div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('click', function(e) {
@@ -357,6 +363,13 @@ document.getElementById('toggleImportPosForm').addEventListener('click', functio
   form.style.display = (form.style.display === 'none' || form.style.display === '') ? 'block' : 'none';
 });
 
+function showCopiedToast(msg) {
+  const el = document.getElementById('copyToast');
+  el.querySelector('.toast-body').textContent = msg;
+  const toast = bootstrap.Toast.getOrCreateInstance(el);
+  toast.show();
+}
+
 document.getElementById('copyPosKeywords').addEventListener('click', function() {
   const rows = document.querySelectorAll('#posTableBody tr[data-id]');
   const keywords = [];
@@ -365,7 +378,7 @@ document.getElementById('copyPosKeywords').addEventListener('click', function() 
     if (cell) keywords.push(cell.innerText.trim());
   });
   navigator.clipboard.writeText(keywords.join('\n')).then(() => {
-    alert('Keywords copied to clipboard');
+    showCopiedToast('Keywords copied to clipboard');
   });
 });
 

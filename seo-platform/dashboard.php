@@ -622,6 +622,10 @@ foreach ($stmt as $row) {
     $kwKey = strtolower($row['keyword']);
     $kwClass = isset($posMap[$kwKey]) ? 'highlight-cell' : '';
     $posVal = $posMap[$kwKey] ?? '';
+    $posBg = '';
+    if ($posVal !== '') {
+        $posBg = ((float)$posVal <= 10) ? '#d4edda' : '#f8d7da';
+    }
     echo "<tr data-id='{$row['id']}'>
         <td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button><input type='hidden' name='delete[{$row['id']}]' value='0' class='delete-flag'></td>
         <td class='$kwClass'>" . htmlspecialchars($row['keyword']) . "</td>
@@ -632,7 +636,7 @@ foreach ($stmt as $row) {
         <td>" . htmlspecialchars($row['group_name']) . "</td>
         <td class='text-center' style='background-color: $groupBg'>" . $row['group_count'] . "</td>
         <td>" . htmlspecialchars($row['cluster_name']) . "</td>
-        <td class='text-center'>" . htmlspecialchars($posVal) . "</td>
+        <td class='text-center' style='background-color: $posBg'>" . htmlspecialchars($posVal) . "</td>
     </tr>";
 }
 ?>
@@ -651,6 +655,12 @@ foreach ($stmt as $row) {
 </nav>
 
 <p><a href="index.php">&larr; Back to Clients</a></p>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="copyToast" class="toast" role="status" aria-live="assertive" aria-atomic="true">
+    <div class="toast-body">Copied to clipboard</div>
+  </div>
+</div>
 
 <script>
 document.addEventListener('click', function(e) {
@@ -686,6 +696,13 @@ document.getElementById('toggleImportForm').addEventListener('click', function()
     form.style.display = 'none';
   }
 });
+
+function showCopiedToast(msg) {
+  const el = document.getElementById('copyToast');
+  el.querySelector('.toast-body').textContent = msg;
+  const toast = bootstrap.Toast.getOrCreateInstance(el);
+  toast.show();
+}
 document.getElementById('copyKeywords').addEventListener('click', function() {
   const rows = document.querySelectorAll('#kwTableBody tr');
   const keywords = [];
@@ -696,7 +713,22 @@ document.getElementById('copyKeywords').addEventListener('click', function() {
     }
   });
   navigator.clipboard.writeText(keywords.join('\n')).then(() => {
-    alert('Keywords copied to clipboard');
+    showCopiedToast('Keywords copied to clipboard');
+  });
+});
+
+document.getElementById('copyLinks').addEventListener('click', function() {
+  const rows = document.querySelectorAll('#kwTableBody tr');
+  const links = new Set();
+  rows.forEach(tr => {
+    const input = tr.querySelector('td:nth-child(5) input');
+    if (input) {
+      const val = input.value.trim();
+      if (val) links.add(val);
+    }
+  });
+  navigator.clipboard.writeText(Array.from(links).join('\n')).then(() => {
+    showCopiedToast('Links copied to clipboard');
   });
 });
 
