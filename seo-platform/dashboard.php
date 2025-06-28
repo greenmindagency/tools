@@ -297,9 +297,6 @@ $activeTab = $_POST['tab'] ?? ($_GET['tab'] ?? 'keywords');
 include 'header.php';
 ?>
 
-<style>
-  .highlight-row td { background-color: #e9e9e9 !important; }
-</style>
 
 <ul class="nav nav-tabs mb-3" id="dashTabs" role="tablist">
   <li class="nav-item" role="presentation">
