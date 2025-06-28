@@ -683,7 +683,7 @@ $perPage = 100;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $q = trim($_GET['q'] ?? '');
 $field = $_GET['field'] ?? 'keyword';
-$allowedFields = ['keyword', 'group_name', 'group_exact', 'cluster_name', 'content_link'];
+$allowedFields = ['keyword', 'group_name', 'group_exact', 'cluster_name', 'content_link', 'keyword_empty_cluster'];
 if (!in_array($field, $allowedFields, true)) {
     $field = 'keyword';
 }
@@ -697,6 +697,9 @@ if ($q !== '') {
     } elseif ($field === 'cluster_name') {
         $baseQuery .= " AND cluster_name = ?";
         $params[] = $q;
+    } elseif ($field === 'keyword_empty_cluster') {
+        $baseQuery .= " AND keyword LIKE ? AND (cluster_name = '' OR cluster_name IS NULL)";
+        $params[] = "%$q%";
     } else {
         $baseQuery .= " AND {$field} LIKE ?";
         $params[] = "%$q%";
@@ -732,6 +735,7 @@ $stmt->execute($params);
       <option value="group_exact"<?= $field==='group_exact' ? ' selected' : '' ?>>Group Exact</option>
       <option value="cluster_name"<?= $field==='cluster_name' ? ' selected' : '' ?>>Cluster</option>
       <option value="content_link"<?= $field==='content_link' ? ' selected' : '' ?>>Link</option>
+      <option value="keyword_empty_cluster"<?= $field==='keyword_empty_cluster' ? ' selected' : '' ?>>Keyword/Empty Cluster</option>
     </select>
     <input type="text" name="q" id="filterInput" value="<?= htmlspecialchars($q) ?>" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
     <button type="submit" class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-search"></i></button>
@@ -799,7 +803,7 @@ foreach ($stmt as $row) {
     }
 
     $clusterBg = '';
-    if ($q !== '' && $row['cluster_name'] === '') {
+    if (($q !== '' && $row['cluster_name'] === '') || $field === 'keyword_empty_cluster') {
         $clusterBg = '#efefef';
     }
 
