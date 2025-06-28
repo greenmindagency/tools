@@ -690,7 +690,14 @@ if (!in_array($field, $allowedFields, true)) {
 
 $baseQuery = "FROM keywords WHERE client_id = ?";
 $params = [$client_id];
-if ($q !== '') {
+if ($field === 'keyword_empty_cluster') {
+    if ($q !== '') {
+        $baseQuery .= " AND keyword LIKE ? AND (cluster_name = '' OR cluster_name IS NULL)";
+        $params[] = "%$q%";
+    } else {
+        $baseQuery .= " AND (cluster_name = '' OR cluster_name IS NULL)";
+    }
+} elseif ($q !== '') {
     if ($field === 'group_exact') {
         $baseQuery .= " AND group_name = ?";
         $params[] = $q;
@@ -714,6 +721,15 @@ $limit = $q === '' ? " LIMIT $perPage OFFSET $offset" : '';
 $query = "SELECT * $baseQuery ORDER BY volume DESC, form ASC$limit";
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
+
+$posMap = [];
+$posStmt = $pdo->prepare("SELECT keyword, m1 FROM keyword_positions WHERE client_id = ?");
+$posStmt->execute([$client_id]);
+while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
+    if ($r['m1'] !== null && $r['m1'] !== '') {
+        $posMap[strtolower($r['keyword'])] = $r['m1'];
+    }
+}
 ?>
 
 <div class="d-flex justify-content-between mb-2 sticky-controls">
@@ -759,6 +775,7 @@ $stmt->execute($params);
         <th>Group</th>
         <th class="text-center"># in Group</th>
         <th>Cluster</th>
+        <th class="text-center">Position</th>
     </tr>
     </thead>
 <tbody id="kwTableBody">
@@ -814,6 +831,7 @@ foreach ($stmt as $row) {
         $options .= "<option value=\"$pt\"$sel>$pt</option>";
     }
 
+    $posVal = $posMap[strtolower($row['keyword'])] ?? '';
     echo "<tr data-id='{$row['id']}'>
         <td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button><input type='hidden' name='delete[{$row['id']}]' value='0' class='delete-flag'></td>
         <td>" . htmlspecialchars($row['keyword']) . "</td>
@@ -824,6 +842,7 @@ foreach ($stmt as $row) {
         <td>" . htmlspecialchars($row['group_name']) . "</td>
         <td class='text-center' style='background-color: $groupBg'>" . $row['group_count'] . "</td>
         <td style='background-color: $clusterBg'>" . htmlspecialchars($row['cluster_name']) . "</td>
+        <td class='text-center'>" . htmlspecialchars($posVal) . "</td>
     </tr>";
 }
 ?>
