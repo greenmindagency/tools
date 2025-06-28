@@ -609,10 +609,6 @@ foreach ($stmt as $row) {
         $groupBg = '#fff9c4';
     }
 
-    $clusterBg = '';
-    if ($q !== '' && $row['cluster_name'] === '') {
-        $clusterBg = '#efefef';
-    }
 
     $options = '';
     foreach ($pageTypes as $pt) {
@@ -632,7 +628,7 @@ foreach ($stmt as $row) {
         <td class='text-center'><select name='page_type[{$row['id']}]' class='form-select form-select-sm'>$options</select></td>
         <td>" . htmlspecialchars($row['group_name']) . "</td>
         <td class='text-center' style='background-color: $groupBg'>" . $row['group_count'] . "</td>
-        <td style='background-color: $clusterBg'>" . htmlspecialchars($row['cluster_name']) . "</td>
+        <td>" . htmlspecialchars($row['cluster_name']) . "</td>
         <td class='text-center'>" . htmlspecialchars($posVal) . "</td>
     </tr>";
 }
