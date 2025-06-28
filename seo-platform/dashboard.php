@@ -6,23 +6,6 @@ $slugify = function(string $name): string {
     $name = preg_replace('/[^a-zA-Z0-9]+/', '-', $name);
     return strtolower(trim($name, '-'));
 };
-
-/**
- * Guess the delimiter used in a CSV line.
- */
-$detectCsvDelimiter = function(string $line): string {
-    $delimiters = [",", ";", "\t"];
-    $best = ",";
-    $maxCount = 0;
-    foreach ($delimiters as $d) {
-        $count = substr_count($line, $d);
-        if ($count > $maxCount) {
-            $maxCount = $count;
-            $best = $d;
-        }
-    }
-    return $best;
-};
  
 // Load client info
 $stmt = $pdo->prepare("SELECT * FROM clients WHERE id = ?");
@@ -40,22 +23,6 @@ $breadcrumb_client = [
 $title = $client['name'] . ' Dashboard';
 $restored = false;
 $pageTypes = ['', 'Home', 'Service', 'Blog', 'Page', 'Article', 'Product', 'Other'];
-
-function normalizePageType(string $type, array $pageTypes): string {
-    $t = trim($type);
-    if ($t === '') return '';
-    $lower = strtolower($t);
-    foreach ($pageTypes as $pt) {
-        if ($pt === '') continue;
-        if (strtolower($pt) === $lower) {
-            return $pt;
-        }
-    }
-    if (in_array($lower, ['page', 'webpage', 'web page'], true)) {
-        return 'Page';
-    }
-    return ucfirst($lower);
-}
 maybeUpdateKeywordGroups($pdo, $client_id);
 updateKeywordStats($pdo, $client_id);
 
@@ -116,209 +83,8 @@ $statsStmt = $pdo->prepare("SELECT total, grouped, clustered, structured FROM ke
 $statsStmt->execute([$client_id]);
 $stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'grouped'=>0,'clustered'=>0,'structured'=>0];
 
-$pdo->exec("CREATE TABLE IF NOT EXISTS keyword_positions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    client_id INT,
-    keyword VARCHAR(255),
-    sort_order INT DEFAULT NULL,
-    m1 FLOAT DEFAULT NULL,
-    m2 FLOAT DEFAULT NULL,
-    m3 FLOAT DEFAULT NULL,
-    m4 FLOAT DEFAULT NULL,
-    m5 FLOAT DEFAULT NULL,
-    m6 FLOAT DEFAULT NULL,
-    m7 FLOAT DEFAULT NULL,
-    m8 FLOAT DEFAULT NULL,
-    m9 FLOAT DEFAULT NULL,
-    m10 FLOAT DEFAULT NULL,
-    m11 FLOAT DEFAULT NULL,
-    m12 FLOAT DEFAULT NULL
-)");
-for ($i = 1; $i <= 12; $i++) {
-    $pdo->exec("ALTER TABLE keyword_positions ADD COLUMN IF NOT EXISTS m{$i} FLOAT DEFAULT NULL");
-}
-$pdo->exec("ALTER TABLE keyword_positions ADD COLUMN IF NOT EXISTS sort_order INT");
-$pdo->exec("CREATE TABLE IF NOT EXISTS sc_domains (
-    client_id INT PRIMARY KEY,
-    domain VARCHAR(255)
-)");
-
-$scDomainStmt = $pdo->prepare("SELECT domain FROM sc_domains WHERE client_id = ?");
-$scDomainStmt->execute([$client_id]);
-$scDomain = $scDomainStmt->fetchColumn() ?: '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_sc_domain'])) {
-    $newDomain = trim($_POST['sc_domain'] ?? '');
-    if ($newDomain !== '') {
-        $up = $pdo->prepare("INSERT INTO sc_domains (client_id, domain) VALUES (?, ?) ON DUPLICATE KEY UPDATE domain = VALUES(domain)");
-        $up->execute([$client_id, $newDomain]);
-        $scDomain = $newDomain;
-    }
-    header('Content-Type: application/json');
-    echo json_encode(['status' => 'ok']);
-    exit;
-}
-
-if (isset($_POST['add_position_keywords'])) {
-    $text = trim($_POST['pos_keywords'] ?? '');
-    $lines = array_values(array_filter(array_map('trim', preg_split('/\r\n|\n|\r/', $text)), 'strlen'));
-    $ins = $pdo->prepare("INSERT INTO keyword_positions (client_id, keyword) VALUES (?, ?)");
-    foreach ($lines as $kw) {
-        $ins->execute([$client_id, $kw]);
-    }
-    // Remove any duplicate position keywords for this client
-    $pdo->query("DELETE kp1 FROM keyword_positions kp1
-                  JOIN keyword_positions kp2
-                    ON kp1.keyword = kp2.keyword AND kp1.id > kp2.id
-                 WHERE kp1.client_id = $client_id
-                   AND kp2.client_id = $client_id");
-}
-
-if (isset($_POST['update_positions'])) {
-    $deleteIds = array_keys(array_filter($_POST['delete_pos'] ?? [], fn($v) => $v == '1'));
-    if ($deleteIds) {
-        $in = implode(',', array_fill(0, count($deleteIds), '?'));
-        $del = $pdo->prepare("DELETE FROM keyword_positions WHERE client_id = ? AND id IN ($in)");
-        $del->execute(array_merge([$client_id], $deleteIds));
-    }
-    $newDomain = trim($_POST['sc_domain'] ?? '');
-    if ($newDomain !== '') {
-        $up = $pdo->prepare("INSERT INTO sc_domains (client_id, domain) VALUES (?, ?) ON DUPLICATE KEY UPDATE domain = VALUES(domain)");
-        $up->execute([$client_id, $newDomain]);
-        $scDomain = $newDomain;
-    }
-}
-
-if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name'])) {
-    $monthIndex = (int)($_POST['position_month'] ?? 0); // 0 = current month
-    $col = 'm' . ($monthIndex + 1);
-    $tmp = $_FILES['csv_file']['tmp_name'];
-    if (is_uploaded_file($tmp) && ($handle = fopen($tmp, 'r')) !== false) {
-        $firstLine = fgets($handle);
-        $delimiter = $detectCsvDelimiter($firstLine ?: '');
-
-        // Map existing keywords to their IDs for quick lookup
-        $mapStmt = $pdo->prepare("SELECT id, keyword, sort_order FROM keyword_positions WHERE client_id = ?");
-        $mapStmt->execute([$client_id]);
-        $kwMap = [];
-        while ($r = $mapStmt->fetch(PDO::FETCH_ASSOC)) {
-            $kwMap[strtolower(trim($r['keyword']))] = ['id' => $r['id'], 'sort_order' => $r['sort_order']];
-        }
-
-        // Clear current month's data and reset sort order before applying updates
-        $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE client_id = ?")->execute([$client_id]);
-
-        $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ?, sort_order = ? WHERE id = ?");
-
-        // Parse all rows so we can sort them by impressions before applying
-        $rows = [];
-        $parseRow = function(array $data) {
-            $kw = strtolower(trim($data[0] ?? ''));
-            if ($kw === '') return null;
-            $imprRaw = $data[2] ?? '';
-            $impr = $imprRaw !== '' ? (float)str_replace(',', '', $imprRaw) : 0;
-            $posRaw = $data[4] ?? '';
-            $pos = $posRaw !== '' ? (float)str_replace(',', '.', $posRaw) : null;
-            return ['kw' => $kw, 'impr' => $impr, 'pos' => $pos];
-        };
-
-        $firstData = str_getcsv($firstLine ?: '', $delimiter);
-        $hasHeader = false;
-        if ($firstData) {
-            $imprCheck = str_replace(',', '', $firstData[2] ?? '');
-            if (!is_numeric($imprCheck)) {
-                $hasHeader = true;
-            }
-        }
-        if (!$hasHeader && ($row = $parseRow($firstData))) {
-            $rows[] = $row;
-        }
-
-        while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
-            if ($row = $parseRow($data)) {
-                $rows[] = $row;
-            }
-        }
-        fclose($handle);
-
-        usort($rows, fn($a, $b) => $b['impr'] <=> $a['impr']);
-
-        $orderIdx = 1;
-        foreach ($rows as $r) {
-            if (isset($kwMap[$r['kw']])) {
-                $update->execute([$r['pos'], $orderIdx, $kwMap[$r['kw']]['id']]);
-            }
-            $orderIdx++;
-        }
-
-        // Cleanup any duplicate keywords that may exist
-        $pdo->query("DELETE kp1 FROM keyword_positions kp1
-                      JOIN keyword_positions kp2
-                        ON kp1.keyword = kp2.keyword AND kp1.id > kp2.id
-                     WHERE kp1.client_id = $client_id
-                       AND kp2.client_id = $client_id");
-    }
-}
-
-$posQ = trim($_GET['pos_q'] ?? '');
-$posSql = "SELECT * FROM keyword_positions WHERE client_id = ?";
-$posParams = [$client_id];
-if ($posQ !== '') {
-    $posSql .= " AND keyword LIKE ?";
-    $posParams[] = "%$posQ%";
-}
-$posSql .= " ORDER BY sort_order IS NULL, sort_order, id DESC";
-$posStmt = $pdo->prepare($posSql);
-$posStmt->execute($posParams);
-$positions = $posStmt->fetchAll(PDO::FETCH_ASSOC);
-
-$firstPagePerc = [];
-for ($i = 1; $i <= 12; $i++) {
-    $good = 0;
-    $count = 0;
-    foreach ($positions as $row) {
-        $val = $row['m'.$i];
-        if ($val === null || $val === '') continue;
-        $count++;
-        if ((float)$val <= 10) {
-            $good++;
-        }
-    }
-    $firstPagePerc[$i] = $count ? round($good * 100 / $count) : 0;
-}
-
-$months = [];
-for ($i = 0; $i < 12; $i++) {
-    $months[] = date('M Y', strtotime("-$i month"));
-}
-
-$activeTab = $_POST['tab'] ?? ($_GET['tab'] ?? 'keywords');
-
-// Load all keywords for highlighting across pages
-$kwAllStmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ?");
-$kwAllStmt->execute([$client_id]);
-$allKeywords = array_map('strtolower', array_map('trim', $kwAllStmt->fetchAll(PDO::FETCH_COLUMN)));
-$allKeywords = array_values(array_unique($allKeywords));
-
 include 'header.php';
 ?>
-
-
-<style>
-  .highlight-cell { background-color: #e9e9e9 !important; }
-</style>
-
-
-<ul class="nav nav-tabs mb-3" id="dashTabs" role="tablist">
-  <li class="nav-item" role="presentation">
-    <button class="nav-link<?= $activeTab==='keywords' ? ' active' : '' ?>" id="kw-tab" data-bs-toggle="tab" data-bs-target="#kw-pane" type="button" role="tab">Keywords</button>
-  </li>
-  <li class="nav-item" role="presentation">
-    <button class="nav-link<?= $activeTab==='position' ? ' active' : '' ?>" id="pos-tab" data-bs-toggle="tab" data-bs-target="#pos-pane" type="button" role="tab">Keyword Position</button>
-  </li>
-</ul>
-<div class="tab-content" id="dashTabsContent">
-<div class="tab-pane fade<?= $activeTab==='keywords' ? ' show active' : '' ?>" id="kw-pane" role="tabpanel" aria-labelledby="kw-tab">
 
 <h5 class="mb-1"><?= htmlspecialchars($client['name']) ?> – Keywords</h5>
 <div class="mb-3 d-flex justify-content-between align-items-center">
@@ -345,20 +111,19 @@ include 'header.php';
 <!-- Add Keyword Form -->
 <form method="POST" id="addKeywordsForm" class="mb-4" style="display:none;">
     <textarea name="keywords" class="form-control" placeholder="Paste keywords with optional volume and form" rows="6"></textarea>
-    <button type="submit" name="add_keywords" class="btn btn-primary btn-sm mt-2">Add Keywords</button>
+    <button type="submit" name="add_keywords" class="btn btn-primary mt-2">Add Keywords</button>
 </form>
-
 
 <!-- Import Plan Form -->
 <form method="POST" id="importForm" enctype="multipart/form-data" class="mb-4" style="display:none;">
     <input type="file" name="csv_file" accept=".csv" class="form-control">
-    <button type="submit" name="import_plan" class="btn btn-primary btn-sm mt-2">Import Plan</button>
+    <button type="submit" name="import_plan" class="btn btn-primary mt-2">Import Plan</button>
 </form>
 
 <!-- Add Cluster Form -->
 <form method="POST" id="addClustersForm" class="mb-4" style="display:none;">
     <textarea name="clusters" class="form-control" placeholder="keyword1|keyword2 per line" rows="4"></textarea>
-    <button type="submit" name="add_clusters" class="btn btn-primary btn-sm mt-2">Add Clusters</button>
+    <button type="submit" name="add_clusters" class="btn btn-primary mt-2">Add Clusters</button>
 </form>
 
 <?php
@@ -478,7 +243,11 @@ if (isset($_POST['import_plan'])) {
                 $groupCnt = is_numeric($data[6] ?? '') ? (int)$data[6] : 0;
                 $cluster = trim($data[7] ?? '');
 
-                $type = normalizePageType($type, $pageTypes);
+                if ($type !== '') {
+                    foreach ($pageTypes as $pt) {
+                        if (strcasecmp($pt, $type) === 0) { $type = $pt; break; }
+                    }
+                }
                 $insert->execute([$client_id, $keyword, $vol, $form, $link, $type, $group, $groupCnt, $cluster]);
             }
             fclose($handle);
@@ -506,7 +275,12 @@ if (isset($_POST['update_keywords'])) {
     if (!empty($_POST['page_type'])) {
         $update = $pdo->prepare("UPDATE keywords SET page_type = ? WHERE id = ? AND client_id = ?");
         foreach ($_POST['page_type'] as $id => $type) {
-            $t = normalizePageType($type, $pageTypes);
+            $t = trim($type);
+            if ($t !== '') {
+                foreach ($pageTypes as $pt) {
+                    if (strcasecmp($pt, $t) === 0) { $t = $pt; break; }
+                }
+            }
             $update->execute([$t, $id, $client_id]);
         }
     }
@@ -695,30 +469,20 @@ $perPage = 100;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $q = trim($_GET['q'] ?? '');
 $field = $_GET['field'] ?? 'keyword';
-$allowedFields = ['keyword', 'group_name', 'group_exact', 'cluster_name', 'content_link', 'keyword_empty_cluster'];
+$allowedFields = ['keyword', 'group_name', 'group_exact', 'cluster_name', 'content_link'];
 if (!in_array($field, $allowedFields, true)) {
     $field = 'keyword';
 }
 
 $baseQuery = "FROM keywords WHERE client_id = ?";
 $params = [$client_id];
-if ($field === 'keyword_empty_cluster') {
-    if ($q !== '') {
-        $baseQuery .= " AND keyword LIKE ? AND (cluster_name = '' OR cluster_name IS NULL)";
-        $params[] = "%$q%";
-    } else {
-        $baseQuery .= " AND (cluster_name = '' OR cluster_name IS NULL)";
-    }
-} elseif ($q !== '') {
+if ($q !== '') {
     if ($field === 'group_exact') {
         $baseQuery .= " AND group_name = ?";
         $params[] = $q;
     } elseif ($field === 'cluster_name') {
         $baseQuery .= " AND cluster_name = ?";
         $params[] = $q;
-    } elseif ($field === 'keyword_empty_cluster') {
-        $baseQuery .= " AND keyword LIKE ? AND (cluster_name = '' OR cluster_name IS NULL)";
-        $params[] = "%$q%";
     } else {
         $baseQuery .= " AND {$field} LIKE ?";
         $params[] = "%$q%";
@@ -727,32 +491,22 @@ if ($field === 'keyword_empty_cluster') {
 $countStmt = $pdo->prepare("SELECT COUNT(*) $baseQuery");
 $countStmt->execute($params);
 $totalRows = (int)$countStmt->fetchColumn();
-$totalPages = (int)ceil($totalRows / $perPage);
-$page = max(1, min($page, $totalPages));
+$totalPages = $q === '' ? (int)ceil($totalRows / $perPage) : 1;
 $offset = ($page - 1) * $perPage;
-$query = "SELECT * $baseQuery ORDER BY volume DESC, form ASC LIMIT $perPage OFFSET $offset";
+$limit = $q === '' ? " LIMIT $perPage OFFSET $offset" : '';
+$query = "SELECT * $baseQuery ORDER BY volume DESC, form ASC$limit";
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
-
-$posMap = [];
-$posStmt = $pdo->prepare("SELECT keyword, m1 FROM keyword_positions WHERE client_id = ?");
-$posStmt->execute([$client_id]);
-while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
-    if ($r['m1'] !== null && $r['m1'] !== '') {
-        $posMap[strtolower($r['keyword'])] = $r['m1'];
-    }
-}
 ?>
 
 <div class="d-flex justify-content-between mb-2 sticky-controls">
   <div class="d-flex">
-    <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success btn-sm me-2">Update</button>
-    <button type="button" id="toggleAddForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
-    <button type="button" id="toggleClusterForm" class="btn btn-info btn-sm me-2">Update Clusters</button>
-    <button type="button" id="copyKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
-    <button type="button" id="copyLinks" class="btn btn-dark btn-sm me-2">Copy Links</button>
-    <button type="button" id="toggleImportForm" class="btn btn-primary btn-sm me-2">Import Plan</button>
-    <a href="export.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary btn-sm">Export CSV</a>
+    <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success me-2">Update</button>
+    <button type="button" id="toggleAddForm" class="btn btn-warning me-2">Update Keywords</button>
+    <button type="button" id="toggleClusterForm" class="btn btn-info me-2">Update Clusters</button>
+    <button type="button" id="copyKeywords" class="btn btn-secondary me-2">Copy Table</button>
+    <button type="button" id="toggleImportForm" class="btn btn-primary me-2">Import Plan</button>
+    <a href="export.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary">Export CSV</a>
   </div>
   <form id="filterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
@@ -763,7 +517,6 @@ while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
       <option value="group_exact"<?= $field==='group_exact' ? ' selected' : '' ?>>Group Exact</option>
       <option value="cluster_name"<?= $field==='cluster_name' ? ' selected' : '' ?>>Cluster</option>
       <option value="content_link"<?= $field==='content_link' ? ' selected' : '' ?>>Link</option>
-      <option value="keyword_empty_cluster"<?= $field==='keyword_empty_cluster' ? ' selected' : '' ?>>Keyword/Empty Cluster</option>
     </select>
     <input type="text" name="q" id="filterInput" value="<?= htmlspecialchars($q) ?>" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
     <button type="submit" class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-search"></i></button>
@@ -787,7 +540,6 @@ while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
         <th>Group</th>
         <th class="text-center"># in Group</th>
         <th>Cluster</th>
-        <th class="text-center">Position</th>
     </tr>
     </thead>
 <tbody id="kwTableBody">
@@ -832,18 +584,16 @@ foreach ($stmt as $row) {
     }
 
     $clusterBg = '';
-    if (($q !== '' && $row['cluster_name'] === '') || $field === 'keyword_empty_cluster') {
+    if ($q !== '' && $row['cluster_name'] === '') {
         $clusterBg = '#efefef';
     }
 
-    $row['page_type'] = normalizePageType($row['page_type'], $pageTypes);
     $options = '';
     foreach ($pageTypes as $pt) {
-        $sel = strcasecmp($row['page_type'], $pt) === 0 ? ' selected' : '';
+        $sel = strcasecmp(trim($row['page_type']), $pt) === 0 ? ' selected' : '';
         $options .= "<option value=\"$pt\"$sel>$pt</option>";
     }
 
-    $posVal = $posMap[strtolower($row['keyword'])] ?? '';
     echo "<tr data-id='{$row['id']}'>
         <td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button><input type='hidden' name='delete[{$row['id']}]' value='0' class='delete-flag'></td>
         <td>" . htmlspecialchars($row['keyword']) . "</td>
@@ -854,7 +604,6 @@ foreach ($stmt as $row) {
         <td>" . htmlspecialchars($row['group_name']) . "</td>
         <td class='text-center' style='background-color: $groupBg'>" . $row['group_count'] . "</td>
         <td style='background-color: $clusterBg'>" . htmlspecialchars($row['cluster_name']) . "</td>
-        <td class='text-center'>" . htmlspecialchars($posVal) . "</td>
     </tr>";
 }
 ?>
@@ -873,128 +622,8 @@ foreach ($stmt as $row) {
 </nav>
 
 <p><a href="index.php">&larr; Back to Clients</a></p>
-</div><!-- end keywords tab -->
-
-<div class="tab-pane fade<?= $activeTab==='position' ? ' show active' : '' ?>" id="pos-pane" role="tabpanel" aria-labelledby="pos-tab">
-<div class="mb-4">
-  <div class="row g-2">
-    <div class="col-sm"><input type="text" id="scDomain" name="sc_domain" value="<?= htmlspecialchars($scDomain) ?>" class="form-control" placeholder="Domain"></div>
-    <div class="col-sm">
-      <select id="scMonth" class="form-select">
-        <?php
-        for ($i = 0; $i < 12; $i++) {
-            $ts = strtotime("first day of -$i month");
-            $label = date('M Y', $ts);
-            $start = date('Ymd', $ts);
-            $end = date('Ymd', strtotime("last day of -$i month"));
-            echo "<option data-start='$start' data-end='$end' value='$i'>$label</option>";
-        }
-        ?>
-      </select>
-    </div>
-    <div class="col-sm d-flex">
-      <select id="scCountry" class="form-select me-2">
-        <option value="">Worldwide</option>
-        <option value="egy">Egypt</option>
-        <option value="sau">Saudi Arabia</option>
-        <option value="are">United Arab Emirates</option>
-      </select>
-      <button type="button" id="openScLink" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right"></i></button>
-    </div>
-  </div>
-</div>
-
-<div class="accordion mb-3" id="posChartAcc">
-  <div class="accordion-item">
-    <h2 class="accordion-header" id="posChartHead">
-      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#posChartCollapse" aria-expanded="false" aria-controls="posChartCollapse">
-        Monthly % Chart
-      </button>
-    </h2>
-    <div id="posChartCollapse" class="accordion-collapse collapse" aria-labelledby="posChartHead" data-bs-parent="#posChartAcc">
-      <div class="accordion-body">
-        <canvas id="posChart" height="150"></canvas>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Add Position Keywords -->
-<form method="POST" id="addPosForm" class="mb-4" style="display:none;">
-  <input type="hidden" name="tab" value="position">
-  <textarea name="pos_keywords" class="form-control" rows="6" placeholder="One keyword per line"></textarea>
-  <button type="submit" name="add_position_keywords" class="btn btn-primary btn-sm mt-2">Add Keywords</button>
-</form>
-
-<!-- Import Positions Form -->
-<form method="POST" id="importPosForm" enctype="multipart/form-data" class="mb-4" style="display:none;">
-  <input type="hidden" name="tab" value="position">
-  <select name="position_month" class="form-select mb-2">
-    <?php foreach ($months as $idx => $m): ?>
-      <option value="<?= $idx ?>"><?= $m ?></option>
-    <?php endforeach; ?>
-  </select>
-  <input type="file" name="csv_file" accept=".csv" class="form-control">
-  <button type="submit" name="import_positions" class="btn btn-primary btn-sm mt-2">Import Positions</button>
-</form>
-
-<div class="d-flex justify-content-between mb-2 sticky-controls">
-  <div class="d-flex">
-    <button type="submit" form="updatePosForm" name="update_positions" class="btn btn-success btn-sm me-2">Update</button>
-    <button type="button" id="toggleAddPosForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
-    <button type="button" id="toggleImportPosForm" class="btn btn-primary btn-sm me-2">Import Positions</button>
-    <button type="button" id="copyPosKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
-  </div>
-  <form id="posFilterForm" method="GET" class="d-flex">
-    <input type="hidden" name="client_id" value="<?= $client_id ?>">
-    <input type="hidden" name="slug" value="<?= $slug ?>">
-    <input type="hidden" name="tab" value="position">
-    <input type="text" name="pos_q" value="<?= htmlspecialchars($posQ) ?>" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
-    <button type="submit" class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-search"></i></button>
-    <a href="dashboard.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>&tab=position" class="btn btn-outline-secondary btn-sm ms-1 d-flex align-items-center" title="Clear filter"><i class="bi bi-x-lg"></i></a>
-  </form>
-</div>
-
-<form method="POST" id="updatePosForm">
-  <input type="hidden" name="client_id" value="<?= $client_id ?>">
-  <input type="hidden" name="tab" value="position">
-  <table class="table table-bordered table-sm">
-    <thead class="table-light">
-      <tr>
-        <th style="width:1px;"></th>
-        <th>Keyword</th>
-        <?php foreach (array_reverse($months) as $m): ?>
-        <th class="text-center"><?= $m ?></th>
-        <?php endforeach; ?>
-      </tr>
-    </thead>
-    <tbody id="posTableBody">
-    <tr class="table-info">
-      <td></td>
-      <td><strong>% in Top 10</strong></td>
-      <?php for ($i=11;$i>=0;$i--): $p = $firstPagePerc[$i+1]; ?>
-        <td class="text-center fw-bold"><?= $p ?>%</td>
-      <?php endfor; ?>
-    </tr>
-    <?php foreach ($positions as $row): ?>
-      <tr data-id="<?= $row['id'] ?>">
-        <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-row">-</button><input type="hidden" name="delete_pos[<?= $row['id'] ?>]" value="0" class="delete-flag"></td>
-        <td><?= htmlspecialchars($row['keyword']) ?></td>
-        <?php for ($i=11;$i>=0;$i--): $col = 'm'.($i+1); ?>
-          <?php $val = $row[$col]; $bg = ''; if ($val !== null && $val !== '') { $bg = ((float)$val <= 10) ? '#d4edda' : '#f8d7da'; } ?>
-          <td class="text-center" style="background-color: <?= $bg ?>;"><?= $val !== null ? htmlspecialchars($val) : '' ?></td>
-        <?php endfor; ?>
-      </tr>
-    <?php endforeach; ?>
-    </tbody>
-  </table>
-</form>
-
-</div><!-- end position tab -->
-</div><!-- end tab content -->
 
 <script>
-const allKeywords = <?= json_encode($allKeywords) ?>;
 document.addEventListener('click', function(e) {
   if (e.target.classList.contains('remove-row')) {
     const tr = e.target.closest('tr');
@@ -1039,151 +668,6 @@ document.getElementById('copyKeywords').addEventListener('click', function() {
   });
   navigator.clipboard.writeText(keywords.join('\n')).then(() => {
     alert('Keywords copied to clipboard');
-  });
-});
-
-document.getElementById('copyLinks').addEventListener('click', function() {
-  const rows = document.querySelectorAll('#kwTableBody tr');
-  const links = new Set();
-  rows.forEach(tr => {
-    const input = tr.querySelector('td:nth-child(5) input');
-    if (input) {
-      const val = input.value.trim();
-      if (val) links.add(val);
-    }
-  });
-  navigator.clipboard.writeText(Array.from(links).join('\n')).then(() => {
-    alert('Links copied to clipboard');
-  });
-});
-
-document.getElementById('copyPosKeywords').addEventListener('click', function() {
-  const rows = document.querySelectorAll('#posTableBody tr[data-id]');
-  const keywords = [];
-  rows.forEach(tr => {
-    const cell = tr.querySelector('td:nth-child(2)');
-    if (cell) {
-      keywords.push(cell.innerText.trim());
-    }
-  });
-  navigator.clipboard.writeText(keywords.join('\n')).then(() => {
-    alert('Keywords copied to clipboard');
-  });
-});
-
-document.getElementById('toggleAddPosForm').addEventListener('click', function() {
-  const form = document.getElementById('addPosForm');
-  if (form.style.display === 'none' || form.style.display === '') {
-    form.style.display = 'block';
-  } else {
-    form.style.display = 'none';
-  }
-});
-
-document.getElementById('toggleImportPosForm').addEventListener('click', function() {
-  const form = document.getElementById('importPosForm');
-  if (form.style.display === 'none' || form.style.display === '') {
-    form.style.display = 'block';
-  } else {
-    form.style.display = 'none';
-  }
-});
-
-function buildSCLink() {
-  const domain = document.getElementById('scDomain').value.trim();
-  if (!domain) return '';
-  const sel = document.getElementById('scMonth');
-  const start = sel.selectedOptions[0].dataset.start;
-  const end = sel.selectedOptions[0].dataset.end;
-  const country = document.getElementById('scCountry').value;
-  const active = document.querySelector('#dashTabs .nav-link.active')?.id || '';
-  let url = 'https://search.google.com/search-console/performance/search-analytics?resource_id=' + encodeURIComponent(domain);
-  if (active === 'pos-tab') {
-    url += '&metrics=POSITION';
-  }
-  url += '&start_date=' + start + '&end_date=' + end;
-  if (country) url += '&country=' + country;
-  return url;
-}
-
-document.getElementById('openScLink').addEventListener('click', function() {
-  const url = buildSCLink();
-  const domain = document.getElementById('scDomain').value.trim();
-  if (!url) return;
-  window.open(url, '_blank');
-  fetch('dashboard.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: new URLSearchParams({save_sc_domain: '1', sc_domain: domain})
-  });
-});
-
-let posChart;
-const barLabelPlugin = {
-  id: 'barLabel',
-  afterDatasetsDraw(chart) {
-    const {ctx} = chart;
-    ctx.save();
-    ctx.fillStyle = '#000';
-    ctx.textAlign = 'center';
-    ctx.font = '20px sans-serif';
-    chart.getDatasetMeta(0).data.forEach((bar, i) => {
-      const val = chart.data.datasets[0].data[i] + '%';
-      ctx.fillText(val, bar.x, bar.y - 2);
-    });
-    ctx.restore();
-  }
-};
-document.getElementById('posChartCollapse').addEventListener('shown.bs.collapse', function () {
-  if (posChart) return;
-  const ctx = document.getElementById('posChart').getContext('2d');
-  posChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: <?= json_encode(array_reverse($months)) ?>,
-      datasets: [{
-        label: '% in Top 10',
-        data: <?= json_encode(array_reverse($firstPagePerc)) ?>,
-        backgroundColor: '#0d6efd'
-      }]
-    },
-    options: {
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, max: 100 } }
-    },
-    plugins: [barLabelPlugin]
-  });
-});
-
-// Keep the ?tab= query parameter in sync with the active tab
-document.querySelectorAll('#dashTabs button[data-bs-toggle="tab"]').forEach(btn => {
-  btn.addEventListener('shown.bs.tab', e => {
-    const tab = e.target.id === 'pos-tab' ? 'position' : 'keywords';
-    const url = new URL(window.location.href);
-    url.searchParams.set('tab', tab);
-    history.replaceState(null, '', url);
-  });
-});
-
-// Highlight keywords that appear in both tables
-document.addEventListener('DOMContentLoaded', () => {
-  const kwCells = Array.from(document.querySelectorAll('#kwTableBody td:nth-child(2)'));
-  const posCells = Array.from(document.querySelectorAll('#posTableBody td:nth-child(2)'));
-
-  const kwSet = new Set(kwCells.map(c => c.innerText.trim().toLowerCase()));
-  const posSet = new Set(posCells.map(c => c.innerText.trim().toLowerCase()));
-  const allKwSet = new Set(allKeywords);
-
-  kwCells.forEach(cell => {
-    if (posSet.has(cell.innerText.trim().toLowerCase())) {
-      cell.classList.add('highlight-cell');
-    }
-  });
-
-  posCells.forEach(cell => {
-    if (allKwSet.has(cell.innerText.trim().toLowerCase())) {
-      cell.classList.add('highlight-cell');
-    }
   });
 });
 </script>
