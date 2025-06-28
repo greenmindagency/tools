@@ -294,6 +294,12 @@ for ($i = 0; $i < 12; $i++) {
 
 $activeTab = $_POST['tab'] ?? ($_GET['tab'] ?? 'keywords');
 
+// Load all keywords for highlighting across pages
+$kwAllStmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ?");
+$kwAllStmt->execute([$client_id]);
+$allKeywords = array_map('strtolower', array_map('trim', $kwAllStmt->fetchAll(PDO::FETCH_COLUMN)));
+$allKeywords = array_values(array_unique($allKeywords));
+
 include 'header.php';
 ?>
 
@@ -988,6 +994,7 @@ foreach ($stmt as $row) {
 </div><!-- end tab content -->
 
 <script>
+const allKeywords = <?= json_encode($allKeywords) ?>;
 document.addEventListener('click', function(e) {
   if (e.target.classList.contains('remove-row')) {
     const tr = e.target.closest('tr');
@@ -1160,26 +1167,22 @@ document.querySelectorAll('#dashTabs button[data-bs-toggle="tab"]').forEach(btn 
 
 // Highlight keywords that appear in both tables
 document.addEventListener('DOMContentLoaded', () => {
-  const kwRows = Array.from(document.querySelectorAll('#kwTableBody tr[data-id]'));
-  const posRows = Array.from(document.querySelectorAll('#posTableBody tr[data-id]'));
+  const kwCells = Array.from(document.querySelectorAll('#kwTableBody td:nth-child(2)'));
+  const posCells = Array.from(document.querySelectorAll('#posTableBody td:nth-child(2)'));
 
-  const kwMap = new Map();
-  kwRows.forEach(r => {
-    const cell = r.querySelector('td:nth-child(2)');
-    if (cell) kwMap.set(cell.innerText.trim().toLowerCase(), cell);
+  const kwSet = new Set(kwCells.map(c => c.innerText.trim().toLowerCase()));
+  const posSet = new Set(posCells.map(c => c.innerText.trim().toLowerCase()));
+  const allKwSet = new Set(allKeywords);
+
+  kwCells.forEach(cell => {
+    if (posSet.has(cell.innerText.trim().toLowerCase())) {
+      cell.classList.add('highlight-cell');
+    }
   });
 
-  const posMap = new Map();
-  posRows.forEach(r => {
-    const cell = r.querySelector('td:nth-child(2)');
-    if (cell) posMap.set(cell.innerText.trim().toLowerCase(), cell);
-  });
-
-  kwMap.forEach((kwCell, kw) => {
-    const posCell = posMap.get(kw);
-    if (posCell) {
-      kwCell.classList.add('highlight-cell');
-      posCell.classList.add('highlight-cell');
+  posCells.forEach(cell => {
+    if (allKwSet.has(cell.innerText.trim().toLowerCase())) {
+      cell.classList.add('highlight-cell');
     }
   });
 });
