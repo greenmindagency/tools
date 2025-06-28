@@ -85,6 +85,10 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'grouped'=>0,'cluste
 
 include 'header.php';
 ?>
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item"><a class="nav-link active" href="dashboard.php?client_id=<?php echo $client_id; ?>&slug=<?php echo $slug; ?>">Keywords</a></li>
+  <li class="nav-item"><a class="nav-link" href="positions.php?client_id=<?php echo $client_id; ?>&slug=<?php echo $slug; ?>">Keyword Position</a></li>
+</ul>
 
 <h5 class="mb-1"><?= htmlspecialchars($client['name']) ?> – Keywords</h5>
 <div class="mb-3 d-flex justify-content-between align-items-center">
