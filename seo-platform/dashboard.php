@@ -85,6 +85,9 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'grouped'=>0,'cluste
 
 include 'header.php';
 ?>
+<style>
+  .highlight-cell { background-color: #e9e9e9 !important; }
+</style>
 <ul class="nav nav-tabs mb-3">
   <li class="nav-item"><a class="nav-link active" href="dashboard.php?client_id=<?php echo $client_id; ?>&slug=<?php echo $slug; ?>">Keywords</a></li>
   <li class="nav-item"><a class="nav-link" href="positions.php?client_id=<?php echo $client_id; ?>&slug=<?php echo $slug; ?>">Keyword Position</a></li>
@@ -115,19 +118,19 @@ include 'header.php';
 <!-- Add Keyword Form -->
 <form method="POST" id="addKeywordsForm" class="mb-4" style="display:none;">
     <textarea name="keywords" class="form-control" placeholder="Paste keywords with optional volume and form" rows="6"></textarea>
-    <button type="submit" name="add_keywords" class="btn btn-primary mt-2">Add Keywords</button>
+    <button type="submit" name="add_keywords" class="btn btn-primary btn-sm mt-2">Add Keywords</button>
 </form>
 
 <!-- Import Plan Form -->
 <form method="POST" id="importForm" enctype="multipart/form-data" class="mb-4" style="display:none;">
     <input type="file" name="csv_file" accept=".csv" class="form-control">
-    <button type="submit" name="import_plan" class="btn btn-primary mt-2">Import Plan</button>
+    <button type="submit" name="import_plan" class="btn btn-primary btn-sm mt-2">Import Plan</button>
 </form>
 
 <!-- Add Cluster Form -->
 <form method="POST" id="addClustersForm" class="mb-4" style="display:none;">
     <textarea name="clusters" class="form-control" placeholder="keyword1|keyword2 per line" rows="4"></textarea>
-    <button type="submit" name="add_clusters" class="btn btn-primary mt-2">Add Clusters</button>
+    <button type="submit" name="add_clusters" class="btn btn-primary btn-sm mt-2">Add Clusters</button>
 </form>
 
 <?php
@@ -473,14 +476,21 @@ $perPage = 100;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $q = trim($_GET['q'] ?? '');
 $field = $_GET['field'] ?? 'keyword';
-$allowedFields = ['keyword', 'group_name', 'group_exact', 'cluster_name', 'content_link'];
+$allowedFields = ['keyword', 'group_name', 'group_exact', 'cluster_name', 'content_link', 'keyword_empty_cluster'];
 if (!in_array($field, $allowedFields, true)) {
     $field = 'keyword';
 }
 
 $baseQuery = "FROM keywords WHERE client_id = ?";
 $params = [$client_id];
-if ($q !== '') {
+if ($field === 'keyword_empty_cluster') {
+    if ($q !== '') {
+        $baseQuery .= " AND keyword LIKE ? AND (cluster_name = '' OR cluster_name IS NULL)";
+        $params[] = "%$q%";
+    } else {
+        $baseQuery .= " AND (cluster_name = '' OR cluster_name IS NULL)";
+    }
+} elseif ($q !== '') {
     if ($field === 'group_exact') {
         $baseQuery .= " AND group_name = ?";
         $params[] = $q;
@@ -501,16 +511,26 @@ $limit = $q === '' ? " LIMIT $perPage OFFSET $offset" : '';
 $query = "SELECT * $baseQuery ORDER BY volume DESC, form ASC$limit";
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
+
+$posMap = [];
+$posStmt = $pdo->prepare("SELECT keyword, m1 FROM keyword_positions WHERE client_id = ?");
+$posStmt->execute([$client_id]);
+while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
+    if ($r['m1'] !== null && $r['m1'] !== '') {
+        $posMap[strtolower($r['keyword'])] = $r['m1'];
+    }
+}
 ?>
 
 <div class="d-flex justify-content-between mb-2 sticky-controls">
   <div class="d-flex">
-    <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success me-2">Update</button>
-    <button type="button" id="toggleAddForm" class="btn btn-warning me-2">Update Keywords</button>
-    <button type="button" id="toggleClusterForm" class="btn btn-info me-2">Update Clusters</button>
-    <button type="button" id="copyKeywords" class="btn btn-secondary me-2">Copy Table</button>
-    <button type="button" id="toggleImportForm" class="btn btn-primary me-2">Import Plan</button>
-    <a href="export.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary">Export CSV</a>
+    <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success btn-sm me-2">Update</button>
+    <button type="button" id="toggleAddForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
+    <button type="button" id="toggleClusterForm" class="btn btn-info btn-sm me-2">Update Clusters</button>
+    <button type="button" id="copyKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
+    <button type="button" id="copyLinks" class="btn btn-dark btn-sm me-2">Copy Links</button>
+    <button type="button" id="toggleImportForm" class="btn btn-primary btn-sm me-2">Import Plan</button>
+    <a href="export.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary btn-sm">Export CSV</a>
   </div>
   <form id="filterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
@@ -521,6 +541,7 @@ $stmt->execute($params);
       <option value="group_exact"<?= $field==='group_exact' ? ' selected' : '' ?>>Group Exact</option>
       <option value="cluster_name"<?= $field==='cluster_name' ? ' selected' : '' ?>>Cluster</option>
       <option value="content_link"<?= $field==='content_link' ? ' selected' : '' ?>>Link</option>
+      <option value="keyword_empty_cluster"<?= $field==='keyword_empty_cluster' ? ' selected' : '' ?>>Keyword/Empty Cluster</option>
     </select>
     <input type="text" name="q" id="filterInput" value="<?= htmlspecialchars($q) ?>" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
     <button type="submit" class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-search"></i></button>
@@ -544,6 +565,7 @@ $stmt->execute($params);
         <th>Group</th>
         <th class="text-center"># in Group</th>
         <th>Cluster</th>
+        <th class="text-center">Position</th>
     </tr>
     </thead>
 <tbody id="kwTableBody">
@@ -598,9 +620,12 @@ foreach ($stmt as $row) {
         $options .= "<option value=\"$pt\"$sel>$pt</option>";
     }
 
+    $kwKey = strtolower($row['keyword']);
+    $kwClass = isset($posMap[$kwKey]) ? 'highlight-cell' : '';
+    $posVal = $posMap[$kwKey] ?? '';
     echo "<tr data-id='{$row['id']}'>
         <td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button><input type='hidden' name='delete[{$row['id']}]' value='0' class='delete-flag'></td>
-        <td>" . htmlspecialchars($row['keyword']) . "</td>
+        <td class='$kwClass'>" . htmlspecialchars($row['keyword']) . "</td>
         <td class='text-center' style='background-color: $volBg'>" . $volume . "</td>
         <td class='text-center' style='background-color: $formBg'>" . $form . "</td>
         <td><input type='text' name='link[{$row['id']}]' value='" . htmlspecialchars($row['content_link']) . "' class='form-control form-control-sm' style='max-width:200px;'></td>
@@ -608,6 +633,7 @@ foreach ($stmt as $row) {
         <td>" . htmlspecialchars($row['group_name']) . "</td>
         <td class='text-center' style='background-color: $groupBg'>" . $row['group_count'] . "</td>
         <td style='background-color: $clusterBg'>" . htmlspecialchars($row['cluster_name']) . "</td>
+        <td class='text-center'>" . htmlspecialchars($posVal) . "</td>
     </tr>";
 }
 ?>
@@ -672,6 +698,21 @@ document.getElementById('copyKeywords').addEventListener('click', function() {
   });
   navigator.clipboard.writeText(keywords.join('\n')).then(() => {
     alert('Keywords copied to clipboard');
+  });
+});
+
+document.getElementById('copyLinks').addEventListener('click', function() {
+  const rows = document.querySelectorAll('#kwTableBody tr');
+  const links = new Set();
+  rows.forEach(tr => {
+    const input = tr.querySelector('td:nth-child(5) input');
+    if (input) {
+      const val = input.value.trim();
+      if (val) links.add(val);
+    }
+  });
+  navigator.clipboard.writeText(Array.from(links).join('\n')).then(() => {
+    alert('Links copied to clipboard');
   });
 });
 </script>
