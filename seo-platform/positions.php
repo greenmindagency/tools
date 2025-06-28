@@ -1,5 +1,8 @@
 <?php
 require 'config.php';
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 $client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : 0;
 $slugify = function(string $name): string {
     $name = iconv('UTF-8', 'ASCII//TRANSLIT', $name);
