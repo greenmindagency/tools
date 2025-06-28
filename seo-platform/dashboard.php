@@ -297,6 +297,10 @@ $activeTab = $_POST['tab'] ?? ($_GET['tab'] ?? 'keywords');
 include 'header.php';
 ?>
 
+<style>
+  .highlight-row td { background-color: #e9e9e9 !important; }
+</style>
+
 <ul class="nav nav-tabs mb-3" id="dashTabs" role="tablist">
   <li class="nav-item" role="presentation">
     <button class="nav-link<?= $activeTab==='keywords' ? ' active' : '' ?>" id="kw-tab" data-bs-toggle="tab" data-bs-target="#kw-pane" type="button" role="tab">Keywords</button>
@@ -1172,8 +1176,8 @@ document.addEventListener('DOMContentLoaded', () => {
   kwMap.forEach((kwRow, kw) => {
     const posRow = posMap.get(kw);
     if (posRow) {
-      kwRow.style.backgroundColor = '#e9e9e9';
-      posRow.style.backgroundColor = '#e9e9e9';
+      kwRow.classList.add('highlight-row');
+      posRow.classList.add('highlight-row');
     }
   });
 });
