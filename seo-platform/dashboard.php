@@ -1160,26 +1160,21 @@ document.querySelectorAll('#dashTabs button[data-bs-toggle="tab"]').forEach(btn 
 
 // Highlight keywords that appear in both tables
 document.addEventListener('DOMContentLoaded', () => {
-  const kwRows = Array.from(document.querySelectorAll('#kwTableBody tr[data-id]'));
-  const posRows = Array.from(document.querySelectorAll('#posTableBody tr[data-id]'));
+  const kwCells = Array.from(document.querySelectorAll('#kwTableBody td:nth-child(2)'));
+  const posCells = Array.from(document.querySelectorAll('#posTableBody td:nth-child(2)'));
 
-  const kwMap = new Map();
-  kwRows.forEach(r => {
-    const cell = r.querySelector('td:nth-child(2)');
-    if (cell) kwMap.set(cell.innerText.trim().toLowerCase(), cell);
+  const kwSet = new Set(kwCells.map(c => c.innerText.trim().toLowerCase()));
+  const posSet = new Set(posCells.map(c => c.innerText.trim().toLowerCase()));
+
+  kwCells.forEach(cell => {
+    if (posSet.has(cell.innerText.trim().toLowerCase())) {
+      cell.classList.add('highlight-cell');
+    }
   });
 
-  const posMap = new Map();
-  posRows.forEach(r => {
-    const cell = r.querySelector('td:nth-child(2)');
-    if (cell) posMap.set(cell.innerText.trim().toLowerCase(), cell);
-  });
-
-  kwMap.forEach((kwCell, kw) => {
-    const posCell = posMap.get(kw);
-    if (posCell) {
-      kwCell.classList.add('highlight-cell');
-      posCell.classList.add('highlight-cell');
+  posCells.forEach(cell => {
+    if (kwSet.has(cell.innerText.trim().toLowerCase())) {
+      cell.classList.add('highlight-cell');
     }
   });
 });
