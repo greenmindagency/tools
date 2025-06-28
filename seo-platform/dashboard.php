@@ -299,7 +299,7 @@ include 'header.php';
 
 
 <style>
-  .highlight-row td { background-color: #e9e9e9 !important; }
+  .highlight-cell { background-color: #e9e9e9 !important; }
 </style>
 
 
@@ -1166,20 +1166,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const kwMap = new Map();
   kwRows.forEach(r => {
     const cell = r.querySelector('td:nth-child(2)');
-    if (cell) kwMap.set(cell.innerText.trim().toLowerCase(), r);
+    if (cell) kwMap.set(cell.innerText.trim().toLowerCase(), cell);
   });
 
   const posMap = new Map();
   posRows.forEach(r => {
     const cell = r.querySelector('td:nth-child(2)');
-    if (cell) posMap.set(cell.innerText.trim().toLowerCase(), r);
+    if (cell) posMap.set(cell.innerText.trim().toLowerCase(), cell);
   });
 
-  kwMap.forEach((kwRow, kw) => {
-    const posRow = posMap.get(kw);
-    if (posRow) {
-      kwRow.classList.add('highlight-row');
-      posRow.classList.add('highlight-row');
+  kwMap.forEach((kwCell, kw) => {
+    const posCell = posMap.get(kw);
+    if (posCell) {
+      kwCell.classList.add('highlight-cell');
+      posCell.classList.add('highlight-cell');
     }
   });
 });
