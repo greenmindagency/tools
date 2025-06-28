@@ -294,20 +294,8 @@ for ($i = 0; $i < 12; $i++) {
 
 $activeTab = $_POST['tab'] ?? ($_GET['tab'] ?? 'keywords');
 
-// Load all keywords for highlighting across pages
-$kwAllStmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ?");
-$kwAllStmt->execute([$client_id]);
-$allKeywords = array_map('strtolower', array_map('trim', $kwAllStmt->fetchAll(PDO::FETCH_COLUMN)));
-$allKeywords = array_values(array_unique($allKeywords));
-
 include 'header.php';
 ?>
-
-
-<style>
-  .highlight-cell { background-color: #e9e9e9 !important; }
-</style>
-
 
 <ul class="nav nav-tabs mb-3" id="dashTabs" role="tablist">
   <li class="nav-item" role="presentation">
@@ -695,30 +683,20 @@ $perPage = 100;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $q = trim($_GET['q'] ?? '');
 $field = $_GET['field'] ?? 'keyword';
-$allowedFields = ['keyword', 'group_name', 'group_exact', 'cluster_name', 'content_link', 'keyword_empty_cluster'];
+$allowedFields = ['keyword', 'group_name', 'group_exact', 'cluster_name', 'content_link'];
 if (!in_array($field, $allowedFields, true)) {
     $field = 'keyword';
 }
 
 $baseQuery = "FROM keywords WHERE client_id = ?";
 $params = [$client_id];
-if ($field === 'keyword_empty_cluster') {
-    if ($q !== '') {
-        $baseQuery .= " AND keyword LIKE ? AND (cluster_name = '' OR cluster_name IS NULL)";
-        $params[] = "%$q%";
-    } else {
-        $baseQuery .= " AND (cluster_name = '' OR cluster_name IS NULL)";
-    }
-} elseif ($q !== '') {
+if ($q !== '') {
     if ($field === 'group_exact') {
         $baseQuery .= " AND group_name = ?";
         $params[] = $q;
     } elseif ($field === 'cluster_name') {
         $baseQuery .= " AND cluster_name = ?";
         $params[] = $q;
-    } elseif ($field === 'keyword_empty_cluster') {
-        $baseQuery .= " AND keyword LIKE ? AND (cluster_name = '' OR cluster_name IS NULL)";
-        $params[] = "%$q%";
     } else {
         $baseQuery .= " AND {$field} LIKE ?";
         $params[] = "%$q%";
@@ -733,15 +711,6 @@ $limit = $q === '' ? " LIMIT $perPage OFFSET $offset" : '';
 $query = "SELECT * $baseQuery ORDER BY volume DESC, form ASC$limit";
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
-
-$posMap = [];
-$posStmt = $pdo->prepare("SELECT keyword, m1 FROM keyword_positions WHERE client_id = ?");
-$posStmt->execute([$client_id]);
-while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
-    if ($r['m1'] !== null && $r['m1'] !== '') {
-        $posMap[strtolower($r['keyword'])] = $r['m1'];
-    }
-}
 ?>
 
 <div class="d-flex justify-content-between mb-2 sticky-controls">
@@ -763,7 +732,6 @@ while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
       <option value="group_exact"<?= $field==='group_exact' ? ' selected' : '' ?>>Group Exact</option>
       <option value="cluster_name"<?= $field==='cluster_name' ? ' selected' : '' ?>>Cluster</option>
       <option value="content_link"<?= $field==='content_link' ? ' selected' : '' ?>>Link</option>
-      <option value="keyword_empty_cluster"<?= $field==='keyword_empty_cluster' ? ' selected' : '' ?>>Keyword/Empty Cluster</option>
     </select>
     <input type="text" name="q" id="filterInput" value="<?= htmlspecialchars($q) ?>" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
     <button type="submit" class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-search"></i></button>
@@ -787,7 +755,6 @@ while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
         <th>Group</th>
         <th class="text-center"># in Group</th>
         <th>Cluster</th>
-        <th class="text-center">Position</th>
     </tr>
     </thead>
 <tbody id="kwTableBody">
@@ -832,7 +799,7 @@ foreach ($stmt as $row) {
     }
 
     $clusterBg = '';
-    if (($q !== '' && $row['cluster_name'] === '') || $field === 'keyword_empty_cluster') {
+    if ($q !== '' && $row['cluster_name'] === '') {
         $clusterBg = '#efefef';
     }
 
@@ -843,7 +810,6 @@ foreach ($stmt as $row) {
         $options .= "<option value=\"$pt\"$sel>$pt</option>";
     }
 
-    $posVal = $posMap[strtolower($row['keyword'])] ?? '';
     echo "<tr data-id='{$row['id']}'>
         <td class='text-center'><button type='button' class='btn btn-sm btn-outline-danger remove-row'>-</button><input type='hidden' name='delete[{$row['id']}]' value='0' class='delete-flag'></td>
         <td>" . htmlspecialchars($row['keyword']) . "</td>
@@ -854,7 +820,6 @@ foreach ($stmt as $row) {
         <td>" . htmlspecialchars($row['group_name']) . "</td>
         <td class='text-center' style='background-color: $groupBg'>" . $row['group_count'] . "</td>
         <td style='background-color: $clusterBg'>" . htmlspecialchars($row['cluster_name']) . "</td>
-        <td class='text-center'>" . htmlspecialchars($posVal) . "</td>
     </tr>";
 }
 ?>
@@ -994,7 +959,6 @@ foreach ($stmt as $row) {
 </div><!-- end tab content -->
 
 <script>
-const allKeywords = <?= json_encode($allKeywords) ?>;
 document.addEventListener('click', function(e) {
   if (e.target.classList.contains('remove-row')) {
     const tr = e.target.closest('tr');
@@ -1165,24 +1129,23 @@ document.querySelectorAll('#dashTabs button[data-bs-toggle="tab"]').forEach(btn 
   });
 });
 
-// Highlight keywords that appear in both tables
+// Highlight keywords present in both tables
 document.addEventListener('DOMContentLoaded', () => {
-  const kwCells = Array.from(document.querySelectorAll('#kwTableBody td:nth-child(2)'));
-  const posCells = Array.from(document.querySelectorAll('#posTableBody td:nth-child(2)'));
+  const kwCells = Array.from(document.querySelectorAll('#kwTableBody tr td:nth-child(2)'));
+  const posCells = Array.from(document.querySelectorAll('#posTableBody tr[data-id] td:nth-child(2)'));
 
   const kwSet = new Set(kwCells.map(c => c.innerText.trim().toLowerCase()));
   const posSet = new Set(posCells.map(c => c.innerText.trim().toLowerCase()));
-  const allKwSet = new Set(allKeywords);
 
-  kwCells.forEach(cell => {
-    if (posSet.has(cell.innerText.trim().toLowerCase())) {
-      cell.classList.add('highlight-cell');
+  kwCells.forEach(c => {
+    if (posSet.has(c.innerText.trim().toLowerCase())) {
+      c.style.backgroundColor = '#e9e9e9';
     }
   });
 
-  posCells.forEach(cell => {
-    if (allKwSet.has(cell.innerText.trim().toLowerCase())) {
-      cell.classList.add('highlight-cell');
+  posCells.forEach(c => {
+    if (kwSet.has(c.innerText.trim().toLowerCase())) {
+      c.style.backgroundColor = '#e9e9e9';
     }
   });
 });
