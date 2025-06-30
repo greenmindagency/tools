@@ -6,61 +6,47 @@
   <title>Mega Menu Navbar</title>
   <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    /* Use a modern font and add a subtle background color */
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: #f8f9fa;
-    }
 
-    /* Style for the navbar */
-    .navbar {
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
     
-    /* --- Centered Dropdown Styles --- */
+    
+    
+    
+/* Desktop dropdown animation */
+@media (min-width: 992px) {
+  .navbar .dropdown-menu {
+    left: -25%;
+    transform: translateY(20px);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    display: block;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, .15);
+  }
 
-    /* On large screens, we adjust the dropdown menu's position */
-    @media (min-width: 992px) {
-      .navbar .dropdown-menu {
-        /* This was 50%, changing to 25% shifts the menu to the left */
-        left: 25%; 
-        transform: translateX(-10%);
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, .15);
-       
-      }
+  .navbar .dropdown-menu .row {
+    flex-wrap: nowrap;
+  }
 
-      /* This is the fix: Prevents the columns from wrapping and causing overlap */
-      .navbar .dropdown-menu .row {
-        flex-wrap: nowrap;
-      }
+  .navbar .dropdown:hover > .dropdown-menu {
+    opacity: 1;
+    transform: translateY(0);
+    visibility: visible;
+  }
+}
 
-      /* Show the dropdown on hover */
-      .navbar .dropdown:hover > .dropdown-menu {
-        display: block;
-      }
-    }
+/* CSS for toggling dropdown on mobile */
+@media (max-width: 991px) {
+  .navbar .dropdown-menu {
+    display: none;
+  }
+  .navbar .dropdown.show .dropdown-menu {
+    display: block;
+  }
+}
 
-    /* Add headers to organize the menu links */
-    .dropdown-menu .dropdown-header {
-        font-weight: 600;
-        color: #0d6efd; /* Bootstrap primary color */
-    }
 
-    /* Style for individual dropdown items for better visual feedback */
-    .dropdown-menu .dropdown-item {
-        padding-top: .5rem;
-        padding-bottom: .5rem;
-        border-radius: .25rem;
-        transition: background-color 0.2s ease-in-out;
-    }
 
-	
-	.dropdown-menu {border:0; border-radius: 0px;}
 
   </style>
 </head>
