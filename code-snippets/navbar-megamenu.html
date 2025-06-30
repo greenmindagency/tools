@@ -11,39 +11,57 @@
     
     
     
-    
-/* Desktop dropdown animation */
-@media (min-width: 992px) {
-  .navbar .dropdown-menu {
-    left: -25%;
-    transform: translateY(20px);
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.3s ease;
-    display: block;
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, .15);
-  }
+ /* Original mega menu layout remains unchanged */
+    @media (min-width: 992px) {
+      .navbar .dropdown-menu.row {
+        display: block;
+        display: flex;
+        flex-wrap: wrap;
+        padding: 1rem;
+        width: 1000px;
+        border-radius: 0;
+        border: 0;
+      }
+      .navbar .dropdown-menu.row .dropdown-item {
+        white-space: normal;
+        border-bottom: 1px solid #f4f4f4;
+      }
+    }
 
-  .navbar .dropdown-menu .row {
-    flex-wrap: nowrap;
-  }
+    /* === Added wipe animation for full width === */
+    @media (min-width: 992px) {
+      .navbar .dropdown-menu {
+        left: 0; /* Changed from left: -25% to align full width */
+        right: 0; /* Ensure it spans full width */
+        width: 100%; /* Full width */
+        overflow: hidden; /* Needed for wipe */
+        max-height: 0; /* Start collapsed */
+        opacity: 0; /* Start invisible */
+        visibility: hidden; /* Start hidden */
+        transition: max-height 0.5s ease, opacity 0.5s ease; /* Smooth wipe */
+        display: block;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, .15);
+      }
+      .navbar .dropdown:hover > .dropdown-menu {
+        max-height: 500px; /* Expand to desired height */
+        opacity: 1;
+        visibility: visible;
+      }
+      .navbar .dropdown-menu .row {
+        flex-wrap: nowrap;
+      }
+    }
 
-  .navbar .dropdown:hover > .dropdown-menu {
-    opacity: 1;
-    transform: translateY(0);
-    visibility: visible;
-  }
-}
+    /* CSS for toggling dropdown on mobile stays unchanged */
+    @media (max-width: 991px) {
+      .navbar .dropdown-menu {
+        display: none;
+      }
+      .navbar .dropdown.show .dropdown-menu {
+        display: block;
+      }
+    }
 
-/* CSS for toggling dropdown on mobile */
-@media (max-width: 991px) {
-  .navbar .dropdown-menu {
-    display: none;
-  }
-  .navbar .dropdown.show .dropdown-menu {
-    display: block;
-  }
-}
 
 
 
