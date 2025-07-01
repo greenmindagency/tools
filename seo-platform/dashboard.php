@@ -104,9 +104,11 @@ include 'header.php';
     <span class="me-3">Clustered Keywords: <?= (int)$stats['clustered'] ?></span>
     <span class="me-3">Structured Keywords: <?= (int)$stats['structured'] ?></span>
   </div>
-  <div class="d-flex">
-    <button type="button" id="toggleImportForm" class="btn btn-primary btn-sm me-2">Import Plan</button>
-    <a href="export.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary btn-sm me-3">Export CSV</a>
+  <div class="d-flex flex-column align-items-end">
+    <div class="mb-2">
+      <button type="button" id="toggleImportForm" class="btn btn-primary btn-sm me-2">Import Plan</button>
+      <a href="export.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary btn-sm">Export CSV</a>
+    </div>
     <form method="POST" class="d-flex">
       <select name="backup_file" class="form-select form-select-sm me-2" style="width:auto;">
         <?php foreach ($backups as $b): ?>
