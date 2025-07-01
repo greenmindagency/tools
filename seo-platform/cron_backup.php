@@ -19,7 +19,7 @@ foreach ($clients as $cid) {
     }
     $file = "$dir/$date.csv";
     $out = fopen($file, 'w');
-    fputcsv($out, ['Keyword','Volume','Form','Link','Page Type','Group','# in Group','Cluster']);
+    fputcsv($out, ['Keyword','Volume','Form','Link','Type','Group','#','Cluster']);
     $stmt = $pdo->prepare("SELECT keyword, volume, form, content_link, page_type, group_name, group_count, cluster_name FROM keywords WHERE client_id = ? ORDER BY id");
     $stmt->execute([$cid]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {

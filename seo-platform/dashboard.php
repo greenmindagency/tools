@@ -104,15 +104,19 @@ include 'header.php';
     <span class="me-3">Clustered Keywords: <?= (int)$stats['clustered'] ?></span>
     <span class="me-3">Structured Keywords: <?= (int)$stats['structured'] ?></span>
   </div>
-  <form method="POST" class="d-flex">
-    <select name="backup_file" class="form-select form-select-sm me-2" style="width:auto;">
-      <?php foreach ($backups as $b): ?>
-        <option value="<?= htmlspecialchars($b) ?>"><?= htmlspecialchars($b) ?></option>
-      <?php endforeach; ?>
-    </select>
-    <button type="submit" name="restore_backup" class="btn btn-sm btn-secondary me-2">Restore</button>
-    <button type="submit" name="create_backup" class="btn btn-sm btn-primary">Backup Now</button>
-  </form>
+  <div class="d-flex">
+    <button type="button" id="toggleImportForm" class="btn btn-primary btn-sm me-2">Import Plan</button>
+    <a href="export.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary btn-sm me-3">Export CSV</a>
+    <form method="POST" class="d-flex">
+      <select name="backup_file" class="form-select form-select-sm me-2" style="width:auto;">
+        <?php foreach ($backups as $b): ?>
+          <option value="<?= htmlspecialchars($b) ?>"><?= htmlspecialchars($b) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <button type="submit" name="restore_backup" class="btn btn-sm btn-secondary me-2">Restore</button>
+      <button type="submit" name="create_backup" class="btn btn-sm btn-primary">Backup Now</button>
+    </form>
+  </div>
 </div>
 <?php if (!empty($restored)): ?>
 <p class="text-success">Backup restored.</p>
@@ -446,7 +450,7 @@ function createCsvBackup(PDO $pdo, int $client_id, string $dir): void {
     $ts = date('d-m-Y_H-i');
     $file = "$dir/$ts.csv";
     $out = fopen($file, 'w');
-    fputcsv($out, ['Keyword','Volume','Form','Link','Page Type','Group','# in Group','Cluster']);
+    fputcsv($out, ['Keyword','Volume','Form','Link','Type','Group','#','Cluster']);
     $stmt = $pdo->prepare("SELECT keyword, volume, form, content_link, page_type, group_name, group_count, cluster_name FROM keywords WHERE client_id = ? ORDER BY id");
     $stmt->execute([$client_id]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -532,8 +536,6 @@ while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
     <button type="button" id="toggleClusterForm" class="btn btn-info btn-sm me-2">Update Clusters</button>
     <button type="button" id="copyKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
     <button type="button" id="copyLinks" class="btn btn-dark btn-sm me-2">Copy Links</button>
-    <button type="button" id="toggleImportForm" class="btn btn-primary btn-sm me-2">Import Plan</button>
-    <a href="export.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary btn-sm">Export CSV</a>
   </div>
   <form id="filterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
@@ -564,9 +566,9 @@ while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
         <th class="text-center">Volume</th>
         <th class="text-center">Form</th>
         <th>Link</th>
-        <th class="text-center">Page Type</th>
+        <th class="text-center">Type</th>
         <th>Group</th>
-        <th class="text-center"># in Group</th>
+        <th class="text-center">#</th>
         <th>Cluster</th>
         <th class="text-center">Position</th>
     </tr>
@@ -631,7 +633,9 @@ foreach ($stmt as $row) {
         <td class='$kwClass'>" . htmlspecialchars($row['keyword']) . "</td>
         <td class='text-center' style='background-color: $volBg'>" . $volume . "</td>
         <td class='text-center' style='background-color: $formBg'>" . $form . "</td>
-        <td><input type='text' name='link[{$row['id']}]' value='" . htmlspecialchars($row['content_link']) . "' class='form-control form-control-sm' style='max-width:200px;'></td>
+        <td><div class='d-flex align-items-center'><input type='text' name='link[{$row['id']}]' value='" . htmlspecialchars($row['content_link']) . "' class='form-control form-control-sm' style='max-width:200px;'>" .
+        ($row['content_link'] ? "<a href='" . htmlspecialchars($row['content_link']) . "' target='_blank' class='ms-1'><i class='bi bi-box-arrow-up-right'></i></a>" : '') .
+        "</div></td>
         <td class='text-center'><select name='page_type[{$row['id']}]' class='form-select form-select-sm'>$options</select></td>
         <td>" . htmlspecialchars($row['group_name']) . "</td>
         <td class='text-center' style='background-color: $groupBg'>" . $row['group_count'] . "</td>
