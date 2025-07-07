@@ -224,7 +224,6 @@ include 'header.php';
   <li class="nav-item"><a class="nav-link active" href="positions.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>">Keyword Position</a></li>
 </ul>
 
-<h5 class="mb-1"><?= htmlspecialchars($client['name']) ?> – Keyword Position</h5>
 <div class="mb-4">
   <div class="row g-2">
     <div class="col-sm"><input type="text" id="scDomain" name="sc_domain" value="<?= htmlspecialchars($scDomain) ?>" class="form-control" placeholder="Domain"></div>

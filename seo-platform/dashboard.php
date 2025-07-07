@@ -96,7 +96,6 @@ include 'header.php';
   <li class="nav-item"><a class="nav-link" href="positions.php?client_id=<?php echo $client_id; ?>&slug=<?php echo $slug; ?>">Keyword Position</a></li>
 </ul>
 
-<h5 class="mb-1"><?= htmlspecialchars($client['name']) ?> – Keywords</h5>
 <div class="mb-3 d-flex justify-content-between align-items-center">
   <div>
     <span class="me-3">All keywords: <?= (int)$stats['total'] ?></span>
