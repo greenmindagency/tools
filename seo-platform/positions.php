@@ -308,7 +308,7 @@ include 'header.php';
   <table class="table table-bordered table-sm">
     <thead class="table-light">
       <tr>
-        <th style="width:1px;"></th>
+        <th style="width:1px;"><button type="button" id="removeAllPositions" class="btn btn-sm btn-outline-danger" title="Remove all on page">-</button></th>
         <th>Keyword</th>
         <?php foreach (array_reverse($months) as $m): ?>
         <th class="text-center"><?= $m ?></th>
@@ -356,6 +356,21 @@ document.addEventListener('click', function(e) {
     tr.classList.toggle('text-decoration-line-through', !marked);
   }
 });
+const removeAllPosBtn = document.getElementById('removeAllPositions');
+if (removeAllPosBtn) {
+  removeAllPosBtn.addEventListener('click', () => {
+    const rows = document.querySelectorAll('#posTableBody tr[data-id]');
+    if (rows.length && confirm('Remove all keywords on this page?')) {
+      rows.forEach(tr => {
+        const flag = tr.querySelector('.delete-flag');
+        if (flag) {
+          flag.value = '1';
+          tr.classList.add('text-decoration-line-through');
+        }
+      });
+    }
+  });
+}
 
 document.getElementById('toggleAddPosForm').addEventListener('click', function() {
   const form = document.getElementById('addPosForm');

@@ -568,7 +568,7 @@ while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
   <table class="table table-bordered table-sm">
     <thead class="table-light">
     <tr>
-        <th style="width:1px;"></th>
+        <th style="width:1px;"><button type="button" id="removeAllKeywords" class="btn btn-sm btn-outline-danger" title="Remove all on page">-</button></th>
         <th>Keyword</th>
         <th class="text-center">Volume</th>
         <th class="text-center">Form</th>
@@ -683,6 +683,21 @@ document.addEventListener('click', function(e) {
     tr.classList.toggle('text-decoration-line-through', !marked);
   }
 });
+const removeAllBtn = document.getElementById('removeAllKeywords');
+if (removeAllBtn) {
+  removeAllBtn.addEventListener('click', () => {
+    const rows = document.querySelectorAll('#kwTableBody tr');
+    if (rows.length && confirm('Remove all keywords on this page?')) {
+      rows.forEach(tr => {
+        const flag = tr.querySelector('.delete-flag');
+        if (flag) {
+          flag.value = '1';
+          tr.classList.add('text-decoration-line-through');
+        }
+      });
+    }
+  });
+}
 document.getElementById('toggleAddForm').addEventListener('click', function() {
   const form = document.getElementById('addKeywordsForm');
   if (form.style.display === 'none' || form.style.display === '') {
