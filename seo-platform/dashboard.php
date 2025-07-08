@@ -491,23 +491,29 @@ if (!in_array($field, $allowedFields, true)) {
 
 $baseQuery = "FROM keywords WHERE client_id = ?";
 $params = [$client_id];
+$terms = array_values(array_filter(array_map('trim', explode('|', $q)), 'strlen'));
 if ($field === 'keyword_empty_cluster') {
-    if ($q !== '') {
-        $baseQuery .= " AND keyword LIKE ? AND (cluster_name = '' OR cluster_name IS NULL)";
-        $params[] = "%$q%";
-    } else {
-        $baseQuery .= " AND (cluster_name = '' OR cluster_name IS NULL)";
+    if ($terms) {
+        $likeParts = [];
+        foreach ($terms as $t) {
+            $likeParts[] = "keyword LIKE ?";
+            $params[] = "%$t%";
+        }
+        $baseQuery .= " AND (" . implode(' OR ', $likeParts) . ")";
     }
-} elseif ($q !== '') {
-    if ($field === 'group_exact') {
-        $baseQuery .= " AND group_name = ?";
-        $params[] = $q;
-    } elseif ($field === 'cluster_name') {
-        $baseQuery .= " AND cluster_name = ?";
-        $params[] = $q;
+    $baseQuery .= " AND (cluster_name = '' OR cluster_name IS NULL)";
+} elseif ($terms) {
+    if ($field === 'group_exact' || $field === 'cluster_name') {
+        $placeholders = implode(',', array_fill(0, count($terms), '?'));
+        $baseQuery .= " AND {$field} IN ($placeholders)";
+        array_push($params, ...$terms);
     } else {
-        $baseQuery .= " AND {$field} LIKE ?";
-        $params[] = "%$q%";
+        $likeParts = [];
+        foreach ($terms as $t) {
+            $likeParts[] = "{$field} LIKE ?";
+            $params[] = "%$t%";
+        }
+        $baseQuery .= " AND (" . implode(' OR ', $likeParts) . ")";
     }
 }
 $countStmt = $pdo->prepare("SELECT COUNT(*) $baseQuery");

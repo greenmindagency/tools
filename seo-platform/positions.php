@@ -179,9 +179,14 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
 $posQ = trim($_GET['pos_q'] ?? '');
 $posSql = "SELECT * FROM keyword_positions WHERE client_id = ?";
 $posParams = [$client_id];
-if ($posQ !== '') {
-    $posSql .= " AND keyword LIKE ?";
-    $posParams[] = "%$posQ%";
+$posTerms = array_values(array_filter(array_map('trim', explode('|', $posQ)), 'strlen'));
+if ($posTerms) {
+    $conds = [];
+    foreach ($posTerms as $t) {
+        $conds[] = "keyword LIKE ?";
+        $posParams[] = "%$t%";
+    }
+    $posSql .= " AND (" . implode(' OR ', $conds) . ")";
 }
 $posSql .= " ORDER BY sort_order IS NULL, sort_order, id DESC";
 $posStmt = $pdo->prepare($posSql);
