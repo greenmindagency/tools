@@ -503,14 +503,15 @@ if ($field === 'keyword_empty_cluster') {
     }
     $baseQuery .= " AND (cluster_name = '' OR cluster_name IS NULL)";
 } elseif ($terms) {
+    $column = ($field === 'group_exact') ? 'group_name' : $field;
     if ($field === 'group_exact' || $field === 'cluster_name') {
         $placeholders = implode(',', array_fill(0, count($terms), '?'));
-        $baseQuery .= " AND {$field} IN ($placeholders)";
+        $baseQuery .= " AND {$column} IN ($placeholders)";
         array_push($params, ...$terms);
     } else {
         $likeParts = [];
         foreach ($terms as $t) {
-            $likeParts[] = "{$field} LIKE ?";
+            $likeParts[] = "{$column} LIKE ?";
             $params[] = "%$t%";
         }
         $baseQuery .= " AND (" . implode(' OR ', $likeParts) . ")";
