@@ -84,7 +84,7 @@ include 'header.php';
 
 <div class="justify-content-between align-items-center mb-4">
 
-<div class="d-flex">
+<div class="d-flex d-flex justify-content-between align-items-center mb-4">
   <h5 class="mb-0">Select a Client</h5>
   <a href="logout.php" class="btn btn-outline-secondary btn-sm">Logout</a>
   </div>
