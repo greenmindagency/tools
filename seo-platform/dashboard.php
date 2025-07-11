@@ -1,9 +1,14 @@
 <?php
+session_start();
 require 'config.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
 $client_id = $_GET['client_id'] ?? 0;
+if (!isset($_SESSION['is_admin']) && (!isset($_SESSION['client_id']) || $_SESSION['client_id'] != $client_id)) {
+    header('Location: login.php');
+    exit;
+}
 $slugify = function(string $name): string {
     $name = iconv('UTF-8', 'ASCII//TRANSLIT', $name);
     $name = preg_replace('/[^a-zA-Z0-9]+/', '-', $name);

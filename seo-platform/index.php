@@ -1,10 +1,17 @@
 <?php
+session_start();
+if (!($_SESSION['is_admin'] ?? false)) {
+    header('Location: login.php');
+    exit;
+}
 $slugify = function(string $name): string {
     $name = iconv('UTF-8', 'ASCII//TRANSLIT', $name);
     $name = preg_replace('/[^a-zA-Z0-9]+/', '-', $name);
     return strtolower(trim($name, '-'));
 };
 require 'config.php';
+$pdo->exec("ALTER TABLE clients ADD COLUMN IF NOT EXISTS username VARCHAR(255)");
+$pdo->exec("ALTER TABLE clients ADD COLUMN IF NOT EXISTS pass_hash VARCHAR(255)");
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // add new client
@@ -46,6 +53,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: index.php');
         exit;
     }
+
+    if (isset($_POST['set_credentials'], $_POST['username'])) {
+        $cid = (int)$_POST['set_credentials'];
+        $username = trim($_POST['username']);
+        $password = $_POST['password'] ?? '';
+        $fields = [];
+        $params = [];
+        if ($username !== '') {
+            $fields[] = 'username = ?';
+            $params[] = $username;
+        }
+        if ($password !== '') {
+            $fields[] = 'pass_hash = ?';
+            $params[] = password_hash($password, PASSWORD_DEFAULT);
+        }
+        if ($fields) {
+            $params[] = $cid;
+            $sql = 'UPDATE clients SET '.implode(',', $fields).' WHERE id = ?';
+            $pdo->prepare($sql)->execute($params);
+        }
+        header('Location: index.php');
+        exit;
+    }
 }
 
 $title = 'SEO Platform';
@@ -64,8 +94,10 @@ include 'header.php';
         $escName = htmlspecialchars($client['name'], ENT_QUOTES);
         echo "<li class='list-group-item d-flex justify-content-between align-items-center'>";
         echo "<a class='me-auto' href='dashboard.php?client_id=$id&slug=$slug'>$name</a>";
+        $user = htmlspecialchars($client['username'] ?? '', ENT_QUOTES);
         echo "<div class='btn-group btn-group-sm' role='group'>";
         echo "<button type='button' class='btn btn-outline-secondary rename-btn' data-id='$id' data-name='$escName'>Rename</button>";
+        echo "<button type='button' class='btn btn-outline-primary cred-btn ms-1' data-id='$id' data-username='$user'>Set Login</button>";
         echo "<form method='POST' class='d-inline ms-1' onsubmit=\"return confirm('Delete this client and all data?');\">";
         echo "<input type='hidden' name='delete_client' value='$id'>";
         echo "<button type='submit' class='btn btn-outline-danger'>Remove</button>";
@@ -107,6 +139,35 @@ document.querySelectorAll('.rename-btn').forEach(btn => {
       document.body.appendChild(form);
       form.submit();
     }
+  });
+});
+document.querySelectorAll('.cred-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id = btn.dataset.id;
+    const currentUser = btn.dataset.username || '';
+    const username = prompt('Username', currentUser);
+    if (username === null) return;
+    const password = prompt('Password (leave blank to keep current)');
+    if (password === null) return;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    const idInput = document.createElement('input');
+    idInput.type = 'hidden';
+    idInput.name = 'set_credentials';
+    idInput.value = id;
+    form.appendChild(idInput);
+    const userInput = document.createElement('input');
+    userInput.type = 'hidden';
+    userInput.name = 'username';
+    userInput.value = username;
+    form.appendChild(userInput);
+    const passInput = document.createElement('input');
+    passInput.type = 'hidden';
+    passInput.name = 'password';
+    passInput.value = password;
+    form.appendChild(passInput);
+    document.body.appendChild(form);
+    form.submit();
   });
 });
 </script>

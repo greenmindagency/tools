@@ -1,6 +1,11 @@
 <?php
+session_start();
 require 'config.php';
 $client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : 0;
+if (!isset($_SESSION['is_admin']) && (!isset($_SESSION['client_id']) || $_SESSION['client_id'] != $client_id)) {
+    header('Location: login.php');
+    exit;
+}
 if (!$client_id) {
     die('Invalid client');
 }

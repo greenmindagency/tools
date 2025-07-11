@@ -16,6 +16,8 @@ foreach ($converter_files as $file) {
     $converters[$base] = $title;
 }
 $current = $_SERVER['REQUEST_URI'] ?? '';
+if (session_status() === PHP_SESSION_NONE) session_start();
+$loggedIn = isset($_SESSION['is_admin']) || isset($_SESSION['client_id']);
 ?>
 <nav class="navbar fixed-top navbar-expand-lg navbar-light bg-light">
   <div class="container-fluid">
@@ -47,30 +49,15 @@ $current = $_SERVER['REQUEST_URI'] ?? '';
             <?php endforeach; ?>
           </ul>
         </li>
-        <li class="nav-item dropdown">
+        <li class="nav-item">
           <?php $active = strpos($current, '/seo-platform/') !== false ? 'active' : ''; ?>
-          <a class="nav-link dropdown-toggle <?= $active ?>" href="/tools/seo-platform/" id="seoDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-            SEO Platform
-          </a>
-          <ul class="dropdown-menu" aria-labelledby="seoDropdown">
-            <li><a class="dropdown-item" href="/tools/seo-platform/">All Clients</a></li>
-            <?php
-              require_once __DIR__ . '/seo-platform/config.php';
-              $slugify = function(string $name): string {
-                $name = iconv('UTF-8', 'ASCII//TRANSLIT', $name);
-                $name = preg_replace('/[^a-zA-Z0-9]+/', '-', $name);
-                return strtolower(trim($name, '-'));
-              };
-              $stmt = $pdo->query("SELECT id, name FROM clients ORDER BY name ASC");
-              foreach ($stmt as $client) {
-                $id = $client['id'];
-                $name = htmlspecialchars($client['name']);
-                $slug = $slugify($client['name']);
-                echo "<li><a class='dropdown-item' href='/tools/seo-platform/dashboard.php?client_id=$id&slug=$slug'>$name</a></li>";
-              }
-            ?>
-          </ul>
+          <a class="nav-link <?= $active ?>" href="/tools/seo-platform/login.php">SEO Platform</a>
         </li>
+        <?php if ($loggedIn): ?>
+        <li class="nav-item">
+          <a class="nav-link" href="/tools/seo-platform/logout.php">Logout</a>
+        </li>
+        <?php endif; ?>
         <li class="nav-item">
           <a class="nav-link" href="https://github.com/greenmindagency/tools/tree/main/code-snippets" target="_blank" rel="noopener">Code Snippets</a>
         </li>
