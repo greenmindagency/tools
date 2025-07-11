@@ -146,7 +146,7 @@ include 'header.php';
 
 <!-- Import Plan Form -->
 <form method="POST" id="importForm" enctype="multipart/form-data" class="mb-4" style="display:none;">
-    <input type="file" name="csv_file" accept=".csv" class="form-control">
+    <input type="file" name="csv_file" accept=".csv,.xlsx" class="form-control">
     <button type="submit" name="import_plan" class="btn btn-primary btn-sm mt-2">Import Plan</button>
 </form>
 
@@ -259,28 +259,39 @@ if (isset($_POST['import_plan'])) {
         $insert = $pdo->prepare(
             "INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type, group_name, group_count, cluster_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
-        if (($handle = fopen($_FILES['csv_file']['tmp_name'], 'r')) !== false) {
-            while (($data = fgetcsv($handle)) !== false) {
-                if (!isset($data[0])) continue;
-                if (stripos($data[0], 'keyword') === 0) continue; // skip header
-                $keyword = $data[0];
-                $vol = $data[1] ?? '';
-                $form = $data[2] ?? '';
-                $link = $data[3] ?? '';
-                $type = trim($data[4] ?? '');
-
-                $group = trim($data[5] ?? '');
-                $groupCnt = is_numeric($data[6] ?? '') ? (int)$data[6] : 0;
-                $cluster = trim($data[7] ?? '');
-
-                if ($type !== '') {
-                    foreach ($pageTypes as $pt) {
-                        if (strcasecmp($pt, $type) === 0) { $type = $pt; break; }
-                    }
-                }
-                $insert->execute([$client_id, $keyword, $vol, $form, $link, $type, $group, $groupCnt, $cluster]);
+        $ext = strtolower(pathinfo($_FILES['csv_file']['name'], PATHINFO_EXTENSION));
+        $rows = [];
+        if ($ext === 'xlsx') {
+            require_once __DIR__ . '/lib/SimpleXLSX.php';
+            if ($xlsx = \Shuchkin\SimpleXLSX::parse($_FILES['csv_file']['tmp_name'])) {
+                $rows = $xlsx->rows();
             }
-            fclose($handle);
+        } else {
+            if (($handle = fopen($_FILES['csv_file']['tmp_name'], 'r')) !== false) {
+                while (($data = fgetcsv($handle)) !== false) {
+                    $rows[] = $data;
+                }
+                fclose($handle);
+            }
+        }
+        foreach ($rows as $data) {
+            if (!isset($data[0])) continue;
+            if (stripos($data[0], 'keyword') === 0) continue; // skip header
+            $keyword = $data[0];
+            $vol = $data[1] ?? '';
+            $form = $data[2] ?? '';
+            $link = $data[3] ?? '';
+            $type = trim($data[4] ?? '');
+            $group = trim($data[5] ?? '');
+            $groupCnt = is_numeric($data[6] ?? '') ? (int)$data[6] : 0;
+            $cluster = trim($data[7] ?? '');
+
+            if ($type !== '') {
+                foreach ($pageTypes as $pt) {
+                    if (strcasecmp($pt, $type) === 0) { $type = $pt; break; }
+                }
+            }
+            $insert->execute([$client_id, $keyword, $vol, $form, $link, $type, $group, $groupCnt, $cluster]);
         }
         echo "<p>Plan imported.</p>";
         maybeUpdateKeywordGroups($pdo, $client_id);

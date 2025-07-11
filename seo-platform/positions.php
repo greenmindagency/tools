@@ -128,9 +128,26 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
     $monthIndex = (int)($_POST['position_month'] ?? 0);
     $col = 'm' . ($monthIndex + 1);
     $tmp = $_FILES['csv_file']['tmp_name'];
-    if (is_uploaded_file($tmp) && ($handle = fopen($tmp, 'r')) !== false) {
-        $firstLine = fgets($handle);
-        $delimiter = $detectCsvDelimiter($firstLine ?: '');
+    $ext = strtolower(pathinfo($_FILES['csv_file']['name'], PATHINFO_EXTENSION));
+    $delimiter = ',';
+    $rawRows = [];
+    if (is_uploaded_file($tmp)) {
+        if ($ext === 'xlsx') {
+            require_once __DIR__ . '/lib/SimpleXLSX.php';
+            if ($xlsx = \Shuchkin\SimpleXLSX::parse($tmp)) {
+                $rawRows = $xlsx->rows();
+            }
+        } elseif (($handle = fopen($tmp, 'r')) !== false) {
+            $firstLine = fgets($handle);
+            $delimiter = $detectCsvDelimiter($firstLine ?: '');
+            $rawRows[] = str_getcsv($firstLine ?: '', $delimiter);
+            while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
+                $rawRows[] = $data;
+            }
+            fclose($handle);
+        }
+    }
+    if ($rawRows) {
 
         $mapStmt = $pdo->prepare("SELECT id, keyword, sort_order FROM keyword_positions WHERE client_id = ?");
         $mapStmt->execute([$client_id]);
@@ -154,7 +171,7 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
             return ['kw' => $kw, 'impr' => $impr, 'pos' => $pos];
         };
 
-        $firstData = str_getcsv($firstLine ?: '', $delimiter);
+        $firstData = $rawRows[0];
         $hasHeader = false;
         if ($firstData) {
             $imprCheck = str_replace(',', '', $firstData[2] ?? '');
@@ -162,16 +179,12 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
                 $hasHeader = true;
             }
         }
-        if (!$hasHeader && ($row = $parseRow($firstData))) {
-            $rows[] = $row;
-        }
-
-        while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
-            if ($row = $parseRow($data)) {
+        $startIdx = $hasHeader ? 1 : 0;
+        for ($i = $startIdx; $i < count($rawRows); $i++) {
+            if ($row = $parseRow($rawRows[$i])) {
                 $rows[] = $row;
             }
         }
-        fclose($handle);
 
         usort($rows, fn($a, $b) => $b['impr'] <=> $a['impr']);
 
@@ -298,7 +311,7 @@ include 'header.php';
       <option value="<?= $idx ?>"><?= $m ?></option>
     <?php endforeach; ?>
   </select>
-  <input type="file" name="csv_file" accept=".csv" class="form-control">
+  <input type="file" name="csv_file" accept=".csv,.xlsx" class="form-control">
   <button type="submit" name="import_positions" class="btn btn-primary btn-sm mt-2">Import Positions</button>
 </form>
 
