@@ -82,9 +82,13 @@ $title = 'SEO Platform';
 include 'header.php';
 ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="justify-content-between align-items-center mb-4">
+
+<div class="d-flex">
   <h5 class="mb-0">Select a Client</h5>
   <a href="logout.php" class="btn btn-outline-secondary btn-sm">Logout</a>
+  </div>
+  
   <ul class="list-group">
   <?php
   if ($_SESSION['is_admin'] ?? false) {
