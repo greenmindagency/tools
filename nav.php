@@ -53,11 +53,6 @@ $loggedIn = isset($_SESSION['is_admin']) || isset($_SESSION['client_id']) || !em
           <?php $active = strpos($current, '/seo-platform/') !== false ? 'active' : ''; ?>
           <a class="nav-link <?= $active ?>" href="/tools/seo-platform/login.php">SEO Platform</a>
         </li>
-        <?php if ($loggedIn): ?>
-        <li class="nav-item">
-          <a class="nav-link" href="/tools/seo-platform/logout.php">Logout</a>
-        </li>
-        <?php endif; ?>
         <li class="nav-item">
           <a class="nav-link" href="https://github.com/greenmindagency/tools/tree/main/code-snippets" target="_blank" rel="noopener">Code Snippets</a>
         </li>
