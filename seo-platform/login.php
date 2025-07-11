@@ -7,19 +7,29 @@ $pdo->exec("ALTER TABLE clients ADD COLUMN IF NOT EXISTS pass_hash VARCHAR(255)"
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = trim($_POST['username'] ?? '');
     $pass = $_POST['password'] ?? '';
-    if ($user === 'admin' && $pass === 'admin') {
-        $_SESSION['is_admin'] = true;
-        header('Location: index.php');
-        exit;
-    }
-    $stmt = $pdo->prepare('SELECT id, name, pass_hash FROM clients WHERE username = ?');
+    $stmt = $pdo->prepare('SELECT id, name, username, pass_hash FROM clients WHERE username = ?');
     $stmt->execute([$user]);
-    $client = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($client && password_verify($pass, $client['pass_hash'])) {
+    $matches = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        if (password_verify($pass, $row['pass_hash'])) {
+            if (strcasecmp($row['username'], 'greenmindagency') === 0) {
+                $_SESSION['is_admin'] = true;
+                header('Location: index.php');
+                exit;
+            }
+            $matches[] = $row;
+        }
+    }
+    if (count($matches) === 1) {
+        $client = $matches[0];
         $_SESSION['client_id'] = $client['id'];
         $name = $client['name'];
         $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', iconv('UTF-8','ASCII//TRANSLIT',$name)), '-'));
         header("Location: dashboard.php?client_id={$client['id']}&slug=$slug");
+        exit;
+    } elseif (count($matches) > 1) {
+        $_SESSION['client_ids'] = array_column($matches, 'id');
+        header('Location: index.php');
         exit;
     }
     $error = 'Invalid username or password';

@@ -17,7 +17,7 @@ foreach ($converter_files as $file) {
 }
 $current = $_SERVER['REQUEST_URI'] ?? '';
 if (session_status() === PHP_SESSION_NONE) session_start();
-$loggedIn = isset($_SESSION['is_admin']) || isset($_SESSION['client_id']);
+$loggedIn = isset($_SESSION['is_admin']) || isset($_SESSION['client_id']) || !empty($_SESSION['client_ids']);
 ?>
 <nav class="navbar fixed-top navbar-expand-lg navbar-light bg-light">
   <div class="container-fluid">
