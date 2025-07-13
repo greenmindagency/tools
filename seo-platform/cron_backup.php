@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . '/config.php';
+$pdo->exec("ALTER TABLE keywords ADD COLUMN IF NOT EXISTS priority VARCHAR(10) DEFAULT ''");
 date_default_timezone_set('Africa/Cairo');
 
 $backupRoot = __DIR__ . '/backups';
@@ -19,8 +20,8 @@ foreach ($clients as $cid) {
     }
     $file = "$dir/$date.csv";
     $out = fopen($file, 'w');
-    fputcsv($out, ['Keyword','Volume','Form','Link','Type','Group','#','Cluster']);
-    $stmt = $pdo->prepare("SELECT keyword, volume, form, content_link, page_type, group_name, group_count, cluster_name FROM keywords WHERE client_id = ? ORDER BY id");
+    fputcsv($out, ['Keyword','Volume','Form','Link','Type','Priority','Group','#','Cluster']);
+    $stmt = $pdo->prepare("SELECT keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name FROM keywords WHERE client_id = ? ORDER BY id");
     $stmt->execute([$cid]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         fputcsv($out, [
@@ -29,6 +30,7 @@ foreach ($clients as $cid) {
             $row['form'],
             $row['content_link'],
             $row['page_type'],
+            $row['priority'],
             $row['group_name'],
             $row['group_count'],
             $row['cluster_name']

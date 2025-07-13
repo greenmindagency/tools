@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config.php';
+$pdo->exec("ALTER TABLE keywords ADD COLUMN IF NOT EXISTS priority VARCHAR(10) DEFAULT ''");
 $client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : 0;
 $isAdmin = $_SESSION['is_admin'] ?? false;
 if (!$isAdmin) {
@@ -22,10 +23,10 @@ if (!$client_id) {
 header('Content-Type: text/csv');
 header('Content-Disposition: attachment; filename="keywords_'.$client_id.'.csv"');
 $out = fopen('php://output', 'w');
-fputcsv($out, ['Keyword','Volume','Form','Link','Type','Group','#','Cluster']);
+fputcsv($out, ['Keyword','Volume','Form','Link','Type','Priority','Group','#','Cluster']);
 
 $stmt = $pdo->prepare(
-    "SELECT keyword, volume, form, content_link, page_type, group_name, group_count, cluster_name
+    "SELECT keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name
      FROM keywords WHERE client_id = ? ORDER BY id"
 );
 $stmt->execute([$client_id]);
@@ -40,6 +41,7 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $row['form'],
         $row['content_link'],
         $row['page_type'],
+        $row['priority'],
         $row['group_name'],
         $groupCnt,
         $cluster

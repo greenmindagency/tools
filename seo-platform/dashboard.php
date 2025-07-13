@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config.php';
+$pdo->exec("ALTER TABLE keywords ADD COLUMN IF NOT EXISTS priority VARCHAR(10) DEFAULT ''");
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
@@ -41,6 +42,7 @@ $breadcrumb_client = [
 $title = $client['name'] . ' Dashboard';
 $restored = false;
 $pageTypes = ['', 'Home', 'Service', 'Blog', 'Page', 'Article', 'Product', 'Other'];
+$priorityOptions = ['', 'Low', 'Mid', 'High'];
 maybeUpdateKeywordGroups($pdo, $client_id);
 updateKeywordStats($pdo, $client_id);
 
@@ -61,18 +63,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
         $pdo->prepare("DELETE FROM keywords WHERE client_id = ?")->execute([$client_id]);
         if (($handle = fopen($path, 'r')) !== false) {
             fgetcsv($handle); // skip header
-            $ins = $pdo->prepare("INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type, group_name, group_count, cluster_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $ins = $pdo->prepare("INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             while (($data = fgetcsv($handle)) !== false) {
+                $keyword = $data[0] ?? '';
+                $volume  = $data[1] ?? '';
+                $form    = $data[2] ?? '';
+                $link    = $data[3] ?? '';
+                $type    = $data[4] ?? '';
+                if (count($data) >= 9) {
+                    $priority = $data[5] ?? '';
+                    $group    = $data[6] ?? '';
+                    $count    = (int)($data[7] ?? 0);
+                    $cluster  = $data[8] ?? '';
+                } else {
+                    $priority = '';
+                    $group    = $data[5] ?? '';
+                    $count    = (int)($data[6] ?? 0);
+                    $cluster  = $data[7] ?? '';
+                }
                 $ins->execute([
                     $client_id,
-                    $data[0] ?? '',
-                    $data[1] ?? '',
-                    $data[2] ?? '',
-                    $data[3] ?? '',
-                    $data[4] ?? '',
-                    $data[5] ?? '',
-                    (int)($data[6] ?? 0),
-                    $data[7] ?? ''
+                    $keyword,
+                    $volume,
+                    $form,
+                    $link,
+                    $type,
+                    $priority,
+                    $group,
+                    $count,
+                    $cluster
                 ]);
             }
             fclose($handle);
@@ -257,7 +276,7 @@ if (isset($_POST['import_plan'])) {
     if (!empty($_FILES['csv_file']['tmp_name'])) {
         $pdo->prepare("DELETE FROM keywords WHERE client_id = ?")->execute([$client_id]);
         $insert = $pdo->prepare(
-            "INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type, group_name, group_count, cluster_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
         $ext = strtolower(pathinfo($_FILES['csv_file']['name'], PATHINFO_EXTENSION));
         $rows = [];
@@ -282,16 +301,24 @@ if (isset($_POST['import_plan'])) {
             $form = $data[2] ?? '';
             $link = $data[3] ?? '';
             $type = trim($data[4] ?? '');
-            $group = trim($data[5] ?? '');
-            $groupCnt = is_numeric($data[6] ?? '') ? (int)$data[6] : 0;
-            $cluster = trim($data[7] ?? '');
+            $priority = '';
+            if (count($data) >= 9) {
+                $priority = trim($data[5] ?? '');
+                $group = trim($data[6] ?? '');
+                $groupCnt = is_numeric($data[7] ?? '') ? (int)$data[7] : 0;
+                $cluster = trim($data[8] ?? '');
+            } else {
+                $group = trim($data[5] ?? '');
+                $groupCnt = is_numeric($data[6] ?? '') ? (int)$data[6] : 0;
+                $cluster = trim($data[7] ?? '');
+            }
 
             if ($type !== '') {
                 foreach ($pageTypes as $pt) {
                     if (strcasecmp($pt, $type) === 0) { $type = $pt; break; }
                 }
             }
-            $insert->execute([$client_id, $keyword, $vol, $form, $link, $type, $group, $groupCnt, $cluster]);
+            $insert->execute([$client_id, $keyword, $vol, $form, $link, $type, $priority, $group, $groupCnt, $cluster]);
         }
         echo "<p>Plan imported.</p>";
         maybeUpdateKeywordGroups($pdo, $client_id);
@@ -323,6 +350,19 @@ if (isset($_POST['update_keywords'])) {
                 }
             }
             $update->execute([$t, $id, $client_id]);
+        }
+    }
+
+    if (!empty($_POST['priority'])) {
+        $update = $pdo->prepare("UPDATE keywords SET priority = ? WHERE id = ? AND client_id = ?");
+        foreach ($_POST['priority'] as $id => $prio) {
+            $p = trim($prio);
+            if ($p !== '') {
+                foreach ($priorityOptions as $opt) {
+                    if (strcasecmp($opt, $p) === 0) { $p = $opt; break; }
+                }
+            }
+            $update->execute([$p, $id, $client_id]);
         }
     }
 
@@ -477,8 +517,8 @@ function createCsvBackup(PDO $pdo, int $client_id, string $dir): void {
     $ts = date('d-m-Y_H-i');
     $file = "$dir/$ts.csv";
     $out = fopen($file, 'w');
-    fputcsv($out, ['Keyword','Volume','Form','Link','Type','Group','#','Cluster']);
-    $stmt = $pdo->prepare("SELECT keyword, volume, form, content_link, page_type, group_name, group_count, cluster_name FROM keywords WHERE client_id = ? ORDER BY id");
+    fputcsv($out, ['Keyword','Volume','Form','Link','Type','Priority','Group','#','Cluster']);
+    $stmt = $pdo->prepare("SELECT keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name FROM keywords WHERE client_id = ? ORDER BY id");
     $stmt->execute([$client_id]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         fputcsv($out, [
@@ -487,6 +527,7 @@ function createCsvBackup(PDO $pdo, int $client_id, string $dir): void {
             $row['form'],
             $row['content_link'],
             $row['page_type'],
+            $row['priority'],
             $row['group_name'],
             $row['group_count'],
             $row['cluster_name']
@@ -601,6 +642,7 @@ while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
         <th class="text-center">Form</th>
         <th>Link</th>
         <th class="text-center">Type</th>
+        <th class="text-center">Priority</th>
         <th>Group</th>
         <th class="text-center">#</th>
         <th>Cluster</th>
@@ -654,6 +696,11 @@ foreach ($stmt as $row) {
         $sel = strcasecmp(trim($row['page_type']), $pt) === 0 ? ' selected' : '';
         $options .= "<option value=\"$pt\"$sel>$pt</option>";
     }
+    $prioOptions = '';
+    foreach ($priorityOptions as $po) {
+        $sel = strcasecmp(trim($row['priority']), $po) === 0 ? ' selected' : '';
+        $prioOptions .= "<option value=\"$po\"$sel>$po</option>";
+    }
 
     $kwKey = strtolower($row['keyword']);
     $kwClass = isset($posMap[$kwKey]) ? 'highlight-cell' : '';
@@ -671,6 +718,7 @@ foreach ($stmt as $row) {
         ($row['content_link'] ? "<a href='" . htmlspecialchars($row['content_link']) . "' target='_blank' class='ms-1'><i class='bi bi-box-arrow-up-right'></i></a>" : '') .
         "</div></td>
         <td class='text-center'><select name='page_type[{$row['id']}]' class='form-select form-select-sm'>$options</select></td>
+        <td class='text-center'><select name='priority[{$row['id']}]' class='form-select form-select-sm'>$prioOptions</select></td>
         <td>" . htmlspecialchars($row['group_name']) . "</td>
         <td class='text-center' style='background-color: $groupBg'>" . $row['group_count'] . "</td>
         <td>" . htmlspecialchars($row['cluster_name']) . "</td>
