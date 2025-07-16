@@ -49,7 +49,7 @@ updateKeywordStats($pdo, $client_id);
 $backupDir = __DIR__ . '/backups/client_' . $client_id;
 $backups = [];
 if (is_dir($backupDir)) {
-    $files = glob($backupDir . '/*.csv');
+    $files = glob($backupDir . '/*.xlsx');
     usort($files, fn($a, $b) => filemtime($b) <=> filemtime($a));
     foreach ($files as $f) {
         $backups[] = basename($f);
@@ -61,10 +61,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
     $path = $backupDir . '/' . $sel;
     if (is_file($path)) {
         $pdo->prepare("DELETE FROM keywords WHERE client_id = ?")->execute([$client_id]);
-        if (($handle = fopen($path, 'r')) !== false) {
-            fgetcsv($handle); // skip header
+        require_once __DIR__ . '/lib/SimpleXLSX.php';
+        if ($xlsx = \Shuchkin\SimpleXLSX::parse($path)) {
+            $rows = $xlsx->rows();
             $ins = $pdo->prepare("INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            while (($data = fgetcsv($handle)) !== false) {
+            for ($i = 1; $i < count($rows); $i++) {
+                $data = $rows[$i];
                 $keyword = $data[0] ?? '';
                 $volume  = $data[1] ?? '';
                 $form    = $data[2] ?? '';
@@ -94,7 +96,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
                     $cluster
                 ]);
             }
-            fclose($handle);
         }
         maybeUpdateKeywordGroups($pdo, $client_id);
         updateKeywordStats($pdo, $client_id);
@@ -103,8 +104,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_backup'])) {
-    createCsvBackup($pdo, $client_id, $backupDir);
-    $files = glob($backupDir . '/*.csv');
+    createXlsxBackup($pdo, $client_id, $backupDir);
+    $files = glob($backupDir . '/*.xlsx');
     usort($files, fn($a, $b) => filemtime($b) <=> filemtime($a));
     $backups = array_map('basename', $files);
 }
@@ -499,19 +500,19 @@ function updateKeywordStats(PDO $pdo, int $client_id): void {
     ]);
 }
 
-function createCsvBackup(PDO $pdo, int $client_id, string $dir): void {
+function createXlsxBackup(PDO $pdo, int $client_id, string $dir): void {
     if (!is_dir($dir)) {
         mkdir($dir, 0777, true);
     }
     date_default_timezone_set('Africa/Cairo');
     $ts = date('d-m-Y_H-i');
-    $file = "$dir/$ts.csv";
-    $out = fopen($file, 'w');
-    fputcsv($out, ['Keyword','Volume','Form','Link','Type','Priority','Group','#','Cluster']);
+    $file = "$dir/$ts.xlsx";
+    $rows = [];
+    $rows[] = ['Keyword','Volume','Form','Link','Type','Priority','Group','#','Cluster'];
     $stmt = $pdo->prepare("SELECT keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name FROM keywords WHERE client_id = ? ORDER BY id");
     $stmt->execute([$client_id]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        fputcsv($out, [
+        $rows[] = [
             $row['keyword'],
             $row['volume'],
             $row['form'],
@@ -521,11 +522,12 @@ function createCsvBackup(PDO $pdo, int $client_id, string $dir): void {
             $row['group_name'],
             $row['group_count'],
             $row['cluster_name']
-        ]);
+        ];
     }
-    fclose($out);
+    require_once __DIR__ . '/lib/SimpleXLSXGen.php';
+    \Shuchkin\SimpleXLSXGen::fromArray($rows)->saveAs($file);
 
-    $files = glob($dir . '/*.csv');
+    $files = glob($dir . '/*.xlsx');
     usort($files, fn($a, $b) => filemtime($b) <=> filemtime($a));
     if (count($files) > 7) {
         foreach (array_slice($files, 7) as $old) {
