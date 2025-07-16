@@ -543,7 +543,7 @@ $perPage = 100;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $q = trim($_GET['q'] ?? '');
 $field = $_GET['field'] ?? 'keyword';
-$allowedFields = ['keyword', 'group_name', 'group_exact', 'cluster_name', 'content_link', 'keyword_empty_cluster'];
+$allowedFields = ['keyword', 'group_name', 'group_exact', 'cluster_name', 'content_link', 'keyword_empty_cluster', 'keyword_empty_group'];
 if (!in_array($field, $allowedFields, true)) {
     $field = 'keyword';
 }
@@ -551,7 +551,7 @@ if (!in_array($field, $allowedFields, true)) {
 $baseQuery = "FROM keywords WHERE client_id = ?";
 $params = [$client_id];
 $terms = array_values(array_filter(array_map('trim', explode('|', $q)), 'strlen'));
-if ($field === 'keyword_empty_cluster') {
+if ($field === 'keyword_empty_cluster' || $field === 'keyword_empty_group') {
     if ($terms) {
         $likeParts = [];
         foreach ($terms as $t) {
@@ -560,7 +560,11 @@ if ($field === 'keyword_empty_cluster') {
         }
         $baseQuery .= " AND (" . implode(' OR ', $likeParts) . ")";
     }
-    $baseQuery .= " AND (cluster_name = '' OR cluster_name IS NULL)";
+    if ($field === 'keyword_empty_cluster') {
+        $baseQuery .= " AND (cluster_name = '' OR cluster_name IS NULL)";
+    } else {
+        $baseQuery .= " AND (group_name = '' OR group_name IS NULL)";
+    }
 } elseif ($terms) {
     $column = ($field === 'group_exact') ? 'group_name' : $field;
     if ($field === 'group_exact' || $field === 'cluster_name') {
@@ -614,6 +618,7 @@ while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
       <option value="cluster_name"<?= $field==='cluster_name' ? ' selected' : '' ?>>Cluster</option>
       <option value="content_link"<?= $field==='content_link' ? ' selected' : '' ?>>Link</option>
       <option value="keyword_empty_cluster"<?= $field==='keyword_empty_cluster' ? ' selected' : '' ?>>Keyword/Empty Cluster</option>
+      <option value="keyword_empty_group"<?= $field==='keyword_empty_group' ? ' selected' : '' ?>>Keyword/Empty Group</option>
     </select>
     <input type="text" name="q" id="filterInput" value="<?= htmlspecialchars($q) ?>" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
     <button type="submit" class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-search"></i></button>
