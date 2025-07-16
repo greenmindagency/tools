@@ -140,7 +140,7 @@ include 'header.php';
   <div class="d-flex flex-column align-items-end">
     <div class="mb-2">
       <button type="button" id="toggleImportForm" class="btn btn-primary btn-sm me-2">Import Plan</button>
-      <a href="export.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary btn-sm">Export CSV</a>
+      <a href="export.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary btn-sm">Export XLSX</a>
     </div>
     <form method="POST" class="d-flex">
       <select name="backup_file" class="form-select form-select-sm me-2" style="width:auto;">
@@ -165,7 +165,7 @@ include 'header.php';
 
 <!-- Import Plan Form -->
 <form method="POST" id="importForm" enctype="multipart/form-data" class="mb-4" style="display:none;">
-    <input type="file" name="csv_file" accept=".csv,.xlsx" class="form-control">
+    <input type="file" name="csv_file" accept=".xlsx" class="form-control">
     <button type="submit" name="import_plan" class="btn btn-primary btn-sm mt-2">Import Plan</button>
 </form>
 
@@ -278,20 +278,10 @@ if (isset($_POST['import_plan'])) {
         $insert = $pdo->prepare(
             "INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
-        $ext = strtolower(pathinfo($_FILES['csv_file']['name'], PATHINFO_EXTENSION));
         $rows = [];
-        if ($ext === 'xlsx') {
-            require_once __DIR__ . '/lib/SimpleXLSX.php';
-            if ($xlsx = \Shuchkin\SimpleXLSX::parse($_FILES['csv_file']['tmp_name'])) {
-                $rows = $xlsx->rows();
-            }
-        } else {
-            if (($handle = fopen($_FILES['csv_file']['tmp_name'], 'r')) !== false) {
-                while (($data = fgetcsv($handle)) !== false) {
-                    $rows[] = $data;
-                }
-                fclose($handle);
-            }
+        require_once __DIR__ . '/lib/SimpleXLSX.php';
+        if ($xlsx = \Shuchkin\SimpleXLSX::parse($_FILES['csv_file']['tmp_name'])) {
+            $rows = $xlsx->rows();
         }
         foreach ($rows as $data) {
             if (!isset($data[0])) continue;

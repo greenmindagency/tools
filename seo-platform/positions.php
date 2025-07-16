@@ -25,19 +25,6 @@ $slugify = function(string $name): string {
     return strtolower(trim($name, '-'));
 };
 
-$detectCsvDelimiter = function(string $line): string {
-    $delimiters = [",", ";", "\t"];
-    $best = ",";
-    $maxCount = 0;
-    foreach ($delimiters as $d) {
-        $count = substr_count($line, $d);
-        if ($count > $maxCount) {
-            $maxCount = $count;
-            $best = $d;
-        }
-    }
-    return $best;
-};
 
 $stmt = $pdo->prepare("SELECT * FROM clients WHERE id = ?");
 $stmt->execute([$client_id]);
@@ -128,23 +115,11 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
     $monthIndex = (int)($_POST['position_month'] ?? 0);
     $col = 'm' . ($monthIndex + 1);
     $tmp = $_FILES['csv_file']['tmp_name'];
-    $ext = strtolower(pathinfo($_FILES['csv_file']['name'], PATHINFO_EXTENSION));
-    $delimiter = ',';
     $rawRows = [];
     if (is_uploaded_file($tmp)) {
-        if ($ext === 'xlsx') {
-            require_once __DIR__ . '/lib/SimpleXLSX.php';
-            if ($xlsx = \Shuchkin\SimpleXLSX::parse($tmp)) {
-                $rawRows = $xlsx->rows();
-            }
-        } elseif (($handle = fopen($tmp, 'r')) !== false) {
-            $firstLine = fgets($handle);
-            $delimiter = $detectCsvDelimiter($firstLine ?: '');
-            $rawRows[] = str_getcsv($firstLine ?: '', $delimiter);
-            while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
-                $rawRows[] = $data;
-            }
-            fclose($handle);
+        require_once __DIR__ . '/lib/SimpleXLSX.php';
+        if ($xlsx = \Shuchkin\SimpleXLSX::parse($tmp)) {
+            $rawRows = $xlsx->rows();
         }
     }
     if ($rawRows) {
@@ -311,7 +286,7 @@ include 'header.php';
       <option value="<?= $idx ?>"><?= $m ?></option>
     <?php endforeach; ?>
   </select>
-  <input type="file" name="csv_file" accept=".csv,.xlsx" class="form-control">
+  <input type="file" name="csv_file" accept=".xlsx" class="form-control">
   <button type="submit" name="import_positions" class="btn btn-primary btn-sm mt-2">Import Positions</button>
 </form>
 
@@ -321,6 +296,7 @@ include 'header.php';
     <button type="button" id="toggleAddPosForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
     <button type="button" id="toggleImportPosForm" class="btn btn-primary btn-sm me-2">Import Positions</button>
     <button type="button" id="copyPosKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
+    <a href="export_positions.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary btn-sm me-2">Export XLSX</a>
   </div>
   <form id="posFilterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">

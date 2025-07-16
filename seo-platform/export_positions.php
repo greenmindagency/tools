@@ -1,7 +1,6 @@
 <?php
 session_start();
 require 'config.php';
-$pdo->exec("ALTER TABLE keywords ADD COLUMN IF NOT EXISTS priority VARCHAR(10) DEFAULT ''");
 $client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : 0;
 $isAdmin = $_SESSION['is_admin'] ?? false;
 if (!$isAdmin) {
@@ -22,30 +21,25 @@ if (!$client_id) {
 }
 require_once __DIR__ . '/lib/SimpleXLSXGen.php';
 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-header('Content-Disposition: attachment; filename="keywords_'.$client_id.'.xlsx"');
+header('Content-Disposition: attachment; filename="positions_'.$client_id.'.xlsx"');
 $rows = [];
-$rows[] = ['Keyword','Volume','Form','Link','Type','Priority','Group','#','Cluster'];
-
-$stmt = $pdo->prepare(
-    "SELECT keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name
-     FROM keywords WHERE client_id = ? ORDER BY id"
-);
+$header = ['Keyword','Sort'];
+for ($i = 1; $i <= 12; $i++) {
+    $header[] = 'M'.$i;
+}
+$rows[] = $header;
+$stmt = $pdo->prepare("SELECT keyword, sort_order, m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12 FROM keyword_positions WHERE client_id = ? ORDER BY sort_order IS NULL, sort_order, id DESC");
 $stmt->execute([$client_id]);
 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-    $cluster  = trim($row['cluster_name'] ?? '');
-    $groupCnt = $row['group_count'] ?? '';
-    $rows[] = [
+    $line = [
         $row['keyword'],
-        $row['volume'],
-        $row['form'],
-        $row['content_link'],
-        $row['page_type'],
-        $row['priority'],
-        $row['group_name'],
-        $groupCnt,
-        $cluster
+        $row['sort_order']
     ];
+    for ($i = 1; $i <= 12; $i++) {
+        $line[] = $row['m'.$i];
+    }
+    $rows[] = $line;
 }
-\Shuchkin\SimpleXLSXGen::fromArray($rows)->downloadAs('keywords_'.$client_id.'.xlsx');
+\Shuchkin\SimpleXLSXGen::fromArray($rows)->downloadAs('positions_'.$client_id.'.xlsx');
 exit;
 ?>
