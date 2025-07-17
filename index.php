@@ -1,7 +1,8 @@
 <?php
 // Auto-generate menu and cards from directories
 $descriptionMap = [
-    'prompt-generator' => 'Collection of SEO prompt generation tools.'
+'prompt-generator' => 'Collection of SEO prompt generation tools.',
+'ad-units-creator' => 'Generate GAM ad units tables from URL mappings.'
 ];
 $dirs = array_filter(glob('*', GLOB_ONLYDIR));
 $tools = [];
