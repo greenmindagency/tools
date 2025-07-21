@@ -296,7 +296,6 @@ include 'header.php';
     <button type="button" id="toggleAddPosForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
     <button type="button" id="toggleImportPosForm" class="btn btn-primary btn-sm me-2">Import Positions</button>
     <button type="button" id="copyPosKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
-    <a href="export_positions.php?client_id=<?= $client_id ?>" class="btn btn-outline-primary btn-sm me-2">Export XLSX</a>
   </div>
   <form id="posFilterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">

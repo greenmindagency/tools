@@ -21,20 +21,28 @@ if (!$client_id) {
     die('Invalid client');
 }
 require_once __DIR__ . '/lib/SimpleXLSXGen.php';
-header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-header('Content-Disposition: attachment; filename="keywords_'.$client_id.'.xlsx"');
-$rows = [];
-$rows[] = ['Keyword','Volume','Form','Link','Type','Priority','Group','#','Cluster'];
+$slugify = function(string $name): string {
+    $name = iconv('UTF-8', 'ASCII//TRANSLIT', $name);
+    $name = preg_replace('/[^a-zA-Z0-9]+/', '-', $name);
+    return strtolower(trim($name, '-'));
+};
+
+$stmt = $pdo->prepare("SELECT name FROM clients WHERE id = ?");
+$stmt->execute([$client_id]);
+$clientName = $stmt->fetchColumn() ?: 'client';
+
+$kwRows = [];
+$kwRows[] = ['Keyword','Volume','Form','Link','Type','Priority','Group','#','Cluster'];
 
 $stmt = $pdo->prepare(
-    "SELECT keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name
-     FROM keywords WHERE client_id = ? ORDER BY id"
+    "SELECT keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name"
+    . " FROM keywords WHERE client_id = ? ORDER BY id"
 );
 $stmt->execute([$client_id]);
 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $cluster  = trim($row['cluster_name'] ?? '');
     $groupCnt = $row['group_count'] ?? '';
-    $rows[] = [
+    $kwRows[] = [
         $row['keyword'],
         $row['volume'],
         $row['form'],
@@ -46,6 +54,29 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $cluster
     ];
 }
-\Shuchkin\SimpleXLSXGen::fromArray($rows)->downloadAs('keywords_'.$client_id.'.xlsx');
+
+$posRows = [];
+$header = ['Keyword','Sort'];
+for ($i = 1; $i <= 12; $i++) {
+    $header[] = 'M'.$i;
+}
+$posRows[] = $header;
+$stmt = $pdo->prepare("SELECT keyword, sort_order, m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12 FROM keyword_positions WHERE client_id = ? ORDER BY sort_order IS NULL, sort_order, id DESC");
+$stmt->execute([$client_id]);
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $line = [
+        $row['keyword'],
+        $row['sort_order']
+    ];
+    for ($i = 1; $i <= 12; $i++) {
+        $line[] = $row['m'.$i];
+    }
+    $posRows[] = $line;
+}
+
+$xlsx = \Shuchkin\SimpleXLSXGen::fromArray($kwRows, 'Keywords');
+$xlsx->addSheet($posRows, 'Positions');
+$filename = $slugify($clientName) . '-' . date('Y-m-d') . '.xlsx';
+$xlsx->downloadAs($filename);
 exit;
 ?>

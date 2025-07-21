@@ -61,9 +61,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
     $path = $backupDir . '/' . $sel;
     if (is_file($path)) {
         $pdo->prepare("DELETE FROM keywords WHERE client_id = ?")->execute([$client_id]);
+        $pdo->prepare("DELETE FROM keyword_positions WHERE client_id = ?")->execute([$client_id]);
         require_once __DIR__ . '/lib/SimpleXLSX.php';
         if ($xlsx = \Shuchkin\SimpleXLSX::parse($path)) {
-            $rows = $xlsx->rows();
+            $rows = $xlsx->rows(0);
             $ins = $pdo->prepare("INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             for ($i = 1; $i < count($rows); $i++) {
                 $data = $rows[$i];
@@ -96,6 +97,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
                     $cluster
                 ]);
             }
+
+            if ($xlsx->sheetsCount() > 1) {
+                $pRows = $xlsx->rows(1);
+                $pIns = $pdo->prepare("INSERT INTO keyword_positions (client_id, keyword, sort_order, m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+                for ($i = 1; $i < count($pRows); $i++) {
+                    $r = $pRows[$i];
+                    $kw = $r[0] ?? '';
+                    $sort = $r[1] !== '' ? (int)$r[1] : null;
+                    $vals = [];
+                    for ($j = 2; $j <= 13; $j++) {
+                        $vals[] = ($r[$j] === '' || $r[$j] === null) ? null : (float)$r[$j];
+                    }
+                    $pIns->execute(array_merge([$client_id, $kw, $sort], $vals));
+                }
+            }
         }
         maybeUpdateKeywordGroups($pdo, $client_id);
         updateKeywordStats($pdo, $client_id);
@@ -104,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_backup'])) {
-    createXlsxBackup($pdo, $client_id, $backupDir);
+    createXlsxBackup($pdo, $client_id, $backupDir, $client['name']);
     $files = glob($backupDir . '/*.xlsx');
     usort($files, fn($a, $b) => filemtime($b) <=> filemtime($a));
     $backups = array_map('basename', $files);
@@ -276,13 +292,15 @@ if (isset($_POST['add_clusters'])) {
 if (isset($_POST['import_plan'])) {
     if (!empty($_FILES['csv_file']['tmp_name'])) {
         $pdo->prepare("DELETE FROM keywords WHERE client_id = ?")->execute([$client_id]);
+        $pdo->prepare("DELETE FROM keyword_positions WHERE client_id = ?")->execute([$client_id]);
         $insert = $pdo->prepare(
             "INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
-        $rows = [];
         require_once __DIR__ . '/lib/SimpleXLSX.php';
         if ($xlsx = \Shuchkin\SimpleXLSX::parse($_FILES['csv_file']['tmp_name'])) {
-            $rows = $xlsx->rows();
+            $rows = $xlsx->rows(0);
+        } else {
+            $rows = [];
         }
         foreach ($rows as $data) {
             if (!isset($data[0])) continue;
@@ -311,6 +329,22 @@ if (isset($_POST['import_plan'])) {
             }
             $insert->execute([$client_id, $keyword, $vol, $form, $link, $type, $priority, $group, $groupCnt, $cluster]);
         }
+
+        if ($xlsx && $xlsx->sheetsCount() > 1) {
+            $pRows = $xlsx->rows(1);
+            $pIns = $pdo->prepare("INSERT INTO keyword_positions (client_id, keyword, sort_order, m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            for ($i = 1; $i < count($pRows); $i++) {
+                $r = $pRows[$i];
+                $kw = $r[0] ?? '';
+                $sort = $r[1] !== '' ? (int)$r[1] : null;
+                $vals = [];
+                for ($j = 2; $j <= 13; $j++) {
+                    $vals[] = ($r[$j] === '' || $r[$j] === null) ? null : (float)$r[$j];
+                }
+                $pIns->execute(array_merge([$client_id, $kw, $sort], $vals));
+            }
+        }
+
         echo "<p>Plan imported.</p>";
         maybeUpdateKeywordGroups($pdo, $client_id);
         updateKeywordStats($pdo, $client_id);
@@ -500,19 +534,20 @@ function updateKeywordStats(PDO $pdo, int $client_id): void {
     ]);
 }
 
-function createXlsxBackup(PDO $pdo, int $client_id, string $dir): void {
+function createXlsxBackup(PDO $pdo, int $client_id, string $dir, string $client_name): void {
     if (!is_dir($dir)) {
         mkdir($dir, 0777, true);
     }
     date_default_timezone_set('Africa/Cairo');
     $ts = date('d-m-Y_H-i');
-    $file = "$dir/$ts.xlsx";
-    $rows = [];
-    $rows[] = ['Keyword','Volume','Form','Link','Type','Priority','Group','#','Cluster'];
+    $slug = preg_replace('/[^a-zA-Z0-9]+/', '-', strtolower(iconv('UTF-8', 'ASCII//TRANSLIT', $client_name)));
+    $file = "$dir/{$slug}_$ts.xlsx";
+    $kwRows = [];
+    $kwRows[] = ['Keyword','Volume','Form','Link','Type','Priority','Group','#','Cluster'];
     $stmt = $pdo->prepare("SELECT keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name FROM keywords WHERE client_id = ? ORDER BY id");
     $stmt->execute([$client_id]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $rows[] = [
+        $kwRows[] = [
             $row['keyword'],
             $row['volume'],
             $row['form'],
@@ -524,8 +559,29 @@ function createXlsxBackup(PDO $pdo, int $client_id, string $dir): void {
             $row['cluster_name']
         ];
     }
+    $posRows = [];
+    $header = ['Keyword','Sort'];
+    for ($i = 1; $i <= 12; $i++) {
+        $header[] = 'M'.$i;
+    }
+    $posRows[] = $header;
+    $pstmt = $pdo->prepare("SELECT keyword, sort_order, m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12 FROM keyword_positions WHERE client_id = ? ORDER BY sort_order IS NULL, sort_order, id DESC");
+    $pstmt->execute([$client_id]);
+    while ($row = $pstmt->fetch(PDO::FETCH_ASSOC)) {
+        $line = [
+            $row['keyword'],
+            $row['sort_order']
+        ];
+        for ($i = 1; $i <= 12; $i++) {
+            $line[] = $row['m'.$i];
+        }
+        $posRows[] = $line;
+    }
+
     require_once __DIR__ . '/lib/SimpleXLSXGen.php';
-    \Shuchkin\SimpleXLSXGen::fromArray($rows)->saveAs($file);
+    $xlsx = \Shuchkin\SimpleXLSXGen::fromArray($kwRows, 'Keywords');
+    $xlsx->addSheet($posRows, 'Positions');
+    $xlsx->saveAs($file);
 
     $files = glob($dir . '/*.xlsx');
     usort($files, fn($a, $b) => filemtime($b) <=> filemtime($a));
