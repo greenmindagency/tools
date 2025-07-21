@@ -1,3 +1,5 @@
+# Optimized .htaccess for WordPress with WP Fastest Cache + Security + Compression + HTTPS
+
 # BEGIN Force HTTPS
 <IfModule mod_rewrite.c>
 RewriteEngine On
@@ -6,10 +8,65 @@ RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 </IfModule>
 # END Force HTTPS
 
-# BEGIN WordPress
-# The directives (lines) between "BEGIN WordPress" and "END WordPress" are
-# dynamically generated, and should only be modified via WordPress filters.
-# Any changes to the directives between these markers will be overwritten.
+# BEGIN WP Fastest Cache
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteBase /
+RewriteCond %{HTTPS} =on
+RewriteCond %{HTTP_HOST} ^greenmindagency.com
+RewriteCond %{REQUEST_URI} !^/sitemap [NC]
+RewriteCond %{REQUEST_URI} !/websites [NC]
+RewriteCond %{HTTP:Cookie} !wordpress_logged_in_[^=]+=admins|greenmind
+RewriteCond %{HTTP_USER_AGENT} !(facebookexternalhit|WP_FASTEST_CACHE_CSS_VALIDATOR|Twitterbot|LinkedInBot|WhatsApp|Mediatoolkitbot)
+RewriteCond %{HTTP_USER_AGENT} !(WP\sFastest\sCache\sPreload(\siPhone\sMobile)?\s*Bot)
+RewriteCond %{REQUEST_METHOD} !POST
+RewriteCond %{REQUEST_URI} !(\/){2,}
+RewriteCond %{THE_REQUEST} !(\/){2,}
+RewriteCond %{REQUEST_URI} /$
+RewriteCond %{QUERY_STRING} !.+ [OR]
+RewriteCond %{QUERY_STRING} fbclid=
+RewriteCond %{HTTP:Cookie} !comment_author_
+RewriteCond %{HTTP:Profile} !^[a-z0-9"]+ [NC]
+RewriteCond %{DOCUMENT_ROOT}/wp-content/cache/all/$1/index.html -f [OR]
+RewriteCond /home/greenm38/public_html/greenmindagency15/wp-content/cache/all/$1/index.html -f
+RewriteRule ^(.*) "/greenmindagency15/wp-content/cache/all/$1/index.html" [L]
+</IfModule>
+
+<FilesMatch "index\.(html|htm)$">
+  AddDefaultCharset UTF-8
+  <IfModule mod_headers.c>
+    FileETag None
+    Header unset ETag
+    Header set Cache-Control "max-age=0, no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "Mon, 29 Oct 1923 20:30:00 GMT"
+  </IfModule>
+</FilesMatch>
+# END WP Fastest Cache
+
+# BEGIN Gzip Compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/plain text/html text/xml text/css text/javascript application/javascript application/x-javascript application/json application/xml application/rss+xml application/xhtml+xml application/x-font-ttf font/opentype font/ttf font/eot font/otf
+</IfModule>
+# END Gzip Compression
+
+# BEGIN Browser Caching
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/jpg "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType text/html "access plus 1 week"
+  ExpiresByType application/pdf "access plus 1 month"
+  ExpiresByType text/x-javascript "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+  ExpiresByType image/x-icon "access plus 1 year"
+</IfModule>
+# END Browser Caching
+
+# BEGIN WordPress Core
 <IfModule mod_rewrite.c>
 RewriteEngine On
 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
@@ -19,5 +76,36 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule . /index.php [L]
 </IfModule>
+# END WordPress Core
 
-# END WordPress
+# BEGIN PHP Settings (via cPanel)
+<IfModule mime_module>
+  AddHandler application/x-httpd-ea-php84 .php .php8 .phtml
+</IfModule>
+
+<IfModule php8_module>
+  php_flag display_errors Off
+  php_value max_execution_time 30
+  php_value max_input_time 60
+  php_value max_input_vars 1000
+  php_value memory_limit 128M
+  php_value post_max_size 8M
+  php_value upload_max_filesize 2M
+  php_value session.gc_maxlifetime 1440
+  php_value session.save_path "/var/cpanel/php/sessions/ea-php84"
+  php_flag zlib.output_compression On
+</IfModule>
+
+<IfModule lsapi_module>
+  php_flag display_errors Off
+  php_value max_execution_time 30
+  php_value max_input_time 60
+  php_value max_input_vars 1000
+  php_value memory_limit 128M
+  php_value post_max_size 8M
+  php_value upload_max_filesize 2M
+  php_value session.gc_maxlifetime 1440
+  php_value session.save_path "/var/cpanel/php/sessions/ea-php84"
+  php_flag zlib.output_compression On
+</IfModule>
+# END PHP Settings
