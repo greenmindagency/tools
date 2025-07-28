@@ -132,7 +132,12 @@ function convert() {
       let invalidIn = !inDate;
       let invalidOut = !outDate || (inDate && outDate < inDate);
       if (!invalidOut && inDate && outDate && dateKey(inDate) !== dateKey(outDate)) {
-        invalidOut = true;
+        const nextDayEight = new Date(inDate);
+        nextDayEight.setDate(nextDayEight.getDate() + 1);
+        nextDayEight.setHours(8, 0, 0, 0);
+        if (outDate > nextDayEight) {
+          invalidOut = true;
+        }
       }
       const stdIn = inDate ? new Date(inDate) : null;
       if (stdIn) stdIn.setHours(9,15,0,0);
