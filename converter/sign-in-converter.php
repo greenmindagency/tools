@@ -130,6 +130,10 @@ function convert() {
       const inDate = parseDate(entry.in);
       const outDate = parseDate(entry.out);
       let invalidIn = !inDate;
+      if (inDate) {
+        const mins = inDate.getHours() * 60 + inDate.getMinutes();
+        if (mins > 13 * 60) invalidIn = true;
+      }
       let invalidOut = !outDate || (inDate && outDate < inDate);
       let nextDayShift = false;
       if (!invalidOut && inDate && outDate && dateKey(inDate) !== dateKey(outDate)) {
