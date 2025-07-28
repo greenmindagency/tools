@@ -131,7 +131,9 @@ function convert() {
       const outDate = parseDate(entry.out);
       let invalidIn = !inDate;
       let invalidOut = !outDate || (inDate && outDate < inDate);
+      let nextDayShift = false;
       if (!invalidOut && inDate && outDate && dateKey(inDate) !== dateKey(outDate)) {
+        nextDayShift = true;
         const nextDayEight = new Date(inDate);
         nextDayEight.setDate(nextDayEight.getDate() + 1);
         nextDayEight.setHours(8, 0, 0, 0);
@@ -160,11 +162,11 @@ function convert() {
         net = 0;
       } else if (note === "Bank Holiday") {
         net = 8;
-      } else {
-        if (!invalidIn && inDate > stdIn) {
+      } else if (!invalidIn && !invalidOut) {
+        if (inDate > stdIn) {
           net -= (inDate - stdIn) / 3600000;
         }
-        if (!invalidOut && outDate < stdOut) {
+        if (!nextDayShift && outDate < stdOut) {
           net -= (stdOut - outDate) / 3600000;
         }
         if (net < 0) net = 0;
