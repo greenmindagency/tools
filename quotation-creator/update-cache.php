@@ -13,7 +13,7 @@ if (is_readable($localPath)) {
     $html = file_get_contents($localPath);
 } else {
     $url = 'https://greenmindagency.com/price-list/';
-    $html = @file_get_contents($url);
+    $html = fetch_remote_html($url);
     if (!$html) {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Failed to download price list.']);

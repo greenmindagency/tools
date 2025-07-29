@@ -20,7 +20,7 @@ function fetch_packages() {
     } else {
         // Fallback to fetching over HTTP
         $url = 'https://greenmindagency.com/price-list/';
-        $html = @file_get_contents($url);
+        $html = fetch_remote_html($url);
         if (!$html) {
             return [];
         }

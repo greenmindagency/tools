@@ -38,3 +38,17 @@ function parse_html($html) {
     }
     return $all;
 }
+
+function fetch_remote_html($url) {
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERAGENT => 'Mozilla/5.0',
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_FOLLOWLOCATION => true,
+    ]);
+    $html = curl_exec($ch);
+    curl_close($ch);
+    return $html ?: false;
+}
