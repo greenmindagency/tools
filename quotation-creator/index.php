@@ -128,8 +128,15 @@ document.getElementById('refreshBtn').addEventListener('click', () => {
   const status = document.getElementById('updateStatus');
   status.textContent = 'Refreshing...';
   fetch('update-cache.php')
-    .then(r => r.text())
-    .then(() => { status.textContent = 'Pricing updated.'; location.reload(); })
+    .then(r => { if(!r.ok) throw new Error(); return r.json(); })
+    .then(data => {
+      if (data.success) {
+        status.textContent = 'Pricing updated.';
+        location.reload();
+      } else {
+        throw new Error();
+      }
+    })
     .catch(() => { status.textContent = 'Failed to update pricing.'; });
 });
 function downloadPDF(){
