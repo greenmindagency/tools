@@ -8,7 +8,7 @@ require_once __DIR__ . '/lib.php';
 
 header('Content-Type: application/json');
 
-$localPath = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/').'/price-list/';
+$localPath = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/').'/price-list/index.html';
 if (is_readable($localPath)) {
     $html = file_get_contents($localPath);
 } else {
