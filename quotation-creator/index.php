@@ -14,7 +14,7 @@ function fetch_packages() {
     }
 
     // Try loading the pricing page directly from the same host
-    $localPath = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/').'/price-list/index.html';
+    $localPath = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/').'/price-list/';
     if (is_readable($localPath)) {
         $html = file_get_contents($localPath);
     } else {
