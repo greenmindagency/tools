@@ -14,7 +14,7 @@ function fetch_packages() {
     }
 
     // Try loading the pricing page directly from the same host
-    $localPath = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/').'/price-list/';
+    $localPath = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/').'/price-list/index.html';
     if (is_readable($localPath)) {
         $html = file_get_contents($localPath);
     } else {
@@ -39,6 +39,10 @@ $packages = fetch_packages();
 #quoteTable th, #quoteTable td { vertical-align: top; }
 .add-btn { cursor: pointer; }
 </style>
+<div class="mb-3">
+  <button id="refreshBtn" class="btn btn-outline-secondary btn-sm">Refresh live pricing</button>
+  <span id="updateStatus" class="ms-2 text-muted"></span>
+</div>
 <div class="row">
 <div class="col-md-6">
 <?php if(!$packages): ?>
@@ -120,6 +124,14 @@ document.querySelectorAll('.add-btn').forEach(btn=>{
 document.getElementById('clientName').addEventListener('input', updateHeader);
 document.getElementById('quoteDate').addEventListener('input', updateHeader);
 updateHeader();
+document.getElementById('refreshBtn').addEventListener('click', () => {
+  const status = document.getElementById('updateStatus');
+  status.textContent = 'Refreshing...';
+  fetch('update-cache.php')
+    .then(r => r.text())
+    .then(() => { status.textContent = 'Pricing updated.'; location.reload(); })
+    .catch(() => { status.textContent = 'Failed to update pricing.'; });
+});
 function downloadPDF(){
   const { jsPDF } = window.jspdf;
   html2canvas(document.getElementById('quote-area')).then(canvas=>{
