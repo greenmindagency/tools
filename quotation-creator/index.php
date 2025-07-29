@@ -36,39 +36,46 @@ $packages = fetch_packages();
 <style>
 #quoteTable th, #quoteTable td { vertical-align: top; }
 .add-btn { cursor: pointer; }
+.package-selector .dropdown-menu{min-width:260px;}
 </style>
-<div class="row">
-<div class="col-md-4">
+
+<div class="package-selector mb-3 d-flex flex-wrap gap-2">
 <?php if(!$packages): ?>
-<div class="alert alert-warning">Unable to retrieve pricing packages.</div>
+  <div class="alert alert-warning">Unable to retrieve pricing packages.</div>
 <?php else: ?>
-<?php foreach($packages as $svc): ?>
-<h5><strong><?= htmlspecialchars($svc['name']) ?></strong></h5>
-<?php foreach($svc['packages'] as $i => $p): ?>
-<div class="card mb-2">
-  <div class="card-body d-flex justify-content-between align-items-center">
-    <div>
-      <strong>Pack <?= $i + 1 ?></strong> - $<?= number_format($p['usd_val'],0) ?> <span class="text-muted">(EGP <?= number_format($p['egp_val'],0) ?>)</span>
+  <?php foreach($packages as $sIndex => $svc): ?>
+    <div class="dropdown">
+      <button class="btn btn-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+        <?= htmlspecialchars($svc['name']) ?>
+      </button>
+      <div class="dropdown-menu p-2 shadow">
+        <?php foreach($svc['packages'] as $i => $p): ?>
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <span><strong>Pack <?= $i + 1 ?></strong> - $<?= number_format($p['usd_val'],0) ?> <span class="text-muted">(EGP <?= number_format($p['egp_val'],0) ?>)</span></span>
+          <span class="add-btn text-primary ms-2" data-service="<?= htmlspecialchars($svc['name']) ?>" data-usd="<?= $p['usd_val'] ?>" data-egp="<?= $p['egp_val'] ?>" data-desc="<?= htmlspecialchars(implode("\n", $p['details'])) ?>">&#43;</span>
+        </div>
+        <?php endforeach; ?>
+      </div>
     </div>
-    <div class="add-btn text-primary" data-service="<?= htmlspecialchars($svc['name']) ?>" data-usd="<?= $p['usd_val'] ?>" data-egp="<?= $p['egp_val'] ?>" data-desc="<?= htmlspecialchars(implode("\n", $p['details'])) ?>">&#43;</div>
-  </div>
-</div>
-<?php endforeach; ?>
-<?php endforeach; ?>
+  <?php endforeach; ?>
 <?php endif; ?>
 </div>
-<div class="col-md-8">
+
 <div id="quote-area">
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <img src="https://i.ibb.co/d0T2Pzb3/Green-Mind-Agency-Logo.png" alt="Logo" style="height:40px;">
-    <div class="ms-auto">
-        <div class="input-group input-group-sm">
-            <input type="text" id="clientName" class="form-control" placeholder="Client Name">
-            <button id="updateBtn" class="btn btn-outline-secondary">Update</button>
-        </div>
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap">
+  <div>
+    <div><span id="todayText"><?= date('Y-m-d') ?></span> - <span id="clientDisplay"></span></div>
+    <div class="input-group input-group-sm mt-1" style="max-width:300px;">
+      <input type="text" id="clientName" class="form-control" placeholder="Client Name">
+      <button id="updateBtn" class="btn btn-outline-secondary">Update</button>
     </div>
+  </div>
+  <div class="text-end">
+    <img src="https://i.ibb.co/d0T2Pzb3/Green-Mind-Agency-Logo.png" alt="Logo" style="height:40px;">
+    <div class="small">Green Mind Agency Quotation</div>
+  </div>
 </div>
-<h4 id="quoteTitle">Table of Prices - <?= date('Y-m-d') ?></h4>
+
 <table class="table" id="quoteTable">
 <thead><tr><th>Service</th><th>Service Details</th><th>Total Cost USD</th><th>Cost EGP</th><th></th></tr></thead>
 <tbody></tbody>
@@ -85,14 +92,10 @@ $packages = fetch_packages();
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
-const today = document.getElementById('quoteTitle').textContent.split(' - ')[1];
+const today = document.getElementById('todayText').textContent;
 function updateHeader(){
   const name=document.getElementById('clientName').value.trim();
-  let title='Table of Prices - '+today;
-  if(name){
-    title+=' - '+name;
-  }
-  document.getElementById('quoteTitle').textContent=title;
+  document.getElementById('clientDisplay').textContent=name;
 }
 
 function addRow(service, desc, usd, egp){
