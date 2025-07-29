@@ -24,7 +24,11 @@ function parse_html($html) {
             $egpVal = (float)preg_replace('/[^0-9.]/','',$egpText);
             $lis = $xpath->query('.//ul/li', $box);
             $details = [];
-            foreach ($lis as $li) $details[] = trim($li->textContent);
+            foreach ($lis as $li) {
+                $cls = $li->getAttribute('class');
+                if (strpos($cls, 'list-group-item-dark') !== false) continue;
+                $details[] = trim($li->textContent);
+            }
             $options[] = [
                 'service' => $service,
                 'usd' => $usdText,
