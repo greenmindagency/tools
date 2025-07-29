@@ -1,44 +1,31 @@
 <?php
 $title = 'Quotation Creator';
 include 'header.php';
+require_once __DIR__ . '/lib.php';
 
 function fetch_packages() {
+    // Use cached data if available
+    $cache = __DIR__ . '/pricing-cache.json';
+    if (is_readable($cache)) {
+        $data = json_decode(file_get_contents($cache), true);
+        if ($data) {
+            return $data;
+        }
+    }
+
+    // Fallback to fetching live data
     $url = 'https://greenmindagency.com/price-list/';
     $html = @file_get_contents($url);
-    if(!$html) return [];
-    libxml_use_internal_errors(true);
-    $dom = new DOMDocument();
-    $dom->loadHTML($html);
-    libxml_clear_errors();
-    $xpath = new DOMXPath($dom);
-    $pots = $xpath->query("//*[contains(@class,'potp')]");
-    $all = [];
-    foreach ($pots as $pot) {
-        $h3 = $xpath->query('.//h3[contains(@class,"package")]|.//h3[1]', $pot)->item(0);
-        $service = trim($h3 ? $h3->textContent : 'Service');
-        $options = [];
-        foreach ($xpath->query('.//div[contains(@class,"mb-3")]', $pot) as $box) {
-            $usd = $xpath->query('.//p[contains(@class,"h2")]', $box)->item(0);
-            $egp = $xpath->query('.//p[contains(@class,"h5")]', $box)->item(0);
-            $usdText = $usd ? trim($usd->textContent) : '';
-            $egpText = $egp ? trim($egp->textContent) : '';
-            $usdVal = (float)preg_replace('/[^0-9.]/','',$usdText);
-            $egpVal = (float)preg_replace('/[^0-9.]/','',$egpText);
-            $lis = $xpath->query('.//ul/li', $box);
-            $details = [];
-            foreach ($lis as $li) $details[] = trim($li->textContent);
-            $options[] = [
-                'service'=>$service,
-                'usd'=>$usdText,
-                'egp'=>$egpText,
-                'usd_val'=>$usdVal,
-                'egp_val'=>$egpVal,
-                'details'=>$details
-            ];
-        }
-        if($options) $all[] = ['name'=>$service,'packages'=>$options];
+    if (!$html) {
+        return [];
     }
-    return $all;
+
+    $data = parse_html($html);
+
+    // Save cache for future use
+    file_put_contents($cache, json_encode($data));
+
+    return $data;
 }
 $packages = fetch_packages();
 ?>

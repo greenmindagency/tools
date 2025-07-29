@@ -7,7 +7,7 @@ https://greenmindagency.com/tools/
 ### Local Development
 - Open `prompt-generator/index.php` in your browser.
 - Add new `.php` files to `prompt-generator/` to create tools.
-- The `quotation-creator` folder contains a tool for building PDF price quotes from the Green Mind Agency price list.
+- The `quotation-creator` folder contains a tool for building PDF price quotes from the Green Mind Agency price list. Run `php quotation-creator/update-cache.php` to refresh a local cache of the pricing data if live retrieval fails.
 - Cards on each index page are generated automatically and the top navigation is rendered via `nav.php`, which lists every generator in a dropdown.
 - Common layout elements come from `header.php` and `footer.php`.
 
