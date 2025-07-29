@@ -13,11 +13,17 @@ function fetch_packages() {
         }
     }
 
-    // Fallback to fetching live data
-    $url = 'https://greenmindagency.com/price-list/';
-    $html = @file_get_contents($url);
-    if (!$html) {
-        return [];
+    // Try loading the pricing page directly from the same host
+    $localPath = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/').'/price-list/';
+    if (is_readable($localPath)) {
+        $html = file_get_contents($localPath);
+    } else {
+        // Fallback to fetching over HTTP
+        $url = 'https://greenmindagency.com/price-list/';
+        $html = @file_get_contents($url);
+        if (!$html) {
+            return [];
+        }
     }
 
     $data = parse_html($html);

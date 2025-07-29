@@ -6,11 +6,16 @@
 
 require_once __DIR__ . '/lib.php';
 
-$url = 'https://greenmindagency.com/price-list/';
-$html = @file_get_contents($url);
-if (!$html) {
-    fwrite(STDERR, "Failed to download price list.\n");
-    exit(1);
+$localPath = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/').'/price-list/';
+if (is_readable($localPath)) {
+    $html = file_get_contents($localPath);
+} else {
+    $url = 'https://greenmindagency.com/price-list/';
+    $html = @file_get_contents($url);
+    if (!$html) {
+        fwrite(STDERR, "Failed to download price list.\n");
+        exit(1);
+    }
 }
 
 $data = parse_html($html);
