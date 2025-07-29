@@ -33,13 +33,6 @@ $packages = fetch_packages();
 #quoteTable th, #quoteTable td { vertical-align: top; }
 .add-btn { cursor: pointer; }
 </style>
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <img src="https://greenmindagency.com/greenmindagency15/wp-content/themes/gmbuilder/Green-Mind-Agency-Logo.jpg" alt="Logo" style="height:40px;">
-    <div class="ms-auto text-end">
-        <input type="text" id="clientName" class="form-control form-control-sm mb-1" placeholder="Client Name">
-        <input type="date" id="quoteDate" class="form-control form-control-sm" value="<?= date('Y-m-d') ?>">
-    </div>
-</div>
 <div class="row">
 <div class="col-md-6">
 <?php if(!$packages): ?>
@@ -65,8 +58,16 @@ $packages = fetch_packages();
 <?php endforeach; ?>
 <?php endif; ?>
 </div>
-<div class="col-md-6" id="quote">
-<h4>Table of Prices</h4>
+<div class="col-md-6">
+<div id="quote-area">
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <img src="https://greenmindagency.com/greenmindagency15/wp-content/themes/gmbuilder/Green-Mind-Agency-Logo.jpg" alt="Logo" style="height:40px;">
+    <div class="ms-auto text-end">
+        <input type="text" id="clientName" class="form-control form-control-sm mb-1" placeholder="Client Name">
+        <input type="date" id="quoteDate" class="form-control form-control-sm" value="<?= date('Y-m-d') ?>">
+    </div>
+</div>
+<h4 id="quoteTitle">Table of Prices</h4>
 <table class="table" id="quoteTable">
 <thead><tr><th>Service</th><th>Service Details</th><th>Total Cost USD</th><th>Cost EGP</th><th></th></tr></thead>
 <tbody></tbody>
@@ -74,10 +75,23 @@ $packages = fetch_packages();
 </table>
 </div>
 </div>
+</div>
+
 <button class="btn btn-success mt-3" onclick="downloadPDF()">Download PDF</button>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
+function updateHeader(){
+  const name=document.getElementById('clientName').value.trim();
+  const date=document.getElementById('quoteDate').value;
+  let title='Table of Prices';
+  if(name||date){
+    title+=' - '+name+(date?' '+date:'');
+  }
+  document.getElementById('quoteTitle').textContent=title;
+}
+
+>>>>>>> theirs
 function addRow(service, desc, usd, egp){
   const tbody=document.querySelector('#quoteTable tbody');
   const tr=document.createElement('tr');
@@ -94,14 +108,17 @@ function updateTotals(){
   document.getElementById('tUsd').textContent='$'+usd.toFixed(2);
   document.getElementById('tEgp').textContent='EGP '+egp.toFixed(2);
 }
- document.querySelectorAll('.add-btn').forEach(btn=>{
-   btn.addEventListener('click',()=>{
-     addRow(btn.dataset.service, btn.dataset.desc, parseFloat(btn.dataset.usd), parseFloat(btn.dataset.egp));
-   });
- });
+document.querySelectorAll('.add-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    addRow(btn.dataset.service, btn.dataset.desc, parseFloat(btn.dataset.usd), parseFloat(btn.dataset.egp));
+  });
+});
+document.getElementById('clientName').addEventListener('input', updateHeader);
+document.getElementById('quoteDate').addEventListener('input', updateHeader);
+updateHeader();
 function downloadPDF(){
   const { jsPDF } = window.jspdf;
-  html2canvas(document.getElementById('quote')).then(canvas=>{
+  html2canvas(document.getElementById('quote-area')).then(canvas=>{
     const img=canvas.toDataURL('image/png');
     const pdf=new jsPDF();
     const imgProps=pdf.getImageProperties(img);
