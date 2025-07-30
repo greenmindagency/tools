@@ -183,7 +183,7 @@ function cleanServiceName(name){
   return name.replace(/\bPrices\b/i,'').trim();
 }
 
-const tablesContainer=document.getElementById('tablesContainer');
+let tablesContainer=document.getElementById('tablesContainer');
 new Sortable(tablesContainer,{animation:150,handle:'.table-handle'});
 let currentTable=null;
 const editingExisting = <?= $existingHtml ? 'true' : 'false' ?>;
@@ -284,6 +284,19 @@ function restoreExisting(){
     document.getElementById('toggleEGP').checked=wrapper.classList.contains('hide-egp');
     qa.innerHTML = wrapper.innerHTML;
   }
+  // restore container reference and add table button
+  tablesContainer=document.getElementById('tablesContainer');
+  const addBtn=document.createElement('button');
+  addBtn.id='addTableBtn';
+  addBtn.className='btn btn-primary btn-sm mb-3';
+  addBtn.innerHTML='&#43; Add Table';
+  qa.appendChild(addBtn);
+  addBtn.addEventListener('click',()=>{createTable();});
+  new Sortable(tablesContainer,{animation:150,handle:'.table-handle'});
+  tablesContainer.addEventListener('click',e=>{
+    const tbl=e.target.closest('table.quote-table');
+    if(tbl) currentTable=tbl;
+  });
   document.querySelectorAll('#quote-area table').forEach(table=>{
     table.classList.add('table','table-bordered','quote-table','mb-5');
     const thead=table.querySelector('thead');
