@@ -28,5 +28,5 @@ $link = null;
 if ($publish) {
     $link = sprintf('view.php?slug=%s', urlencode($slug));
 }
-echo json_encode(['success'=>true,'id'=>$id,'link'=>$link]);
+echo json_encode(['success'=>true,'id'=>$id,'link'=>$link,'slug'=>$slug]);
 ?>

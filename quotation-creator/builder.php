@@ -12,6 +12,7 @@ require_once __DIR__ . '/config.php';
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $existingHtml = '';
 $clientName = '';
+$existingSlug = '';
 if ($id) {
     $pdo->exec("CREATE TABLE IF NOT EXISTS clients (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -21,11 +22,12 @@ if ($id) {
         published TINYINT(1) DEFAULT 0,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )");
-    $stmt = $pdo->prepare('SELECT name, html FROM clients WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT name, html, slug FROM clients WHERE id = ?');
     $stmt->execute([$id]);
     if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $clientName = $row['name'];
         $existingHtml = $row['html'];
+        $existingSlug = $row['slug'];
     }
 }
 
@@ -83,6 +85,11 @@ $packages = fetch_packages();
 .hide-egp .egp-header,
 .hide-egp .vat-row,
 .hide-egp .total-vat-row{
+  display:none;
+}
+/* hide usd column when toggle class present */
+.hide-usd .usd,
+.hide-usd .usd-header{
   display:none;
 }
 </style>
@@ -145,6 +152,10 @@ $packages = fetch_packages();
     <input class="form-check-input" type="checkbox" id="toggleEGP">
     <label class="form-check-label" for="toggleEGP">Hide EGP</label>
   </div>
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="toggleUSD">
+    <label class="form-check-label" for="toggleUSD">Hide USD</label>
+  </div>
   <button class="btn btn-primary" onclick="saveQuote(false)">Save</button>
   <button class="btn btn-success" onclick="saveQuote(true)">Publish</button>
 </div>
@@ -169,6 +180,7 @@ const tablesContainer=document.getElementById('tablesContainer');
 new Sortable(tablesContainer,{animation:150,handle:'.table-handle'});
 let currentTable=null;
 const editingExisting = <?= $existingHtml ? 'true' : 'false' ?>;
+let clientSlug='<?= $existingSlug ?>';
 
 function createTable(){
   const table=document.createElement('table');
@@ -178,7 +190,7 @@ function createTable(){
       <span class="table-handle me-2" style="cursor:move">&#9776;</span>
       <button class="btn btn-sm btn-danger remove-table-btn">&minus;</button>
     </th></tr>
-    <tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th><th></th></tr>
+    <tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center usd-header">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th><th></th></tr>
   </thead><tbody></tbody><tfoot></tfoot>`;
   tablesContainer.appendChild(table);
   new Sortable(table.querySelector('tbody'),{animation:150});
@@ -245,7 +257,15 @@ tablesContainer.addEventListener('click',e=>{
 document.getElementById('toggleEGP').addEventListener('change',e=>{
   document.getElementById('quote-area').classList.toggle('hide-egp',e.target.checked);
 });
+document.getElementById('toggleUSD').addEventListener('change',e=>{
+  document.getElementById('quote-area').classList.toggle('hide-usd',e.target.checked);
+});
 if(editingExisting) restoreExisting();
+if(editingExisting){
+  const qa=document.getElementById('quote-area');
+  document.getElementById('toggleEGP').checked=qa.classList.contains('hide-egp');
+  document.getElementById('toggleUSD').checked=qa.classList.contains('hide-usd');
+}
 
 function restoreExisting(){
   document.querySelectorAll('#quote-area table').forEach(table=>{
@@ -255,6 +275,9 @@ function restoreExisting(){
     headRow.className='bg-light';
     headRow.innerHTML='<th colspan="6" class="text-end"><span class="table-handle me-2" style="cursor:move">&#9776;</span><button class="btn btn-sm btn-danger remove-table-btn">&minus;</button></th>';
     thead.prepend(headRow);
+    const headerCells=thead.querySelectorAll('tr:nth-child(2) th');
+    if(headerCells[3]) headerCells[3].classList.add('usd-header');
+    if(headerCells[4]) headerCells[4].classList.add('egp-header');
     headRow.querySelector('.remove-table-btn').addEventListener('click',()=>{table.remove();currentTable=tablesContainer.querySelector("table.quote-table");});
     new Sortable(table.querySelector('tbody'),{animation:150});
     table.querySelectorAll('tbody tr').forEach(tr=>{
@@ -280,12 +303,13 @@ function saveQuote(publish){
   const quoteArea=document.getElementById('quote-area');
   const clone=quoteArea.cloneNode(true);
   clone.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .action-cell, #addTableBtn').forEach(el=>el.remove());
-  const data={id:clientId,name:document.getElementById('clientName').value.trim(),html:clone.innerHTML,publish:publish};
+  const data={id:clientId,name:document.getElementById('clientName').value.trim(),html:clone.innerHTML,publish:publish,slug:clientSlug};
   fetch('save.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
     .then(r=>r.json())
     .then(res=>{
       if(res.success){
         clientId=res.id;
+        if(res.slug) clientSlug=res.slug;
         if(publish && res.link){
           window.open(res.link,'_blank');
         }else{
