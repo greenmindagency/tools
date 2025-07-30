@@ -17,7 +17,7 @@ if(!$data){
     echo 'Quote not found';
     exit;
 }
-$html = preg_replace('/\bPrices\b/i','',$data['html']);
+$html = $data['html'];
 ?>
 <!DOCTYPE html>
 <html lang="en">

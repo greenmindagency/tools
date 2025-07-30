@@ -5,6 +5,7 @@ if (!($_SESSION['is_admin'] ?? false)) {
     header('Location: login.php');
     exit;
 }
+include 'header.php';
 require_once __DIR__ . '/config.php';
 
 if (isset($_GET['delete'])) {
@@ -24,15 +25,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS clients (
 )");
 $clients = $pdo->query('SELECT id, name, published, slug FROM clients ORDER BY updated_at DESC')->fetchAll(PDO::FETCH_ASSOC);
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Quotation Admin</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-<div class="container mt-4">
+<div class="mt-4">
 <h1>Clients</h1>
 <a href="builder.php" class="btn btn-primary btn-sm mb-3">Create New</a>
 <table class="table table-bordered">
@@ -54,5 +47,4 @@ $clients = $pdo->query('SELECT id, name, published, slug FROM clients ORDER BY u
 </table>
 <a href="logout.php" class="btn btn-outline-secondary btn-sm">Logout</a>
 </div>
-</body>
-</html>
+<?php include 'footer.php'; ?>
