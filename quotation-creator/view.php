@@ -35,7 +35,7 @@ $html = $data['html'];
 .hide-usd .vat-row th:nth-child(2),
 .hide-usd .total-vat-row th:nth-child(2){display:none;}
 .table thead th{background:#000;color:#fff;font-weight:bold;}
-html{transition:font-size .2s;}
+html,body{transition:font-size .2s;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
 </head>
@@ -51,19 +51,23 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   const btn = document.getElementById('downloadBtn');
   btn.style.display = 'none';
   const root = document.documentElement;
-  const prevSize = root.style.fontSize;
+  const prevRoot = root.style.fontSize;
+  const body = document.body;
+  const prevBody = body.style.fontSize;
   root.style.fontSize = '60%';
+  body.style.fontSize = '130%';
   const opt = {
     margin: 10,
     filename: `Table of Prices - ${clientName} - ${new Date().toISOString().slice(0,10)}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 1 },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
   setTimeout(() => {
     html2pdf().set(opt).from(element).save().then(() => {
       btn.style.display = '';
-      root.style.fontSize = prevSize;
+      root.style.fontSize = prevRoot;
+      body.style.fontSize = prevBody;
     });
   }, 100);
 });
