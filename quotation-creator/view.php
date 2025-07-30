@@ -61,7 +61,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
     filename: `Table of Prices - ${clientName} - ${new Date().toISOString().slice(0,10)}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2 }, // higher scale for clearer text
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
   setTimeout(() => {
     html2pdf().set(opt).from(element).save().then(() => {
