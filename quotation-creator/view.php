@@ -17,6 +17,7 @@ if(!$data){
     echo 'Quote not found';
     exit;
 }
+$html = preg_replace('/\bPrices\b/i','',$data['html']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -31,11 +32,14 @@ if(!$data){
 .hide-egp .total-vat-row{display:none;}
 .hide-usd .usd,
 .hide-usd .usd-header{display:none;}
+.hide-usd .vat-row th:nth-child(4),
+.hide-usd .total-vat-row th:nth-child(4){display:none;}
+.table thead th{background:#000;color:#fff;font-weight:bold;}
 </style>
 </head>
 <body>
 <div class="container mt-4">
-<?= $data['html'] ?>
+<?= $html ?>
 </div>
 </body>
 </html>

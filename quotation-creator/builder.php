@@ -92,6 +92,10 @@ $packages = fetch_packages();
 .hide-usd .usd-header{
   display:none;
 }
+.hide-usd .vat-row th:nth-child(4),
+.hide-usd .total-vat-row th:nth-child(4){
+  display:none;
+}
 </style>
 
 <div class="package-selector mb-3 d-flex flex-wrap gap-2">
@@ -99,15 +103,16 @@ $packages = fetch_packages();
   <div class="alert alert-warning">Unable to retrieve pricing packages.</div>
 <?php else: ?>
   <?php foreach($packages as $sIndex => $svc): ?>
+    <?php $svcName = trim(preg_replace('/\bPrices\b/i', '', $svc['name'])); ?>
     <div class="dropdown">
       <button class="btn btn-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-        <?= htmlspecialchars($svc['name']) ?>
+        <?= htmlspecialchars($svcName) ?>
       </button>
       <div class="dropdown-menu p-2 shadow">
         <?php foreach($svc['packages'] as $i => $p): ?>
         <div class="d-flex justify-content-between align-items-center mb-1">
           <span><strong>Pack <?= $i + 1 ?></strong> - $<?= number_format($p['usd_val'],0) ?> <span class="text-muted">(EGP <?= number_format($p['egp_val'],0) ?>)</span></span>
-          <span class="add-btn text-primary ms-2" data-service="<?= htmlspecialchars($svc['name']) ?>" data-usd="<?= $p['usd_val'] ?>" data-egp="<?= $p['egp_val'] ?>" data-desc="<?= htmlspecialchars(implode("\n", $p['details'])) ?>">&#43;</span>
+          <span class="add-btn text-primary ms-2" data-service="<?= htmlspecialchars($svcName) ?>" data-usd="<?= $p['usd_val'] ?>" data-egp="<?= $p['egp_val'] ?>" data-desc="<?= htmlspecialchars(implode("\n", $p['details'])) ?>">&#43;</span>
         </div>
         <?php endforeach; ?>
       </div>
@@ -176,6 +181,10 @@ function formatNum(num){
   return Number(num).toLocaleString('en-US');
 }
 
+function cleanServiceName(name){
+  return name.replace(/\bPrices\b/i,'').trim();
+}
+
 const tablesContainer=document.getElementById('tablesContainer');
 new Sortable(tablesContainer,{animation:150,handle:'.table-handle'});
 let currentTable=null;
@@ -207,7 +216,7 @@ function addRow(service, desc, usd, egp, table=currentTable){
   const tbody=table.querySelector('tbody');
   const tr=document.createElement('tr');
   const term='one-time';
-  tr.innerHTML='<td><strong>'+service+'</strong></td>'+
+  tr.innerHTML='<td><strong>'+cleanServiceName(service)+'</strong></td>'+
     '<td contenteditable="true">'+desc.replace(/\n/g,'<br>')+'</td>'+
     '<td class="text-center"><select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select></td>'+
     '<td class="usd text-center" data-usd="'+usd+'">$'+formatNum(usd)+'</td><td class="egp text-center" data-egp="'+egp+'">EGP '+formatNum(egp)+'</td>'+
@@ -268,6 +277,15 @@ if(editingExisting){
 }
 
 function restoreExisting(){
+  const qa=document.getElementById('quote-area');
+  const wrapper=qa.querySelector('.saved-quote');
+  if(wrapper){
+    qa.classList.toggle('hide-usd', wrapper.classList.contains('hide-usd'));
+    qa.classList.toggle('hide-egp', wrapper.classList.contains('hide-egp'));
+    document.getElementById('toggleUSD').checked=wrapper.classList.contains('hide-usd');
+    document.getElementById('toggleEGP').checked=wrapper.classList.contains('hide-egp');
+    qa.innerHTML = wrapper.innerHTML;
+  }
   document.querySelectorAll('#quote-area table').forEach(table=>{
     table.classList.add('table','table-bordered','quote-table','mb-5');
     const thead=table.querySelector('thead');
@@ -282,6 +300,7 @@ function restoreExisting(){
     new Sortable(table.querySelector('tbody'),{animation:150});
     table.querySelectorAll('tbody tr').forEach(tr=>{
       tr.cells[1].setAttribute('contenteditable','true');
+      tr.cells[0].innerHTML = '<strong>'+cleanServiceName(tr.cells[0].textContent.trim())+'</strong>';
       const termCell=tr.cells[2];
       const termText=termCell.textContent.trim().toLowerCase().includes('month')?'monthly':'one-time';
       termCell.innerHTML='<select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select>';
@@ -320,7 +339,12 @@ function saveQuote(publish){
       if(cell && cell.textContent.trim()==='') cell.remove();
     });
   });
-  const data={id:clientId,name:document.getElementById('clientName').value.trim(),html:clone.innerHTML,publish:publish};
+  const wrapper=document.createElement('div');
+  wrapper.className='saved-quote';
+  if(document.getElementById('toggleUSD').checked) wrapper.classList.add('hide-usd');
+  if(document.getElementById('toggleEGP').checked) wrapper.classList.add('hide-egp');
+  wrapper.innerHTML=clone.innerHTML;
+  const data={id:clientId,name:document.getElementById('clientName').value.trim(),html:wrapper.outerHTML,publish:publish};
   fetch('save.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
     .then(r=>r.json())
     .then(res=>{
