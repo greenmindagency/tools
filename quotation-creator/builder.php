@@ -169,6 +169,8 @@ const tablesContainer=document.getElementById('tablesContainer');
 new Sortable(tablesContainer,{animation:150,handle:'.table-handle'});
 let currentTable=null;
 
+const editingExisting = <?= $existingHtml ? 'true' : 'false' ?>;
+
 function createTable(){
   const table=document.createElement('table');
   table.className='table table-bordered quote-table mb-5';
@@ -199,7 +201,8 @@ function addRow(service, desc, usd, egp, table=currentTable){
     '<td class="text-center"><select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select></td>'+
     '<td class="usd text-center" data-usd="'+usd+'">$'+formatNum(usd)+'</td><td class="egp text-center" data-egp="'+egp+'">EGP '+formatNum(egp)+'</td>'+
 
-    '<td><button class="btn btn-sm btn-danger">&times;</button></td>';
+
+    '<td class="action-cell"><button class="btn btn-sm btn-danger">&times;</button></td>';
   tr.querySelector('.term-select').value=term;
   tr.querySelector('button').addEventListener('click', ()=>{tr.remove();updateTotals(table);});
   tr.querySelector('.term-select').addEventListener('change',()=>updateTotals(table));
@@ -246,11 +249,41 @@ document.getElementById('toggleEGP').addEventListener('change',e=>{
   document.getElementById('quote-area').classList.toggle('hide-egp',e.target.checked);
 });
 
+if(editingExisting) restoreExisting();
+
+function restoreExisting(){
+  document.querySelectorAll('#quote-area table.quote-table').forEach(table=>{
+    const thead=table.querySelector('thead');
+    const headRow=document.createElement('tr');
+    headRow.className='bg-light';
+    headRow.innerHTML='<th colspan="6" class="text-end"><span class="table-handle me-2" style="cursor:move">&#9776;</span><button class="btn btn-sm btn-danger remove-table-btn">&minus;</button></th>';
+    thead.prepend(headRow);
+    headRow.querySelector('.remove-table-btn').addEventListener('click',()=>{table.remove();currentTable=tablesContainer.querySelector("table.quote-table");});
+    new Sortable(table.querySelector('tbody'),{animation:150});
+    table.querySelectorAll('tbody tr').forEach(tr=>{
+      tr.cells[1].setAttribute('contenteditable','true');
+      const termCell=tr.cells[2];
+      const termText=termCell.textContent.trim().toLowerCase().includes('month')?'monthly':'one-time';
+      termCell.innerHTML='<select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select>';
+      termCell.querySelector('select').value=termText;
+      termCell.querySelector('select').addEventListener('change',()=>updateTotals(table));
+      const action=document.createElement('td');
+      action.className='action-cell';
+      action.innerHTML='<button class="btn btn-sm btn-danger">&times;</button>';
+      action.querySelector('button').addEventListener('click',()=>{tr.remove();updateTotals(table);});
+      tr.appendChild(action);
+    });
+    updateTotals(table);
+  });
+  currentTable=document.querySelector('table.quote-table');
+}
+
 let clientId = <?= isset($_GET['id']) ? (int)$_GET['id'] : 0 ?>;
 function saveQuote(publish){
   const quoteArea=document.getElementById('quote-area');
   const clone=quoteArea.cloneNode(true);
-  clone.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .quote-table td:last-child, .quote-table th:last-child, #addTableBtn').forEach(el=>el.remove());
+
+  clone.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .action-cell, #addTableBtn').forEach(el=>el.remove());
   const data={id:clientId,name:document.getElementById('clientName').value.trim(),html:clone.innerHTML,publish:publish};
   fetch('save.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
     .then(r=>r.json())
@@ -258,7 +291,8 @@ function saveQuote(publish){
       if(res.success){
         clientId=res.id;
         if(publish && res.link){
-          alert('Published! Link: '+res.link);
+
+          window.open(res.link,'_blank');
         }else{
           alert('Saved');
         }
