@@ -38,7 +38,8 @@ $packages = fetch_packages();
 .add-btn { cursor: pointer; }
 .package-selector .dropdown-menu{min-width:260px;}
 .table thead th{background:#000;color:#fff;font-weight:bold;}
-.term-select{min-width:110px;}
+.term-select{min-width:110px;border:none;background-color:transparent;box-shadow:none;padding:0;}
+.term-select:focus{box-shadow:none;}
 .table-handle{cursor:move;}
 /* larger space between tables */
 .quote-table{margin-bottom:3rem;}
@@ -123,7 +124,8 @@ $packages = fetch_packages();
 const validUntilEl=document.getElementById('validUntil');
 const currentDateEl=document.getElementById('currentDate');
 const today=new Date();
-validUntilEl.textContent=new Date(today.getFullYear(),today.getMonth()+1,today.getDate()).toISOString().split('T')[0];
+const validUntilDate=new Date(today.getFullYear(),today.getMonth()+1,today.getDate());
+validUntilEl.textContent=validUntilDate.toLocaleDateString('en-GB',{timeZone:'Africa/Cairo'});
 currentDateEl.textContent=today.toLocaleDateString('en-GB',{timeZone:'Africa/Cairo'});
 function updateHeader(){
   const name=document.getElementById('clientName').value.trim();
@@ -197,7 +199,8 @@ function updateTotals(table=currentTable){
 }
 document.querySelectorAll('.add-btn').forEach(btn=>{
   btn.addEventListener('click',()=>{
-    addRow(btn.dataset.service, btn.dataset.desc, parseFloat(btn.dataset.usd), parseFloat(btn.dataset.egp));
+    const lastTable=tablesContainer.querySelector('table.quote-table:last-of-type')||createTable();
+    addRow(btn.dataset.service, btn.dataset.desc, parseFloat(btn.dataset.usd), parseFloat(btn.dataset.egp), lastTable);
   });
 });
 document.getElementById('clientName').addEventListener('input', updateHeader);
@@ -216,22 +219,13 @@ document.getElementById('toggleEGP').addEventListener('change',e=>{
 function downloadPDF(){
   const { jsPDF } = window.jspdf;
   const quoteArea=document.getElementById('quote-area');
-  const hidden=[];
-  document.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .quote-table td:last-child, .quote-table th:last-child').forEach(el=>{
-    hidden.push({el,display:el.style.display});
-    el.style.display='none';
-  });
-  html2canvas(quoteArea).then(canvas=>{
-    hidden.forEach(h=>h.el.style.display=h.display);
-    const img=canvas.toDataURL('image/png');
-    const pdf=new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
-    const margin=25;
-    const pageWidth=pdf.internal.pageSize.getWidth()-margin*2;
-    const pageHeight=canvas.height*pageWidth/canvas.width;
-    pdf.addImage(img,'PNG',margin,margin,pageWidth,pageHeight);
+  const clone=quoteArea.cloneNode(true);
+  clone.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .quote-table td:last-child, .quote-table th:last-child, #addTableBtn').forEach(el=>el.remove());
+  const pdf=new jsPDF({orientation:'portrait', unit:'pt', format:'a4'});
+  pdf.html(clone,{margin:25,html2canvas:{scale:0.75},callback:function(doc){
     const client=document.getElementById('clientName').value.trim()||'Client';
-    pdf.save(`Table of Prices - ${client}.pdf`);
-  });
+    doc.save(`Table of Prices - ${client}.pdf`);
+  }});
 }
 </script>
 <?php include 'footer.php'; ?>
