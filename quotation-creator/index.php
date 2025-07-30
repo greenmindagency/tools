@@ -34,11 +34,12 @@ function fetch_packages() {
 $packages = fetch_packages();
 ?>
 <style>
-#quoteTable th, #quoteTable td { vertical-align: top; }
+.quote-table th, .quote-table td { vertical-align: top; }
 .add-btn { cursor: pointer; }
 .package-selector .dropdown-menu{min-width:260px;}
 .table thead th{background:#000;color:#fff;font-weight:bold;}
 .term-select{min-width:110px;}
+.table-handle{cursor:move;}
 /* center the payment term and cost columns */
 .quote-table th:nth-child(3),
 .quote-table th:nth-child(4),
@@ -79,6 +80,12 @@ $packages = fetch_packages();
 <?php endif; ?>
 </div>
 
+<div id="client-input" class="mb-3" style="max-width:300px;">
+  <div class="input-group input-group-sm">
+    <input type="text" id="clientName" class="form-control" placeholder="Client Name">
+  </div>
+</div>
+
 <div id="quote-area">
 <div class="row align-items-center mb-3 text-center text-md-start">
   <div class="col-md-4 mb-3 mb-md-0">
@@ -86,22 +93,16 @@ $packages = fetch_packages();
     <h1 class="h4 mt-2">Green Mind Agency</h1>
   </div>
   <div class="col-md-4">
-    <h2 id="clientDisplay" class="h5"></h2>
-    <p class="mb-1"><small>These prices are valid for 1 month until <span id="validUntil"></span></small></p>
-    <div class="input-group input-group-sm mx-auto" style="max-width:300px;">
-      <input type="text" id="clientName" class="form-control" placeholder="Client Name">
-      <button id="updateBtn" class="btn btn-outline-secondary">Update</button>
-    </div>
+    <h2 id="clientDisplay" class="h5 text-start"></h2>
+    <p class="mb-1 text-start"><small>These prices are valid for 1 month until <span id="validUntil"></span></small></p>
+  </div>
+  <div class="col-md-4 text-md-end">
+    <p class="mb-1 text-start text-md-end">Date:</p>
+    <p id="currentDate" class="mb-0 text-start text-md-end"></p>
   </div>
 </div>
 
-<div id="tablesContainer">
-  <table class="table table-bordered quote-table mb-4" id="quoteTable">
-    <thead><tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th><th></th></tr></thead>
-    <tbody></tbody>
-    <tfoot id="totalsFoot"></tfoot>
-  </table>
-</div>
+<div id="tablesContainer"></div>
 <button id="addTableBtn" class="btn btn-primary btn-sm mb-3">&#43; Add Table</button>
 </div>
 </div>
@@ -118,8 +119,10 @@ $packages = fetch_packages();
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const validUntilEl=document.getElementById('validUntil');
+const currentDateEl=document.getElementById('currentDate');
 const today=new Date();
 validUntilEl.textContent=new Date(today.getFullYear(),today.getMonth()+1,today.getDate()).toISOString().split('T')[0];
+currentDateEl.textContent=today.toLocaleDateString('en-GB',{timeZone:'Africa/Cairo'});
 function updateHeader(){
   const name=document.getElementById('clientName').value.trim();
   document.getElementById('clientDisplay').textContent=name;
@@ -130,14 +133,25 @@ function formatNum(num){
 }
 
 const tablesContainer=document.getElementById('tablesContainer');
-let currentTable=document.getElementById('quoteTable');
+new Sortable(tablesContainer,{animation:150,handle:'.table-handle'});
+let currentTable=null;
 
 function createTable(){
   const table=document.createElement('table');
   table.className='table table-bordered quote-table mb-4';
-  table.innerHTML=`<thead><tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th><th></th></tr></thead><tbody></tbody><tfoot></tfoot>`;
+  table.innerHTML=`<thead>
+    <tr class="bg-light"><th colspan="6" class="text-end">
+      <span class="table-handle me-2" style="cursor:move">&#9776;</span>
+      <button class="btn btn-sm btn-danger remove-table-btn">&minus;</button>
+    </th></tr>
+    <tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th><th></th></tr>
+  </thead><tbody></tbody><tfoot></tfoot>`;
   tablesContainer.appendChild(table);
   new Sortable(table.querySelector('tbody'),{animation:150});
+  table.querySelector('.remove-table-btn').addEventListener('click',()=>{
+    table.remove();
+    currentTable=tablesContainer.querySelector('table.quote-table');
+  });
   currentTable=table;
   return table;
 }
@@ -186,9 +200,9 @@ document.querySelectorAll('.add-btn').forEach(btn=>{
     addRow(btn.dataset.service, btn.dataset.desc, parseFloat(btn.dataset.usd), parseFloat(btn.dataset.egp));
   });
 });
-document.getElementById('updateBtn').addEventListener('click', updateHeader);
+document.getElementById('clientName').addEventListener('input', updateHeader);
 updateHeader();
-new Sortable(currentTable.querySelector('tbody'), {animation:150});
+
 document.getElementById('addTableBtn').addEventListener('click', ()=>{
   createTable();
 });
