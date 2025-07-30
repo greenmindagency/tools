@@ -55,7 +55,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   const body = document.body;
   const prevBody = body.style.fontSize;
   root.style.fontSize = '60%';
-  body.style.fontSize = '130%';
+  body.style.fontSize = '100%';
   const opt = {
     margin: 10,
     filename: `Table of Prices - ${clientName} - ${new Date().toISOString().slice(0,10)}.pdf`,
