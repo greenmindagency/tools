@@ -168,7 +168,6 @@ function formatNum(num){
 const tablesContainer=document.getElementById('tablesContainer');
 new Sortable(tablesContainer,{animation:150,handle:'.table-handle'});
 let currentTable=null;
-
 const editingExisting = <?= $existingHtml ? 'true' : 'false' ?>;
 
 function createTable(){
@@ -200,8 +199,6 @@ function addRow(service, desc, usd, egp, table=currentTable){
     '<td contenteditable="true">'+desc.replace(/\n/g,'<br>')+'</td>'+
     '<td class="text-center"><select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select></td>'+
     '<td class="usd text-center" data-usd="'+usd+'">$'+formatNum(usd)+'</td><td class="egp text-center" data-egp="'+egp+'">EGP '+formatNum(egp)+'</td>'+
-
-
     '<td class="action-cell"><button class="btn btn-sm btn-danger">&times;</button></td>';
   tr.querySelector('.term-select').value=term;
   tr.querySelector('button').addEventListener('click', ()=>{tr.remove();updateTotals(table);});
@@ -248,7 +245,6 @@ tablesContainer.addEventListener('click',e=>{
 document.getElementById('toggleEGP').addEventListener('change',e=>{
   document.getElementById('quote-area').classList.toggle('hide-egp',e.target.checked);
 });
-
 if(editingExisting) restoreExisting();
 
 function restoreExisting(){
@@ -282,7 +278,6 @@ let clientId = <?= isset($_GET['id']) ? (int)$_GET['id'] : 0 ?>;
 function saveQuote(publish){
   const quoteArea=document.getElementById('quote-area');
   const clone=quoteArea.cloneNode(true);
-
   clone.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .action-cell, #addTableBtn').forEach(el=>el.remove());
   const data={id:clientId,name:document.getElementById('clientName').value.trim(),html:clone.innerHTML,publish:publish};
   fetch('save.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
@@ -291,7 +286,6 @@ function saveQuote(publish){
       if(res.success){
         clientId=res.id;
         if(publish && res.link){
-
           window.open(res.link,'_blank');
         }else{
           alert('Saved');
