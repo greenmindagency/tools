@@ -39,6 +39,22 @@ $packages = fetch_packages();
 .package-selector .dropdown-menu{min-width:260px;}
 .table thead th{background:#000;color:#fff;font-weight:bold;}
 .term-select{min-width:110px;}
+/* center the payment term and cost columns */
+.quote-table th:nth-child(3),
+.quote-table th:nth-child(4),
+.quote-table th:nth-child(5),
+.quote-table td:nth-child(3),
+.quote-table td:nth-child(4),
+.quote-table td:nth-child(5){
+  text-align:center;
+}
+/* hide egp column when toggle class present */
+.hide-egp .egp,
+.hide-egp .egp-header,
+.hide-egp .vat-row,
+.hide-egp .total-vat-row{
+  display:none;
+}
 </style>
 
 <div class="package-selector mb-3 d-flex flex-wrap gap-2">
@@ -81,7 +97,7 @@ $packages = fetch_packages();
 
 <div id="tablesContainer">
   <table class="table table-bordered quote-table mb-4" id="quoteTable">
-    <thead><tr><th>Service</th><th>Service Details</th><th>Payment Term</th><th>Total Cost USD</th><th>Cost EGP</th><th></th></tr></thead>
+    <thead><tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th><th></th></tr></thead>
     <tbody></tbody>
     <tfoot id="totalsFoot"></tfoot>
   </table>
@@ -90,7 +106,13 @@ $packages = fetch_packages();
 </div>
 </div>
 </div>
-<button class="btn btn-success mt-3" onclick="downloadPDF()">Download PDF</button>
+<div class="d-flex align-items-center gap-3 mt-3">
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="toggleEGP">
+    <label class="form-check-label" for="toggleEGP">Hide EGP</label>
+  </div>
+  <button class="btn btn-success" onclick="downloadPDF()">Download PDF</button>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -113,7 +135,7 @@ let currentTable=document.getElementById('quoteTable');
 function createTable(){
   const table=document.createElement('table');
   table.className='table table-bordered quote-table mb-4';
-  table.innerHTML=`<thead><tr><th>Service</th><th>Service Details</th><th>Payment Term</th><th>Total Cost USD</th><th>Cost EGP</th><th></th></tr></thead><tbody></tbody><tfoot></tfoot>`;
+  table.innerHTML=`<thead><tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th><th></th></tr></thead><tbody></tbody><tfoot></tfoot>`;
   tablesContainer.appendChild(table);
   new Sortable(table.querySelector('tbody'),{animation:150});
   currentTable=table;
@@ -127,8 +149,9 @@ function addRow(service, desc, usd, egp, table=currentTable){
   const term='one-time';
   tr.innerHTML='<td><strong>'+service+'</strong></td>'+
     '<td contenteditable="true">'+desc.replace(/\n/g,'<br>')+'</td>'+
-    '<td><select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select></td>'+
-    '<td class="usd" data-usd="'+usd+'">$'+formatNum(usd)+'</td><td class="egp" data-egp="'+egp+'">EGP '+formatNum(egp)+'</td>'+
+    '<td class="text-center"><select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select></td>'+
+    '<td class="usd text-center" data-usd="'+usd+'">$'+formatNum(usd)+'</td><td class="egp text-center" data-egp="'+egp+'">EGP '+formatNum(egp)+'</td>'+
+
     '<td><button class="btn btn-sm btn-danger">&times;</button></td>';
   tr.querySelector('.term-select').value=term;
   tr.querySelector('button').addEventListener('click', ()=>{tr.remove();updateTotals(table);});
@@ -148,9 +171,14 @@ function updateTotals(table=currentTable){
     const t=totals[key];
     if(t.usd===0 && t.egp===0) continue;
     const vat=t.egp*0.14;
-    tfoot.innerHTML+=`<tr class="table-secondary fw-bold"><th colspan="3" class="text-end">Total</th><th class="bg-warning text-black">$${formatNum(t.usd)}</th><th class="bg-warning text-black">EGP ${formatNum(t.egp)}</th><th></th></tr>`+
-      `<tr class="bg-danger text-white"><th colspan="4" class="text-end">VAT 14%</th><th>EGP ${formatNum(vat)}</th><th></th></tr>`+
-      `<tr style="background:#14633c;color:#fff;"><th colspan="4" class="text-end">Total + VAT</th><th>EGP ${formatNum(t.egp+vat)}</th><th></th></tr>`;
+    tfoot.innerHTML+=`<tr class="table-secondary fw-bold"><th colspan="3" class="text-end">Total</th><th class="bg-warning text-black text-center">$${formatNum(t.usd)}</th><th class="bg-warning text-black text-center egp">EGP ${formatNum(t.egp)}</th><th></th></tr>`+
+      `<tr class="vat-row"><th colspan="3" class="text-end">VAT 14%</th><th></th><th class="egp text-center bg-danger text-white">EGP ${formatNum(vat)}</th><th></th></tr>`+
+      `<tr class="total-vat-row"><th colspan="3" class="text-end">Total + VAT</th><th></th><th class="egp text-center" style="background:#14633c;color:#fff;">EGP ${formatNum(t.egp+vat)}</th><th></th></tr>`;
+  }
+  if(table.querySelectorAll('tbody tr').length===0){
+    table.remove();
+    currentTable=tablesContainer.querySelector('table.quote-table');
+
   }
 }
 document.querySelectorAll('.add-btn').forEach(btn=>{
@@ -167,6 +195,9 @@ document.getElementById('addTableBtn').addEventListener('click', ()=>{
 tablesContainer.addEventListener('click',e=>{
   const tbl=e.target.closest('table.quote-table');
   if(tbl) currentTable=tbl;
+});
+document.getElementById('toggleEGP').addEventListener('change',e=>{
+  document.getElementById('quote-area').classList.toggle('hide-egp',e.target.checked);
 });
 function downloadPDF(){
   const { jsPDF } = window.jspdf;
