@@ -35,7 +35,8 @@ $html = $data['html'];
 .hide-usd .vat-row th:nth-child(2),
 .hide-usd .total-vat-row th:nth-child(2){display:none;}
 .table thead th{background:#000;color:#fff;font-weight:bold;}
-.pdf-scale{font-size:0.8rem;}
+#quote{transition:font-size .2s;}
+.pdf-scale{font-size:0.7rem;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
 </head>
@@ -58,10 +59,12 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
     html2canvas: { scale: 1 },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
-  html2pdf().set(opt).from(element).save().then(() => {
-    btn.style.display = '';
-    element.classList.remove('pdf-scale');
-  });
+  setTimeout(() => {
+    html2pdf().set(opt).from(element).save().then(() => {
+      btn.style.display = '';
+      element.classList.remove('pdf-scale');
+    });
+  }, 100);
 });
 </script>
 </body>
