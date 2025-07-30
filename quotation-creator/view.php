@@ -54,14 +54,14 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   const prevRoot = root.style.fontSize;
   const body = document.body;
   const prevBody = body.style.fontSize;
-  root.style.fontSize = '50%';
-  body.style.fontSize = '100%';
+  root.style.fontSize = '60%';
+  body.style.fontSize = '130%';
   const opt = {
     margin: 10,
     filename: `Table of Prices - ${clientName} - ${new Date().toISOString().slice(0,10)}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 1 },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    html2canvas: { scale: 2 }, // higher scale for clearer text
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
   };
   setTimeout(() => {
     html2pdf().set(opt).from(element).save().then(() => {
