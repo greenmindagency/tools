@@ -199,7 +199,6 @@ function addRow(service, desc, usd, egp, table=currentTable){
     '<td contenteditable="true">'+desc.replace(/\n/g,'<br>')+'</td>'+
     '<td class="text-center"><select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select></td>'+
     '<td class="usd text-center" data-usd="'+usd+'">$'+formatNum(usd)+'</td><td class="egp text-center" data-egp="'+egp+'">EGP '+formatNum(egp)+'</td>'+
-
     '<td class="action-cell"><button class="btn btn-sm btn-danger">&times;</button></td>';
   tr.querySelector('.term-select').value=term;
   tr.querySelector('button').addEventListener('click', ()=>{tr.remove();updateTotals(table);});
