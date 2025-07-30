@@ -110,9 +110,8 @@ $packages = fetch_packages();
       </button>
       <div class="dropdown-menu p-2 shadow">
         <?php foreach($svc['packages'] as $i => $p): ?>
-        <div class="d-flex justify-content-between align-items-center mb-1">
+        <div class="add-btn d-flex justify-content-between align-items-center mb-1" data-service="<?= htmlspecialchars($svcName) ?>" data-usd="<?= $p['usd_val'] ?>" data-egp="<?= $p['egp_val'] ?>" data-desc="<?= htmlspecialchars(implode("\n", $p['details'])) ?>" style="cursor:pointer;">
           <span><strong>Pack <?= $i + 1 ?></strong> - $<?= number_format($p['usd_val'],0) ?> <span class="text-muted">(EGP <?= number_format($p['egp_val'],0) ?>)</span></span>
-          <span class="add-btn text-primary ms-2" data-service="<?= htmlspecialchars($svcName) ?>" data-usd="<?= $p['usd_val'] ?>" data-egp="<?= $p['egp_val'] ?>" data-desc="<?= htmlspecialchars(implode("\n", $p['details'])) ?>">&#43;</span>
         </div>
         <?php endforeach; ?>
       </div>
@@ -161,8 +160,7 @@ $packages = fetch_packages();
     <input class="form-check-input" type="checkbox" id="toggleUSD">
     <label class="form-check-label" for="toggleUSD">Hide USD</label>
   </div>
-  <button class="btn btn-primary" onclick="saveQuote(false)">Save</button>
-  <button class="btn btn-success" onclick="saveQuote(true)">Publish</button>
+  <button class="btn btn-success" onclick="saveQuote(true)">Save &amp; Publish</button>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script>
