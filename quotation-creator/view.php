@@ -47,14 +47,18 @@ $html = $data['html'];
 const clientName = <?= json_encode($data['name']) ?>;
 document.getElementById('downloadBtn').addEventListener('click', () => {
   const element = document.querySelector('.container');
+  const btn = document.getElementById('downloadBtn');
+  btn.style.display = 'none';
   const opt = {
     margin: 10,
     filename: `Table of Prices - ${clientName} - ${new Date().toISOString().slice(0,10)}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2 },
+    html2canvas: { scale: 0.8 },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
-  html2pdf().set(opt).from(element).save();
+  html2pdf().set(opt).from(element).save().then(() => {
+    btn.style.display = '';
+  });
 });
 </script>
 </body>
