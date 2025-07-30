@@ -96,9 +96,9 @@ $packages = fetch_packages();
     <h2 id="clientDisplay" class="h5 text-start"></h2>
     <p class="mb-1 text-start"><small>These prices are valid for 1 month until <span id="validUntil"></span></small></p>
   </div>
-  <div class="col-md-4 text-md-end">
-    <p class="mb-1 text-start text-md-end">Date:</p>
-    <p id="currentDate" class="mb-0 text-start text-md-end"></p>
+  <div class="col-md-4">
+    <p class="mb-1 text-start">Date:</p>
+    <p id="currentDate" class="mb-0 text-start"></p>
   </div>
 </div>
 
@@ -169,25 +169,23 @@ function addRow(service, desc, usd, egp, table=currentTable){
     '<td><button class="btn btn-sm btn-danger">&times;</button></td>';
   tr.querySelector('.term-select').value=term;
   tr.querySelector('button').addEventListener('click', ()=>{tr.remove();updateTotals(table);});
+  tr.querySelector('.term-select').addEventListener('change',()=>updateTotals(table));
   tbody.appendChild(tr);
   updateTotals(table);
 }
 function updateTotals(table=currentTable){
-  const totals={"one-time":{usd:0,egp:0},"monthly":{usd:0,egp:0}};
+  const totals={usd:0,egp:0};
   table.querySelectorAll('tbody tr').forEach(tr=>{
-    const term=tr.querySelector('.term-select').value;
-    totals[term].usd+=parseFloat(tr.querySelector('.usd').dataset.usd);
-    totals[term].egp+=parseFloat(tr.querySelector('.egp').dataset.egp);
+    totals.usd+=parseFloat(tr.querySelector('.usd').dataset.usd);
+    totals.egp+=parseFloat(tr.querySelector('.egp').dataset.egp);
   });
   const tfoot=table.querySelector('tfoot');
   tfoot.innerHTML='';
-  for(const key of Object.keys(totals)){
-    const t=totals[key];
-    if(t.usd===0 && t.egp===0) continue;
-    const vat=t.egp*0.14;
-    tfoot.innerHTML+=`<tr class="table-secondary fw-bold"><th colspan="3" class="text-end">Total</th><th class="bg-warning text-black text-center">$${formatNum(t.usd)}</th><th class="bg-warning text-black text-center egp">EGP ${formatNum(t.egp)}</th><th></th></tr>`+
+  if(totals.usd!==0 || totals.egp!==0){
+    const vat=totals.egp*0.14;
+    tfoot.innerHTML=`<tr class="table-secondary fw-bold"><th colspan="3" class="text-end">Total</th><th class="bg-warning text-black text-center">$${formatNum(totals.usd)}</th><th class="bg-warning text-black text-center egp">EGP ${formatNum(totals.egp)}</th><th></th></tr>`+
       `<tr class="vat-row"><th colspan="3" class="text-end">VAT 14%</th><th></th><th class="egp text-center bg-danger text-white">EGP ${formatNum(vat)}</th><th></th></tr>`+
-      `<tr class="total-vat-row"><th colspan="3" class="text-end">Total + VAT</th><th></th><th class="egp text-center" style="background:#14633c;color:#fff;">EGP ${formatNum(t.egp+vat)}</th><th></th></tr>`;
+      `<tr class="total-vat-row"><th colspan="3" class="text-end">Total + VAT</th><th></th><th class="egp text-center" style="background:#14633c;color:#fff;">EGP ${formatNum(totals.egp+vat)}</th><th></th></tr>`;
   }
   if(table.querySelectorAll('tbody tr').length===0){
     table.remove();
