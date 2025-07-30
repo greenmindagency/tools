@@ -36,17 +36,8 @@ $html = $data['html'];
 .hide-usd .total-vat-row th:nth-child(2){display:none;}
 .table thead th{background:#000;color:#fff;font-weight:bold;}
 #quote{transition:font-size .2s;}
-.pdf-scale,
-.pdf-scale h1,
-.pdf-scale h2,
-.pdf-scale h3,
-.pdf-scale h4,
-.pdf-scale h5,
-.pdf-scale h6,
-.pdf-scale p,
-.pdf-scale th,
-.pdf-scale td{
-  font-size:0.7rem !important;
+.pdf-scale{
+  font-size:70%;
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
