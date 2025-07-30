@@ -2,6 +2,27 @@
 $title = 'Quotation Creator';
 include 'header.php';
 require_once __DIR__ . '/lib.php';
+require_once __DIR__ . '/config.php';
+
+$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$existingHtml = '';
+$clientName = '';
+if ($id) {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS clients (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255),
+        html MEDIUMTEXT,
+        slug VARCHAR(255) UNIQUE,
+        published TINYINT(1) DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )");
+    $stmt = $pdo->prepare('SELECT name, html FROM clients WHERE id = ?');
+    $stmt->execute([$id]);
+    if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $clientName = $row['name'];
+        $existingHtml = $row['html'];
+    }
+}
 
 function fetch_packages() {
     $cache = __DIR__ . '/pricing-cache.json';
@@ -85,28 +106,32 @@ $packages = fetch_packages();
 
 <div id="client-input" class="mb-3" style="max-width:300px;">
   <div class="input-group input-group-sm">
-    <input type="text" id="clientName" class="form-control" placeholder="Client Name">
+    <input type="text" id="clientName" class="form-control" placeholder="Client Name" value="<?= htmlspecialchars($clientName) ?>">
   </div>
 </div>
 
 <div id="quote-area">
-<div class="row align-items-center mb-3 text-center text-md-start">
-  <div class="col-md-5 mb-3 mb-md-0">
-    <h1 class="mt-2 mb-0">Green Mind Agency</h1>
-    <p class="h4 my-2">Quotation Offer</p>
+<?php if ($existingHtml): ?>
+  <?= $existingHtml ?>
+<?php else: ?>
+  <div class="row align-items-center mb-3 text-center text-md-start">
+    <div class="col-md-5 mb-3 mb-md-0">
+      <h1 class="mt-2 mb-0">Green Mind Agency</h1>
+      <p class="h4 my-2">Quotation Offer</p>
+    </div>
+    <div class="col-md-5">
+      <h2 id="clientDisplay" class="text-start"></h2>
+      <p class="mb-1 text-start"><small>These prices are valid for 1 month until <span id="validUntil"></span></small></p>
+    </div>
+    <div class="col-md-2">
+      <p class="mb-1 text-start">Date</p>
+      <p id="currentDate" class="mb-0 text-start"></p>
+    </div>
   </div>
-  <div class="col-md-5">
-    <h2 id="clientDisplay" class="text-start"></h2>
-    <p class="mb-1 text-start"><small>These prices are valid for 1 month until <span id="validUntil"></span></small></p>
-  </div>
-  <div class="col-md-2">
-    <p class="mb-1 text-start">Date</p>
-    <p id="currentDate" class="mb-0 text-start"></p>
-  </div>
-</div>
 
-<div id="tablesContainer"></div>
-<button id="addTableBtn" class="btn btn-primary btn-sm mb-3">&#43; Add Table</button>
+  <div id="tablesContainer"></div>
+  <button id="addTableBtn" class="btn btn-primary btn-sm mb-3">&#43; Add Table</button>
+<?php endif; ?>
 </div>
 </div>
 </div>
@@ -115,11 +140,10 @@ $packages = fetch_packages();
     <input class="form-check-input" type="checkbox" id="toggleEGP">
     <label class="form-check-label" for="toggleEGP">Hide EGP</label>
   </div>
-  <button class="btn btn-success" onclick="downloadPDF()">Download PDF</button>
+  <button class="btn btn-primary" onclick="saveQuote(false)">Save</button>
+  <button class="btn btn-success" onclick="saveQuote(true)">Publish</button>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const validUntilEl=document.getElementById('validUntil');
 const currentDateEl=document.getElementById('currentDate');
@@ -216,16 +240,25 @@ tablesContainer.addEventListener('click',e=>{
 document.getElementById('toggleEGP').addEventListener('change',e=>{
   document.getElementById('quote-area').classList.toggle('hide-egp',e.target.checked);
 });
-function downloadPDF(){
-  const { jsPDF } = window.jspdf;
+
+let clientId = <?= isset($_GET['id']) ? (int)$_GET['id'] : 0 ?>;
+function saveQuote(publish){
   const quoteArea=document.getElementById('quote-area');
   const clone=quoteArea.cloneNode(true);
   clone.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .quote-table td:last-child, .quote-table th:last-child, #addTableBtn').forEach(el=>el.remove());
-  const pdf=new jsPDF({orientation:'portrait', unit:'pt', format:'a4'});
-  pdf.html(clone,{margin:25,html2canvas:{scale:0.75},callback:function(doc){
-    const client=document.getElementById('clientName').value.trim()||'Client';
-    doc.save(`Table of Prices - ${client}.pdf`);
-  }});
+  const data={id:clientId,name:document.getElementById('clientName').value.trim(),html:clone.innerHTML,publish:publish};
+  fetch('save.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+    .then(r=>r.json())
+    .then(res=>{
+      if(res.success){
+        clientId=res.id;
+        if(publish && res.link){
+          alert('Published! Link: '+res.link);
+        }else{
+          alert('Saved');
+        }
+      }
+    });
 }
 </script>
 <?php include 'footer.php'; ?>
