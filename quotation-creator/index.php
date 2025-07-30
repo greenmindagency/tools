@@ -90,16 +90,15 @@ $packages = fetch_packages();
 
 <div id="quote-area">
 <div class="row align-items-center mb-3 text-center text-md-start">
-  <div class="col-md-4 mb-3 mb-md-0">
-    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNTAiIGhlaWdodD0iNjAiPgogIDxyZWN0IHdpZHRoPSIyNTAiIGhlaWdodD0iNjAiIGZpbGw9IiNmZmYiLz4KICA8dGV4dCB4PSIxMjUiIHk9IjM1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiMxNDYzM2MiPkdyZWVuIE1pbmQgQWdlbmN5PC90ZXh0Pgo8L3N2Zz4K" alt="Logo" style="height:50px;">
+  <div class="col-md-5 mb-3 mb-md-0">
     <h1 class="h4 mt-2 mb-0">Green Mind Agency</h1>
     <p class="mb-0">Quotation Offer</p>
   </div>
-  <div class="col-md-4">
+  <div class="col-md-5">
     <h2 id="clientDisplay" class="h5 text-start"></h2>
     <p class="mb-1 text-start"><small>These prices are valid for 1 month until <span id="validUntil"></span></small></p>
   </div>
-  <div class="col-md-4">
+  <div class="col-md-2">
     <p class="mb-1 text-start">Date:</p>
     <p id="currentDate" class="mb-0 text-start"></p>
   </div>
