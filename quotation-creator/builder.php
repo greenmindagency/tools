@@ -135,8 +135,8 @@ $packages = fetch_packages();
   </div>
 
   <div id="tablesContainer"></div>
-  <button id="addTableBtn" class="btn btn-primary btn-sm mb-3">&#43; Add Table</button>
 <?php endif; ?>
+  <button id="addTableBtn" class="btn btn-primary btn-sm mb-3">&#43; Add Table</button>
 </div>
 </div>
 </div>
@@ -248,7 +248,8 @@ document.getElementById('toggleEGP').addEventListener('change',e=>{
 if(editingExisting) restoreExisting();
 
 function restoreExisting(){
-  document.querySelectorAll('#quote-area table.quote-table').forEach(table=>{
+  document.querySelectorAll('#quote-area table').forEach(table=>{
+    table.classList.add('table','table-bordered','quote-table','mb-5');
     const thead=table.querySelector('thead');
     const headRow=document.createElement('tr');
     headRow.className='bg-light';
