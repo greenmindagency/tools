@@ -53,7 +53,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
     margin: 10,
     filename: `Table of Prices - ${clientName} - ${new Date().toISOString().slice(0,10)}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 0.8 },
+    html2canvas: { scale: 0.6 },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
   html2pdf().set(opt).from(element).save().then(() => {
