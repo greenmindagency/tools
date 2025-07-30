@@ -40,6 +40,8 @@ $packages = fetch_packages();
 .table thead th{background:#000;color:#fff;font-weight:bold;}
 .term-select{min-width:110px;}
 .table-handle{cursor:move;}
+/* larger space between tables */
+.quote-table{margin-bottom:3rem;}
 /* center the payment term and cost columns */
 .quote-table th:nth-child(3),
 .quote-table th:nth-child(4),
@@ -89,8 +91,9 @@ $packages = fetch_packages();
 <div id="quote-area">
 <div class="row align-items-center mb-3 text-center text-md-start">
   <div class="col-md-4 mb-3 mb-md-0">
-    <img src="https://i.ibb.co/d0T2Pzb3/Green-Mind-Agency-Logo.png" alt="Logo" style="height:50px;" crossorigin="anonymous">
-    <h1 class="h4 mt-2">Green Mind Agency</h1>
+    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNTAiIGhlaWdodD0iNjAiPgogIDxyZWN0IHdpZHRoPSIyNTAiIGhlaWdodD0iNjAiIGZpbGw9IiNmZmYiLz4KICA8dGV4dCB4PSIxMjUiIHk9IjM1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiMxNDYzM2MiPkdyZWVuIE1pbmQgQWdlbmN5PC90ZXh0Pgo8L3N2Zz4K" alt="Logo" style="height:50px;">
+    <h1 class="h4 mt-2 mb-0">Green Mind Agency</h1>
+    <p class="mb-0">Quotation Offer</p>
   </div>
   <div class="col-md-4">
     <h2 id="clientDisplay" class="h5 text-start"></h2>
@@ -138,7 +141,7 @@ let currentTable=null;
 
 function createTable(){
   const table=document.createElement('table');
-  table.className='table table-bordered quote-table mb-4';
+  table.className='table table-bordered quote-table mb-5';
   table.innerHTML=`<thead>
     <tr class="bg-light"><th colspan="6" class="text-end">
       <span class="table-handle me-2" style="cursor:move">&#9776;</span>
@@ -223,7 +226,7 @@ function downloadPDF(){
     hidden.forEach(h=>h.el.style.display=h.display);
     const img=canvas.toDataURL('image/png');
     const pdf=new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
-    const margin=20;
+    const margin=25;
     const pageWidth=pdf.internal.pageSize.getWidth()-margin*2;
     const pageHeight=canvas.height*pageWidth/canvas.width;
     pdf.addImage(img,'PNG',margin,margin,pageWidth,pageHeight);
