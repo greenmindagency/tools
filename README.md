@@ -8,6 +8,7 @@ https://greenmindagency.com/tools/
 - Open `prompt-generator/index.php` in your browser.
 - Add new `.php` files to `prompt-generator/` to create tools.
 - The `quotation-creator` folder now stores quotes in a MySQL database and provides an admin page to edit client tables. Use the **Refresh live pricing** button (or run `php quotation-creator/update-cache.php`) to download the latest data into `pricing-cache.json`. PDF export was removed in favour of a **Publish** button that generates a shareable link displaying the quote only.
+- Access to the quotation creator requires logging in with the admin credentials defined in `quotation-creator/login.php`.
 - Cards on each index page are generated automatically and the top navigation is rendered via `nav.php`, which lists every generator in a dropdown.
 - Common layout elements come from `header.php` and `footer.php`.
 
