@@ -35,6 +35,8 @@ $html = $data['html'];
 .hide-usd .vat-row th:nth-child(2),
 .hide-usd .total-vat-row th:nth-child(2){display:none;}
 .table thead th{background:#000;color:#fff;font-weight:bold;}
+.table-bordered{border-color:#000;}
+.table-bordered th,.table-bordered td{border-color:#000;}
 html,body{transition:font-size .2s;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
