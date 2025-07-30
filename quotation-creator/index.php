@@ -38,7 +38,6 @@ $packages = fetch_packages();
 .add-btn { cursor: pointer; }
 .package-selector .dropdown-menu{min-width:260px;}
 .table thead th{background:#000;color:#fff;font-weight:bold;}
-.quote-table thead{display:none;}
 .term-select{min-width:110px;}
 /* center the payment term and cost columns */
 .quote-table th:nth-child(3),
@@ -80,11 +79,6 @@ $packages = fetch_packages();
 <?php endif; ?>
 </div>
 
-<div class="input-group input-group-sm mb-3" style="max-width:300px;">
-  <input type="text" id="clientName" class="form-control" placeholder="Client Name">
-  <button id="updateBtn" class="btn btn-outline-secondary">Update</button>
-</div>
-
 <div id="quote-area">
 <div class="row align-items-center mb-3 text-center text-md-start">
   <div class="col-md-4 mb-3 mb-md-0">
@@ -92,18 +86,18 @@ $packages = fetch_packages();
     <h1 class="h4 mt-2">Green Mind Agency</h1>
   </div>
   <div class="col-md-4">
-  <h2 id="clientDisplay" class="h5"></h2>
-  <p class="mb-1"><small>These prices are valid for 1 month until <span id="validUntil"></span></small></p>
-  </div>
-  <div class="col-md-4 text-md-end">
-    <p class="mb-0"><strong>Date:</strong></p>
-    <p id="todayDate" class="mb-0"></p>
+    <h2 id="clientDisplay" class="h5"></h2>
+    <p class="mb-1"><small>These prices are valid for 1 month until <span id="validUntil"></span></small></p>
+    <div class="input-group input-group-sm mx-auto" style="max-width:300px;">
+      <input type="text" id="clientName" class="form-control" placeholder="Client Name">
+      <button id="updateBtn" class="btn btn-outline-secondary">Update</button>
+    </div>
   </div>
 </div>
 
-  <div id="tablesContainer">
+<div id="tablesContainer">
   <table class="table table-bordered quote-table mb-4" id="quoteTable">
-    <thead><tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th><th><button class="btn btn-sm btn-danger remove-table">&minus;</button></th></tr></thead>
+    <thead><tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th><th></th></tr></thead>
     <tbody></tbody>
     <tfoot id="totalsFoot"></tfoot>
   </table>
@@ -126,8 +120,6 @@ $packages = fetch_packages();
 const validUntilEl=document.getElementById('validUntil');
 const today=new Date();
 validUntilEl.textContent=new Date(today.getFullYear(),today.getMonth()+1,today.getDate()).toISOString().split('T')[0];
-const todayDateEl=document.getElementById('todayDate');
-todayDateEl.textContent=new Date().toLocaleDateString('en-GB',{timeZone:'Africa/Cairo'});
 function updateHeader(){
   const name=document.getElementById('clientName').value.trim();
   document.getElementById('clientDisplay').textContent=name;
@@ -140,15 +132,15 @@ function formatNum(num){
 const tablesContainer=document.getElementById('tablesContainer');
 let currentTable=document.getElementById('quoteTable');
 
-  function createTable(){
-    const table=document.createElement('table');
-    table.className='table table-bordered quote-table mb-4';
-    table.innerHTML=`<thead><tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th><th><button class="btn btn-sm btn-danger remove-table">&minus;</button></th></tr></thead><tbody></tbody><tfoot></tfoot>`;
-    tablesContainer.appendChild(table);
-    new Sortable(table.querySelector('tbody'),{animation:150});
-    currentTable=table;
-    return table;
-  }
+function createTable(){
+  const table=document.createElement('table');
+  table.className='table table-bordered quote-table mb-4';
+  table.innerHTML=`<thead><tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th><th></th></tr></thead><tbody></tbody><tfoot></tfoot>`;
+  tablesContainer.appendChild(table);
+  new Sortable(table.querySelector('tbody'),{animation:150});
+  currentTable=table;
+  return table;
+}
 
 function addRow(service, desc, usd, egp, table=currentTable){
   if(!table) table=currentTable||createTable();
@@ -159,6 +151,7 @@ function addRow(service, desc, usd, egp, table=currentTable){
     '<td contenteditable="true">'+desc.replace(/\n/g,'<br>')+'</td>'+
     '<td class="text-center"><select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select></td>'+
     '<td class="usd text-center" data-usd="'+usd+'">$'+formatNum(usd)+'</td><td class="egp text-center" data-egp="'+egp+'">EGP '+formatNum(egp)+'</td>'+
+
     '<td><button class="btn btn-sm btn-danger">&times;</button></td>';
   tr.querySelector('.term-select').value=term;
   tr.querySelector('button').addEventListener('click', ()=>{tr.remove();updateTotals(table);});
@@ -178,15 +171,14 @@ function updateTotals(table=currentTable){
     const t=totals[key];
     if(t.usd===0 && t.egp===0) continue;
     const vat=t.egp*0.14;
-    tfoot.innerHTML+=`<tr class="table-secondary fw-bold"><th colspan="3" class="text-end">Total</th><th class="text-center" style="background:#14633c;color:#fff;">$${formatNum(t.usd)}</th><th class="egp text-center" style="background:#14633c;color:#fff;">EGP ${formatNum(t.egp)}</th><th></th></tr>`+
+    tfoot.innerHTML+=`<tr class="table-secondary fw-bold"><th colspan="3" class="text-end">Total</th><th class="bg-warning text-black text-center">$${formatNum(t.usd)}</th><th class="bg-warning text-black text-center egp">EGP ${formatNum(t.egp)}</th><th></th></tr>`+
       `<tr class="vat-row"><th colspan="3" class="text-end">VAT 14%</th><th></th><th class="egp text-center bg-danger text-white">EGP ${formatNum(vat)}</th><th></th></tr>`+
       `<tr class="total-vat-row"><th colspan="3" class="text-end">Total + VAT</th><th></th><th class="egp text-center" style="background:#14633c;color:#fff;">EGP ${formatNum(t.egp+vat)}</th><th></th></tr>`;
   }
-  const hasRows=table.querySelectorAll('tbody tr').length>0;
-  table.querySelector('thead').style.display=hasRows?'table-header-group':'none';
-  if(!hasRows){
+  if(table.querySelectorAll('tbody tr').length===0){
     table.remove();
     currentTable=tablesContainer.querySelector('table.quote-table');
+
   }
 }
 document.querySelectorAll('.add-btn').forEach(btn=>{
@@ -202,13 +194,7 @@ document.getElementById('addTableBtn').addEventListener('click', ()=>{
 });
 tablesContainer.addEventListener('click',e=>{
   const tbl=e.target.closest('table.quote-table');
-  if(!tbl) return;
-  currentTable=tbl;
-  if(e.target.classList.contains('remove-table')){
-    tbl.remove();
-    currentTable=tablesContainer.querySelector('table.quote-table');
-    return;
-  }
+  if(tbl) currentTable=tbl;
 });
 document.getElementById('toggleEGP').addEventListener('change',e=>{
   document.getElementById('quote-area').classList.toggle('hide-egp',e.target.checked);
