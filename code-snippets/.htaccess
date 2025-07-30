@@ -1,4 +1,4 @@
-# Optimized .htaccess for WordPress with WP Fastest Cache + Security + Compression + HTTPS
+# Optimized .htaccess for WordPress with Security + Compression + HTTPS
 
 # BEGIN Force HTTPS
 <IfModule mod_rewrite.c>
@@ -7,42 +7,6 @@ RewriteCond %{HTTPS} !=on
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 </IfModule>
 # END Force HTTPS
-
-# BEGIN WP Fastest Cache
-<IfModule mod_rewrite.c>
-RewriteEngine On
-RewriteBase /
-RewriteCond %{HTTPS} =on
-RewriteCond %{HTTP_HOST} ^greenmindagency.com
-RewriteCond %{REQUEST_URI} !^/sitemap [NC]
-RewriteCond %{REQUEST_URI} !/websites [NC]
-RewriteCond %{HTTP:Cookie} !wordpress_logged_in_[^=]+=admins|greenmind
-RewriteCond %{HTTP_USER_AGENT} !(facebookexternalhit|WP_FASTEST_CACHE_CSS_VALIDATOR|Twitterbot|LinkedInBot|WhatsApp|Mediatoolkitbot)
-RewriteCond %{HTTP_USER_AGENT} !(WP\sFastest\sCache\sPreload(\siPhone\sMobile)?\s*Bot)
-RewriteCond %{REQUEST_METHOD} !POST
-RewriteCond %{REQUEST_URI} !(\/){2,}
-RewriteCond %{THE_REQUEST} !(\/){2,}
-RewriteCond %{REQUEST_URI} /$
-RewriteCond %{QUERY_STRING} !.+ [OR]
-RewriteCond %{QUERY_STRING} fbclid=
-RewriteCond %{HTTP:Cookie} !comment_author_
-RewriteCond %{HTTP:Profile} !^[a-z0-9"]+ [NC]
-RewriteCond %{DOCUMENT_ROOT}/wp-content/cache/all/$1/index.html -f [OR]
-RewriteCond /home/greenm38/public_html/greenmindagency15/wp-content/cache/all/$1/index.html -f
-RewriteRule ^(.*) "/greenmindagency15/wp-content/cache/all/$1/index.html" [L]
-</IfModule>
-
-<FilesMatch "index\.(html|htm)$">
-  AddDefaultCharset UTF-8
-  <IfModule mod_headers.c>
-    FileETag None
-    Header unset ETag
-    Header set Cache-Control "max-age=0, no-cache, no-store, must-revalidate"
-    Header set Pragma "no-cache"
-    Header set Expires "Mon, 29 Oct 1923 20:30:00 GMT"
-  </IfModule>
-</FilesMatch>
-# END WP Fastest Cache
 
 # BEGIN Gzip Compression
 <IfModule mod_deflate.c>
