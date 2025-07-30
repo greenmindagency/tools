@@ -91,15 +91,15 @@ $packages = fetch_packages();
 <div id="quote-area">
 <div class="row align-items-center mb-3 text-center text-md-start">
   <div class="col-md-5 mb-3 mb-md-0">
-    <h1 class="h4 mt-2 mb-0">Green Mind Agency</h1>
-    <p class="mb-0">Quotation Offer</p>
+    <h1 class="mt-2 mb-0">Green Mind Agency</h1>
+    <p class="mx-2">Quotation Offer</p>
   </div>
   <div class="col-md-5">
-    <h2 id="clientDisplay" class="h5 text-start"></h2>
+    <h2 id="clientDisplay" class="text-start"></h2>
     <p class="mb-1 text-start"><small>These prices are valid for 1 month until <span id="validUntil"></span></small></p>
   </div>
   <div class="col-md-2">
-    <p class="mb-1 text-start">Date:</p>
+    <p class="mb-1 text-start">Date</p>
     <p id="currentDate" class="mb-0 text-start"></p>
   </div>
 </div>
