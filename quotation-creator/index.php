@@ -89,7 +89,7 @@ $packages = fetch_packages();
 <div id="quote-area">
 <div class="row align-items-center mb-3 text-center text-md-start">
   <div class="col-md-4 mb-3 mb-md-0">
-    <img src="https://i.ibb.co/d0T2Pzb3/Green-Mind-Agency-Logo.png" alt="Logo" style="height:50px;">
+    <img src="https://i.ibb.co/d0T2Pzb3/Green-Mind-Agency-Logo.png" alt="Logo" style="height:50px;" crossorigin="anonymous">
     <h1 class="h4 mt-2">Green Mind Agency</h1>
   </div>
   <div class="col-md-4">
@@ -213,14 +213,22 @@ document.getElementById('toggleEGP').addEventListener('change',e=>{
 });
 function downloadPDF(){
   const { jsPDF } = window.jspdf;
-  html2canvas(document.getElementById('quote-area')).then(canvas=>{
+  const quoteArea=document.getElementById('quote-area');
+  const hidden=[];
+  document.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .quote-table td:last-child, .quote-table th:last-child').forEach(el=>{
+    hidden.push({el,display:el.style.display});
+    el.style.display='none';
+  });
+  html2canvas(quoteArea).then(canvas=>{
+    hidden.forEach(h=>h.el.style.display=h.display);
     const img=canvas.toDataURL('image/png');
     const pdf=new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
-    const imgProps=pdf.getImageProperties(img);
-    const pdfWidth=pdf.internal.pageSize.getWidth();
-    const pdfHeight=(imgProps.height * pdfWidth) / imgProps.width;
-    pdf.addImage(img,'PNG',0,0,pdfWidth,pdfHeight);
-    pdf.save('quote.pdf');
+    const margin=20;
+    const pageWidth=pdf.internal.pageSize.getWidth()-margin*2;
+    const pageHeight=canvas.height*pageWidth/canvas.width;
+    pdf.addImage(img,'PNG',margin,margin,pageWidth,pageHeight);
+    const client=document.getElementById('clientName').value.trim()||'Client';
+    pdf.save(`Table of Prices - ${client}.pdf`);
   });
 }
 </script>
