@@ -35,29 +35,32 @@ $html = $data['html'];
 .hide-usd .vat-row th:nth-child(2),
 .hide-usd .total-vat-row th:nth-child(2){display:none;}
 .table thead th{background:#000;color:#fff;font-weight:bold;}
+.pdf-scale{font-size:0.8rem;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
 </head>
 <body>
-<div class="container mt-4">
+<div id="quote" class="container mt-4">
   <button id="downloadBtn" class="btn btn-primary mb-3">Download PDF</button>
   <?= $html ?>
 </div>
 <script>
 const clientName = <?= json_encode($data['name']) ?>;
 document.getElementById('downloadBtn').addEventListener('click', () => {
-  const element = document.querySelector('.container');
+  const element = document.getElementById('quote');
   const btn = document.getElementById('downloadBtn');
   btn.style.display = 'none';
+  element.classList.add('pdf-scale');
   const opt = {
     margin: 10,
     filename: `Table of Prices - ${clientName} - ${new Date().toISOString().slice(0,10)}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 0.6 },
+    html2canvas: { scale: 1 },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
   html2pdf().set(opt).from(element).save().then(() => {
     btn.style.display = '';
+    element.classList.remove('pdf-scale');
   });
 });
 </script>
