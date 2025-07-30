@@ -92,7 +92,7 @@ $packages = fetch_packages();
 <div class="row align-items-center mb-3 text-center text-md-start">
   <div class="col-md-5 mb-3 mb-md-0">
     <h1 class="mt-2 mb-0">Green Mind Agency</h1>
-    <p class="mx-2">Quotation Offer</p>
+    <p class="h4 my-2">Quotation Offer</p>
   </div>
   <div class="col-md-5">
     <h2 id="clientDisplay" class="text-start"></h2>
