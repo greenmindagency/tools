@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
-$slug = $_GET['slug'] ?? '';
+$slug = $_GET['client'] ?? '';
 $pdo->exec("CREATE TABLE IF NOT EXISTS clients (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255),

@@ -45,7 +45,7 @@ $clients = $pdo->query('SELECT id, name, published, slug FROM clients ORDER BY u
 <td>
 <a href="builder.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-secondary">Edit</a>
 <?php if($c['published']): ?>
-<a href="view.php?slug=<?= urlencode($c['slug']) ?>" class="btn btn-sm btn-success" target="_blank">View</a>
+<a href="view.php?client=<?= urlencode($c['slug']) ?>" class="btn btn-sm btn-success" target="_blank">View</a>
 <?php endif; ?>
 <a href="index.php?delete=<?= $c['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Delete this client?');">Delete</a>
 </td>

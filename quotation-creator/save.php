@@ -6,8 +6,20 @@ $id = (int)($data['id'] ?? 0);
 $name = trim($data['name'] ?? '');
 $html = $data['html'] ?? '';
 $publish = !empty($data['publish']);
-$slug = $data['slug'] ?? '';
-if (!$slug) $slug = bin2hex(random_bytes(5));
+$slugify = function($text){
+    $text = strtolower(trim($text));
+    $text = preg_replace('/[^a-z0-9]+/', '-', $text);
+    return trim($text, '-');
+};
+$slugBase = $slugify($name);
+$slug = $slugBase ?: bin2hex(random_bytes(5));
+$check = $pdo->prepare('SELECT id FROM clients WHERE slug=? AND id<>?');
+$counter = 1;
+while(true){
+    $check->execute([$slug, $id]);
+    if(!$check->fetchColumn()) break;
+    $slug = $slugBase . '-' . $counter++;
+}
 $pdo->exec("CREATE TABLE IF NOT EXISTS clients (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255),
@@ -26,7 +38,7 @@ if ($id) {
 }
 $link = null;
 if ($publish) {
-    $link = sprintf('view.php?slug=%s', urlencode($slug));
+    $link = sprintf('view.php?client=%s', urlencode($slug));
 }
 echo json_encode(['success'=>true,'id'=>$id,'link'=>$link,'slug'=>$slug]);
 ?>
