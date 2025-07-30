@@ -24,6 +24,14 @@ if(!$data){
 <meta charset="UTF-8">
 <title>Quotation for <?= htmlspecialchars($data['name']) ?></title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+.hide-egp .egp,
+.hide-egp .egp-header,
+.hide-egp .vat-row,
+.hide-egp .total-vat-row{display:none;}
+.hide-usd .usd,
+.hide-usd .usd-header{display:none;}
+</style>
 </head>
 <body>
 <div class="container mt-4">

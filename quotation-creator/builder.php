@@ -228,7 +228,7 @@ function updateTotals(table=currentTable){
   tfoot.innerHTML='';
   if(totals.usd!==0 || totals.egp!==0){
     const vat=totals.egp*0.14;
-    tfoot.innerHTML=`<tr class="table-secondary fw-bold"><th colspan="3" class="text-end">Total</th><th class="bg-warning text-black text-center">$${formatNum(totals.usd)}</th><th class="bg-warning text-black text-center egp">EGP ${formatNum(totals.egp)}</th><th></th></tr>`+
+    tfoot.innerHTML=`<tr class="table-secondary fw-bold"><th colspan="3" class="text-end">Total</th><th class="usd bg-warning text-black text-center">$${formatNum(totals.usd)}</th><th class="egp bg-warning text-black text-center">EGP ${formatNum(totals.egp)}</th><th></th></tr>`+
       `<tr class="vat-row"><th colspan="3" class="text-end">VAT 14%</th><th></th><th class="egp text-center bg-danger text-white">EGP ${formatNum(vat)}</th><th></th></tr>`+
       `<tr class="total-vat-row"><th colspan="3" class="text-end">Total + VAT</th><th></th><th class="egp text-center" style="background:#14633c;color:#fff;">EGP ${formatNum(totals.egp+vat)}</th><th></th></tr>`;
   }
@@ -303,7 +303,24 @@ function saveQuote(publish){
   const quoteArea=document.getElementById('quote-area');
   const clone=quoteArea.cloneNode(true);
   clone.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .action-cell, #addTableBtn').forEach(el=>el.remove());
-  const data={id:clientId,name:document.getElementById('clientName').value.trim(),html:clone.innerHTML,publish:publish,slug:clientSlug};
+  clone.querySelectorAll('.term-select').forEach(sel=>{
+    const td=sel.parentElement;
+    td.textContent=sel.options[sel.selectedIndex].textContent;
+  });
+  clone.querySelectorAll('[contenteditable]').forEach(el=>el.removeAttribute('contenteditable'));
+  clone.querySelectorAll('.quote-table').forEach(tbl=>{
+    const header=tbl.querySelector('thead tr:last-child th:last-child');
+    if(header && header.textContent.trim()==='') header.remove();
+    tbl.querySelectorAll('tbody tr').forEach(tr=>{
+      const cell=tr.lastElementChild;
+      if(cell && cell.textContent.trim()==='') cell.remove();
+    });
+    tbl.querySelectorAll('tfoot tr').forEach(tr=>{
+      const cell=tr.lastElementChild;
+      if(cell && cell.textContent.trim()==='') cell.remove();
+    });
+  });
+  const data={id:clientId,name:document.getElementById('clientName').value.trim(),html:clone.innerHTML,publish:publish};
   fetch('save.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
     .then(r=>r.json())
     .then(res=>{
