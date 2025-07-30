@@ -32,8 +32,8 @@ $html = preg_replace('/\bPrices\b/i','',$data['html']);
 .hide-egp .total-vat-row{display:none;}
 .hide-usd .usd,
 .hide-usd .usd-header{display:none;}
-.hide-usd .vat-row th:nth-child(4),
-.hide-usd .total-vat-row th:nth-child(4){display:none;}
+.hide-usd .vat-row th:nth-child(2),
+.hide-usd .total-vat-row th:nth-child(2){display:none;}
 .table thead th{background:#000;color:#fff;font-weight:bold;}
 </style>
 </head>

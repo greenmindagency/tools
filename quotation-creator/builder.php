@@ -92,8 +92,8 @@ $packages = fetch_packages();
 .hide-usd .usd-header{
   display:none;
 }
-.hide-usd .vat-row th:nth-child(4),
-.hide-usd .total-vat-row th:nth-child(4){
+.hide-usd .vat-row th:nth-child(2),
+.hide-usd .total-vat-row th:nth-child(2){
   display:none;
 }
 </style>
@@ -321,6 +321,9 @@ let clientId = <?= isset($_GET['id']) ? (int)$_GET['id'] : 0 ?>;
 function saveQuote(publish){
   const quoteArea=document.getElementById('quote-area');
   const clone=quoteArea.cloneNode(true);
+  const origSelects=quoteArea.querySelectorAll('.term-select');
+  const clonedSelects=clone.querySelectorAll('.term-select');
+  clonedSelects.forEach((sel,i)=>{sel.value=origSelects[i].value;});
   clone.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .action-cell, #addTableBtn').forEach(el=>el.remove());
   clone.querySelectorAll('.term-select').forEach(sel=>{
     const td=sel.parentElement;
