@@ -39,6 +39,7 @@ $html = $data['html'];
 .table-bordered{border-color:#000;border-width:var(--tbl-border);}
 .table-bordered th,.table-bordered td{border-color:#000;border-width:var(--tbl-border);vertical-align:middle;}
 html,body{transition:font-size .2s;}
+.content-block{border:1px dashed #ccc;padding:10px;min-height:60px;margin-bottom:1rem;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
 </head>

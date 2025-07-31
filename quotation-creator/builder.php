@@ -98,6 +98,8 @@ $packages = fetch_packages();
 .hide-usd .total-vat-row th:nth-child(2){
   display:none;
 }
+.content-block{border:1px dashed #ccc;padding:10px;min-height:60px;margin-bottom:1rem;}
+.content-toolbar{display:flex;justify-content:flex-end;gap:2px;margin-bottom:4px;}
 </style>
 
 <div class="package-selector mb-3 d-flex flex-wrap gap-2">
@@ -148,8 +150,10 @@ $packages = fetch_packages();
   </div>
 
   <div id="tablesContainer"></div>
+  <div id="contentContainer"></div>
 <?php endif; ?>
-  <button id="addTableBtn" class="btn btn-primary btn-sm mb-3">&#43; Add Table</button>
+  <button id="addTableBtn" class="btn btn-primary btn-sm mb-3 me-2">&#43; Add Table</button>
+  <button id="addContentBtn" class="btn btn-secondary btn-sm mb-3">&#43; Add Content</button>
 </div>
 </div>
 </div>
@@ -186,6 +190,7 @@ function cleanServiceName(name){
 }
 
 let tablesContainer=document.getElementById('tablesContainer');
+let contentContainer=document.getElementById('contentContainer');
 new Sortable(tablesContainer,{animation:150,handle:'.table-handle'});
 let currentTable=null;
 const editingExisting = <?= $existingHtml ? 'true' : 'false' ?>;
@@ -209,6 +214,24 @@ function createTable(){
   });
   currentTable=table;
   return table;
+}
+
+function createContentBlock(html=''){
+  const block=document.createElement('div');
+  block.className='content-block';
+  block.innerHTML=`<div class="content-toolbar">
+    <button type="button" class="btn btn-sm btn-light" data-cmd="bold"><b>B</b></button>
+    <button type="button" class="btn btn-sm btn-light" data-cmd="italic"><i>I</i></button>
+    <button type="button" class="btn btn-sm btn-light" data-cmd="underline"><u>U</u></button>
+    <button type="button" class="btn btn-sm btn-light" data-cmd="insertUnorderedList">&bull; List</button>
+    <button type="button" class="btn btn-sm btn-danger remove-content-btn">&times;</button>
+  </div><div class="editable" contenteditable="true">${html}</div>`;
+  block.querySelector('.remove-content-btn').addEventListener('click',()=>block.remove());
+  block.querySelectorAll('[data-cmd]').forEach(btn=>{
+    btn.addEventListener('click',()=>{document.execCommand(btn.dataset.cmd,false,null);});
+  });
+  contentContainer.appendChild(block);
+  return block;
 }
 
 function addRow(service, desc, usd, egp, table=currentTable){
@@ -259,6 +282,9 @@ updateHeader();
 document.getElementById('addTableBtn').addEventListener('click', ()=>{
   createTable();
 });
+document.getElementById('addContentBtn').addEventListener('click', ()=>{
+  createContentBlock();
+});
 tablesContainer.addEventListener('click',e=>{
   const tbl=e.target.closest('table.quote-table');
   if(tbl) currentTable=tbl;
@@ -288,12 +314,19 @@ function restoreExisting(){
   }
   // restore container reference and add table button
   tablesContainer=document.getElementById('tablesContainer');
+  contentContainer=document.getElementById('contentContainer');
   const addBtn=document.createElement('button');
   addBtn.id='addTableBtn';
-  addBtn.className='btn btn-primary btn-sm mb-3';
+  addBtn.className='btn btn-primary btn-sm mb-3 me-2';
   addBtn.innerHTML='&#43; Add Table';
   qa.appendChild(addBtn);
   addBtn.addEventListener('click',()=>{createTable();});
+  const addContent=document.createElement('button');
+  addContent.id='addContentBtn';
+  addContent.className='btn btn-secondary btn-sm mb-3';
+  addContent.innerHTML='&#43; Add Content';
+  qa.appendChild(addContent);
+  addContent.addEventListener('click',()=>{createContentBlock();});
   new Sortable(tablesContainer,{animation:150,handle:'.table-handle'});
   tablesContainer.addEventListener('click',e=>{
     const tbl=e.target.closest('table.quote-table');
@@ -328,6 +361,26 @@ function restoreExisting(){
     updateTotals(table);
   });
   currentTable=document.querySelector('table.quote-table');
+
+  document.querySelectorAll('#quote-area .content-block').forEach(block=>{
+    const html=block.innerHTML;
+    block.innerHTML='';
+    const toolbar=document.createElement('div');
+    toolbar.className='content-toolbar';
+    toolbar.innerHTML='<button type="button" class="btn btn-sm btn-light" data-cmd="bold"><b>B</b></button>'+
+      '<button type="button" class="btn btn-sm btn-light" data-cmd="italic"><i>I</i></button>'+
+      '<button type="button" class="btn btn-sm btn-light" data-cmd="underline"><u>U</u></button>'+
+      '<button type="button" class="btn btn-sm btn-light" data-cmd="insertUnorderedList">&bull; List</button>'+
+      '<button type="button" class="btn btn-sm btn-danger remove-content-btn">&times;</button>';
+    const editable=document.createElement('div');
+    editable.className='editable';
+    editable.contentEditable='true';
+    editable.innerHTML=html;
+    block.appendChild(toolbar);
+    block.appendChild(editable);
+    toolbar.querySelector('.remove-content-btn').addEventListener('click',()=>block.remove());
+    toolbar.querySelectorAll('[data-cmd]').forEach(btn=>btn.addEventListener('click',()=>{document.execCommand(btn.dataset.cmd,false,null);}));
+  });
 }
 
 let clientId = <?= isset($_GET['id']) ? (int)$_GET['id'] : 0 ?>;
@@ -337,7 +390,7 @@ function saveQuote(publish){
   const origSelects=quoteArea.querySelectorAll('.term-select');
   const clonedSelects=clone.querySelectorAll('.term-select');
   clonedSelects.forEach((sel,i)=>{sel.value=origSelects[i].value;});
-  clone.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .action-cell, #addTableBtn').forEach(el=>el.remove());
+  clone.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .action-cell, #addTableBtn, #addContentBtn, .content-toolbar').forEach(el=>el.remove());
   clone.querySelectorAll('.term-select').forEach(sel=>{
     const td=sel.parentElement;
     td.textContent=sel.options[sel.selectedIndex].textContent;
