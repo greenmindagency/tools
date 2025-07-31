@@ -67,7 +67,7 @@ $packages = fetch_packages();
 .package-selector .dropdown-menu{min-width:260px;}
 .table thead th{background:#000;color:#fff;font-weight:bold;}
 .table-bordered{border-color:#000;}
-.table-bordered th,.table-bordered td{border-color:#000;}
+.table-bordered th,.table-bordered td{border-color:#000; border: 1px;}
 .term-select{min-width:110px;border:none;background-color:transparent;box-shadow:none;padding:0;}
 .term-select:focus{box-shadow:none;}
 .table-handle{cursor:move;}

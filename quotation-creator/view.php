@@ -37,7 +37,7 @@ $html = $data['html'];
 .hide-usd .total-vat-row th:nth-child(2){display:none;}
 .table thead th{background:#000;color:#fff;font-weight:bold;}
 .table-bordered{border-color:#000;border-width:var(--tbl-border);}
-.table-bordered th,.table-bordered td{border-color:#000;border-width:var(--tbl-border);vertical-align:middle;}
+.table-bordered th,.table-bordered td{border-color:#000;border-width:var(--tbl-border);vertical-align:middle; border: 1px;}
 html,body{transition:font-size .2s;}
 .content-block{border:1px dashed #ccc;padding:10px;min-height:60px;margin-bottom:1rem;}
 </style>
