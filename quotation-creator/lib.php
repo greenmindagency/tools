@@ -11,6 +11,13 @@ function parse_html($html) {
     $xpath = new DOMXPath($dom);
     $pots = $xpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' potp ')]");
     $all = [];
+    $rate = null;
+
+    // Try to locate the "Equivalent Price for $1" text anywhere in the page
+    // and extract the numeric EGP amount.
+    if (preg_match('/Equivalent\s+Price\s+for\s+\$1\s*:\s*EGP\s*([0-9,.]+)/i', $html, $m)) {
+        $rate = (float)str_replace(',', '', $m[1]);
+    }
     foreach ($pots as $pot) {
         $h3 = $xpath->query('.//h3[contains(concat(" ", normalize-space(@class), " "), " package ")] | .//h3[1]', $pot)->item(0);
         $service = trim($h3 ? $h3->textContent : 'Service');
@@ -40,7 +47,12 @@ function parse_html($html) {
         }
         if ($options) $all[] = ['name' => $service, 'packages' => $options];
     }
-    return $all;
+
+    $result = ['packages' => $all];
+    if ($rate !== null) {
+        $result['usd_to_egp'] = $rate;
+    }
+    return $result;
 }
 
 function fetch_remote_html($url) {

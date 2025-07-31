@@ -59,7 +59,9 @@ function fetch_packages() {
     file_put_contents($cache, json_encode($data));
     return $data;
 }
-$packages = fetch_packages();
+$parsedData = fetch_packages();
+$packages = $parsedData['packages'] ?? [];
+$usdRate = $parsedData['usd_to_egp'] ?? 0;
 ?>
 <style>
 .quote-table th, .quote-table td { vertical-align: middle; }
@@ -204,9 +206,10 @@ new Sortable(tablesContainer,{animation:150,handle:'.table-handle'});
 let currentTable=null;
 const editingExisting = <?= $existingHtml ? 'true' : 'false' ?>;
 let clientSlug='<?= $existingSlug ?>';
-let usdToEgp = 0;
+let usdToEgp = <?= json_encode($usdRate) ?>;
 
 function computeInitialRate(){
+  if(usdToEgp) return;
   const rates=[];
   document.querySelectorAll('.package-selector .add-btn').forEach(btn=>{
     const u=parseFloat(btn.dataset.usd);
