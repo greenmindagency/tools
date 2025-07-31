@@ -73,12 +73,11 @@ $packages = fetch_packages();
 .table-handle{cursor:move;}
 /* larger space between tables */
 .quote-table{margin-bottom:3rem;table-layout:fixed;width:100%;}
-.quote-table th:nth-child(1),.quote-table td:nth-child(1){width:30%;}
-.quote-table th:nth-child(2),.quote-table td:nth-child(2){width:25%;}
+.quote-table th:nth-child(1),.quote-table td:nth-child(1){width:20%;}
+.quote-table th:nth-child(2),.quote-table td:nth-child(2){width:35%;}
 .quote-table th:nth-child(3),.quote-table td:nth-child(3){width:15%;text-align:center;}
 .quote-table th:nth-child(4),.quote-table td:nth-child(4){width:15%;text-align:center;}
-.quote-table th:nth-child(5),.quote-table td:nth-child(5){width:10%;text-align:center;}
-.quote-table th:nth-child(6),.quote-table td:nth-child(6){width:5%;}
+.quote-table th:nth-child(5),.quote-table td:nth-child(5){width:15%;text-align:center;}
 /* center the payment term and cost columns */
 .quote-table th:nth-child(3),
 .quote-table th:nth-child(4),
@@ -106,6 +105,7 @@ $packages = fetch_packages();
 }
 .content-block{border:1px dashed #ccc;padding:10px;min-height:60px;margin-bottom:1rem;}
 .content-toolbar{display:flex;justify-content:flex-end;gap:2px;margin-bottom:4px;}
+.remove-row-btn{display:block;margin-top:4px;}
 </style>
 
 <div class="package-selector mb-3 d-flex flex-wrap gap-2">
@@ -222,11 +222,11 @@ function createTable(){
   const table=document.createElement('table');
   table.className='table table-bordered quote-table mb-5';
   table.innerHTML=`<thead>
-    <tr class="bg-light"><th colspan="6" class="text-end">
+    <tr class="bg-light"><th colspan="5" class="text-end">
       <span class="table-handle me-2" style="cursor:move">&#9776;</span>
       <button class="btn btn-sm btn-danger remove-table-btn">&minus;</button>
     </th></tr>
-    <tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center usd-header">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th><th></th></tr>
+    <tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center usd-header">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th></tr>
   </thead><tbody></tbody><tfoot></tfoot>`;
   tablesContainer.appendChild(table);
   new Sortable(table.querySelector('tbody'),{animation:150});
@@ -262,13 +262,13 @@ function addRow(service, desc, usd, egp, table=currentTable){
   const tbody=table.querySelector('tbody');
   const tr=document.createElement('tr');
   const term='one-time';
-  tr.innerHTML='<td><strong>'+cleanServiceName(service)+'</strong></td>'+
+  tr.innerHTML='<td><strong>'+cleanServiceName(service)+'</strong><br><button class="btn btn-sm btn-danger mt-1 remove-row-btn">&times;</button></td>'+
     '<td contenteditable="true">'+desc.replace(/\n/g,'<br>')+'</td>'+
     '<td class="text-center"><select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select></td>'+
-    '<td class="usd text-center" data-usd="'+usd+'">$'+formatNum(usd)+'</td><td class="egp text-center" data-egp="'+egp+'">EGP '+formatNum(egp)+'</td>'+
-    '<td class="action-cell"><button class="btn btn-sm btn-danger">&times;</button></td>';
+    '<td class="usd text-center" data-usd="'+usd+'">$'+formatNum(usd)+'</td>'+
+    '<td class="egp text-center" data-egp="'+egp+'">EGP '+formatNum(egp)+'</td>';
   tr.querySelector('.term-select').value=term;
-  tr.querySelector('button').addEventListener('click', ()=>{tr.remove();updateTotals(table);});
+  tr.querySelector('.remove-row-btn').addEventListener('click', ()=>{tr.remove();updateTotals(table);});
   tr.querySelector('.term-select').addEventListener('change',()=>updateTotals(table));
   tbody.appendChild(tr);
   updateTotals(table);
@@ -283,9 +283,9 @@ function updateTotals(table=currentTable){
   tfoot.innerHTML='';
   if(totals.usd!==0 || totals.egp!==0){
     const vat=totals.egp*0.14;
-    tfoot.innerHTML=`<tr class="table-secondary fw-bold"><th colspan="3" class="text-end">Total</th><th class="usd bg-warning text-black text-center">$${formatNum(totals.usd)}</th><th class="egp bg-warning text-black text-center">EGP ${formatNum(totals.egp)}</th><th></th></tr>`+
-      `<tr class="vat-row"><th colspan="3" class="text-end">VAT 14%</th><th></th><th class="egp text-center bg-danger text-white">EGP ${formatNum(vat)}</th><th></th></tr>`+
-      `<tr class="total-vat-row"><th colspan="3" class="text-end">Total + VAT</th><th></th><th class="egp text-center" style="background:#14633c;color:#fff;">EGP ${formatNum(totals.egp+vat)}</th><th></th></tr>`;
+    tfoot.innerHTML=`<tr class="table-secondary fw-bold"><th colspan="3" class="text-end">Total</th><th class="usd bg-warning text-black text-center">$${formatNum(totals.usd)}</th><th class="egp bg-warning text-black text-center">EGP ${formatNum(totals.egp)}</th></tr>`+
+      `<tr class="vat-row"><th colspan="3" class="text-end">VAT 14%</th><th></th><th class="egp text-center bg-danger text-white">EGP ${formatNum(vat)}</th></tr>`+
+      `<tr class="total-vat-row"><th colspan="3" class="text-end">Total + VAT</th><th></th><th class="egp text-center" style="background:#14633c;color:#fff;">EGP ${formatNum(totals.egp+vat)}</th></tr>`;
   }
   if(table.querySelectorAll('tbody tr').length===0){
     table.remove();
@@ -365,7 +365,7 @@ function restoreExisting(){
     const thead=table.querySelector('thead');
     const headRow=document.createElement('tr');
     headRow.className='bg-light';
-    headRow.innerHTML='<th colspan="6" class="text-end"><span class="table-handle me-2" style="cursor:move">&#9776;</span><button class="btn btn-sm btn-danger remove-table-btn">&minus;</button></th>';
+    headRow.innerHTML='<th colspan="5" class="text-end"><span class="table-handle me-2" style="cursor:move">&#9776;</span><button class="btn btn-sm btn-danger remove-table-btn">&minus;</button></th>';
     thead.prepend(headRow);
     const headerCells=thead.querySelectorAll('tr:nth-child(2) th');
     if(headerCells[3]) headerCells[3].classList.add('usd-header');
@@ -374,17 +374,18 @@ function restoreExisting(){
     new Sortable(table.querySelector('tbody'),{animation:150});
     table.querySelectorAll('tbody tr').forEach(tr=>{
       tr.cells[1].setAttribute('contenteditable','true');
-      tr.cells[0].innerHTML = '<strong>'+cleanServiceName(tr.cells[0].textContent.trim())+'</strong>';
+      const serviceCell=tr.cells[0];
+      serviceCell.innerHTML = '<strong>'+cleanServiceName(serviceCell.textContent.trim())+'</strong><br>';
+      const removeBtn=document.createElement('button');
+      removeBtn.className='btn btn-sm btn-danger mt-1 remove-row-btn';
+      removeBtn.innerHTML='&times;';
+      removeBtn.addEventListener('click',()=>{tr.remove();updateTotals(table);});
+      serviceCell.appendChild(removeBtn);
       const termCell=tr.cells[2];
       const termText=termCell.textContent.trim().toLowerCase().includes('month')?'monthly':'one-time';
       termCell.innerHTML='<select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select>';
       termCell.querySelector('select').value=termText;
       termCell.querySelector('select').addEventListener('change',()=>updateTotals(table));
-      const action=document.createElement('td');
-      action.className='action-cell';
-      action.innerHTML='<button class="btn btn-sm btn-danger">&times;</button>';
-      action.querySelector('button').addEventListener('click',()=>{tr.remove();updateTotals(table);});
-      tr.appendChild(action);
     });
     updateTotals(table);
   });
@@ -418,7 +419,7 @@ function saveQuote(publish){
   const origSelects=quoteArea.querySelectorAll('.term-select');
   const clonedSelects=clone.querySelectorAll('.term-select');
   clonedSelects.forEach((sel,i)=>{sel.value=origSelects[i].value;});
-  clone.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .action-cell, #addTableBtn, #addContentBtn, .content-toolbar').forEach(el=>el.remove());
+  clone.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .remove-row-btn, #addTableBtn, #addContentBtn, .content-toolbar').forEach(el=>el.remove());
   clone.querySelectorAll('.term-select').forEach(sel=>{
     const td=sel.parentElement;
     td.textContent=sel.options[sel.selectedIndex].textContent;
@@ -427,14 +428,6 @@ function saveQuote(publish){
   clone.querySelectorAll('.quote-table').forEach(tbl=>{
     const header=tbl.querySelector('thead tr:last-child th:last-child');
     if(header && header.textContent.trim()==='') header.remove();
-    tbl.querySelectorAll('tbody tr').forEach(tr=>{
-      const cell=tr.lastElementChild;
-      if(cell && cell.textContent.trim()==='') cell.remove();
-    });
-    tbl.querySelectorAll('tfoot tr').forEach(tr=>{
-      const cell=tr.lastElementChild;
-      if(cell && cell.textContent.trim()==='') cell.remove();
-    });
   });
   const wrapper=document.createElement('div');
   wrapper.className='saved-quote';
