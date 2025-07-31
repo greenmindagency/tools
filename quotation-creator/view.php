@@ -66,7 +66,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   const body = document.body;
   const prevBody = body.style.fontSize;
   root.style.fontSize = '50%';
-  body.style.fontSize = '90%';
+  body.style.fontSize = '100%';
   root.style.setProperty('--tbl-border','0.5px');
   const opt = {
     margin: 10,
