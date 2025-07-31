@@ -62,7 +62,7 @@ function fetch_packages() {
 $packages = fetch_packages();
 ?>
 <style>
-.quote-table th, .quote-table td { vertical-align: top; }
+.quote-table th, .quote-table td { vertical-align: middle; }
 .add-btn { cursor: pointer; }
 .package-selector .dropdown-menu{min-width:260px;}
 .table thead th{background:#000;color:#fff;font-weight:bold;}

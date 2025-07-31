@@ -26,6 +26,7 @@ $html = $data['html'];
 <title>Quotation for <?= htmlspecialchars($data['name']) ?></title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <style>
+:root{--tbl-border:1px;}
 .hide-egp .egp,
 .hide-egp .egp-header,
 .hide-egp .vat-row,
@@ -35,8 +36,8 @@ $html = $data['html'];
 .hide-usd .vat-row th:nth-child(2),
 .hide-usd .total-vat-row th:nth-child(2){display:none;}
 .table thead th{background:#000;color:#fff;font-weight:bold;}
-.table-bordered{border-color:#000;}
-.table-bordered th,.table-bordered td{border-color:#000;}
+.table-bordered{border-color:#000;border-width:var(--tbl-border);}
+.table-bordered th,.table-bordered td{border-color:#000;border-width:var(--tbl-border);vertical-align:middle;}
 html,body{transition:font-size .2s;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
@@ -54,10 +55,12 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   btn.style.display = 'none';
   const root = document.documentElement;
   const prevRoot = root.style.fontSize;
+  const prevBorder = root.style.getPropertyValue('--tbl-border');
   const body = document.body;
   const prevBody = body.style.fontSize;
   root.style.fontSize = '50%';
   body.style.fontSize = '90%';
+  root.style.setProperty('--tbl-border','0.5px');
   const opt = {
     margin: 10,
     filename: `Table of Prices - ${clientName} - ${new Date().toISOString().slice(0,10)}.pdf`,
@@ -70,6 +73,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
       btn.style.display = '';
       root.style.fontSize = prevRoot;
       body.style.fontSize = prevBody;
+      root.style.setProperty('--tbl-border', prevBorder || '1px');
     });
   }, 100);
 });
