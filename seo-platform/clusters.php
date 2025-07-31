@@ -67,14 +67,16 @@ $clusters = [];
 $saved = false;
 $errorMsg = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_clusters'])) {
+if (isset($_GET['action']) && $_GET['action'] === 'run') {
+    $instructions = $_POST['instructions'] ?? '';
     $stmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ? ORDER BY id");
     $stmt->execute([$client_id]);
     $keywords = $stmt->fetchAll(PDO::FETCH_COLUMN);
     $input = implode("\n", $keywords);
 
     $descriptorspec = [0 => ['pipe','r'], 1 => ['pipe','w'], 2 => ['pipe','w']];
-    $process = proc_open('python3 clustering/run_cluster.py', $descriptorspec, $pipes, __DIR__);
+    $env = ['INSTRUCTIONS' => $instructions] + $_ENV;
+    $process = proc_open('python3 clustering/run_cluster.py', $descriptorspec, $pipes, __DIR__, $env);
     if (is_resource($process)) {
         fwrite($pipes[0], $input);
         fclose($pipes[0]);
@@ -83,17 +85,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_clusters']))
         $error = stream_get_contents($pipes[2]);
         fclose($pipes[2]);
         proc_close($process);
+        header('Content-Type: application/json');
         if ($error) {
-            $errorMsg = $error;
+            echo json_encode(['error' => $error]);
         } else {
             $clusters = json_decode($raw, true) ?: [];
+            echo json_encode(['clusters' => $clusters]);
         }
     } else {
-        $errorMsg = 'Could not run clustering script';
+        header('HTTP/1.1 500 Internal Server Error');
+        echo json_encode(['error' => 'Could not run clustering script']);
     }
+    exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_clusters'])) {
+
+if ((isset($_GET['action']) && $_GET['action'] === 'save') ||
+    ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_clusters']))) {
     $clusters = json_decode($_POST['clusters'] ?? '[]', true) ?: [];
     $update = $pdo->prepare("UPDATE keywords SET cluster_name = ? WHERE client_id = ? AND keyword = ?");
     foreach ($clusters as $cluster) {
@@ -104,6 +112,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_clusters'])) {
         }
     }
     updateKeywordStats($pdo, $client_id);
+    if (isset($_GET['action']) && $_GET['action'] === 'save') {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => true]);
+        exit;
+    }
     $saved = true;
 }
 
@@ -115,31 +128,87 @@ include 'header.php';
   <li class="nav-item"><a class="nav-link active" href="clusters.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>">Clusters</a></li>
 </ul>
 
-<form method="post">
-    <button type="submit" name="generate_clusters" class="btn btn-primary mb-3">Generate Clusters</button>
-</form>
-<?php if ($clusters): ?>
-<form method="post">
-    <input type="hidden" name="client_id" value="<?= $client_id ?>">
-    <input type="hidden" name="clusters" value='<?= htmlspecialchars(json_encode($clusters)) ?>'>
-    <button type="submit" name="save_clusters" class="btn btn-success mb-3">Save Clusters</button>
-</form>
-<div class="row">
-<?php foreach ($clusters as $i => $cluster): ?>
-  <div class="col-md-6">
-    <div class="card mb-3">
-      <div class="card-header">Cluster <?= $i+1 ?></div>
-      <ul class="list-group list-group-flush">
-      <?php foreach ($cluster as $kw): ?>
-        <li class="list-group-item"><?= htmlspecialchars($kw) ?></li>
-      <?php endforeach; ?>
-      </ul>
-    </div>
+<div class="mb-3">
+  <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#instructionsArea">Clustering Instructions</button>
+  <div class="collapse mt-2" id="instructionsArea">
+    <textarea id="instructions" class="form-control" rows="3" placeholder="Optional instructions"></textarea>
   </div>
-<?php endforeach; ?>
 </div>
-<?php endif; ?>
-<?php if ($saved): ?><p class="text-success">Clusters saved.</p><?php endif; ?>
-<?php if ($errorMsg): ?><pre class="text-danger"><?= htmlspecialchars($errorMsg) ?></pre><?php endif; ?>
+<button id="generateBtn" class="btn btn-primary mb-3">Generate Clusters</button>
+<div class="progress mb-3 d-none" id="progressWrap">
+  <div class="progress-bar progress-bar-striped progress-bar-animated" id="clusterProgress" style="width:0%"></div>
+</div>
+<form id="saveForm" method="post">
+  <input type="hidden" name="clusters" id="clustersInput">
+  <button type="button" id="saveBtn" class="btn btn-success mb-3" disabled>Save Clusters</button>
+</form>
+<div id="clustersContainer" class="row"></div>
+<div id="msgArea"></div>
+
+<script>
+function renderClusters(data) {
+  const wrap = document.getElementById('clustersContainer');
+  wrap.innerHTML = '';
+  data.forEach((cluster, idx) => {
+    const col = document.createElement('div');
+    col.className = 'col-md-6';
+    const card = document.createElement('div');
+    card.className = 'card mb-3';
+    const header = document.createElement('div');
+    header.className = 'card-header';
+    header.textContent = 'Cluster ' + (idx + 1);
+    const textarea = document.createElement('textarea');
+    textarea.className = 'form-control';
+    textarea.rows = 4;
+    textarea.value = cluster.join('\n');
+    card.appendChild(header);
+    card.appendChild(textarea);
+    col.appendChild(card);
+    wrap.appendChild(col);
+  });
+  document.getElementById('saveBtn').disabled = data.length === 0;
+}
+
+document.getElementById('generateBtn').addEventListener('click', function() {
+  const progressWrap = document.getElementById('progressWrap');
+  const bar = document.getElementById('clusterProgress');
+  progressWrap.classList.remove('d-none');
+  bar.style.width = '30%';
+  bar.textContent = 'Processing...';
+  const instructions = document.getElementById('instructions').value;
+  fetch('clusters.php?action=run&client_id=<?= $client_id ?>', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'instructions=' + encodeURIComponent(instructions)
+  }).then(r => r.json()).then(data => {
+    bar.style.width = '100%';
+    if (data.error) {
+      document.getElementById('msgArea').innerHTML = '<pre class="text-danger">'+data.error+'</pre>';
+    } else {
+      renderClusters(data.clusters);
+      document.getElementById('msgArea').innerHTML = '';
+    }
+    setTimeout(() => progressWrap.classList.add('d-none'), 500);
+  });
+});
+
+document.getElementById('saveBtn').addEventListener('click', function() {
+  const texts = Array.from(document.querySelectorAll('#clustersContainer textarea'));
+  const clusters = texts.map(t => t.value.split(/\n+/).map(s => s.trim()).filter(Boolean));
+  document.getElementById('clustersInput').value = JSON.stringify(clusters);
+  fetch('clusters.php?action=save&client_id=<?= $client_id ?>', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams(new FormData(document.getElementById('saveForm'))).toString()
+  }).then(r => r.json()).then(data => {
+    if (data.success) {
+      document.getElementById('msgArea').innerHTML = '<p class="text-success">Clusters saved.</p>';
+    } else {
+      document.getElementById('msgArea').innerHTML = '<pre class="text-danger">Save failed</pre>';
+    }
+  });
+});
+</script>
 
 <?php include 'footer.php';
+?>
