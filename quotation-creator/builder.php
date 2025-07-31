@@ -206,11 +206,19 @@ const editingExisting = <?= $existingHtml ? 'true' : 'false' ?>;
 let clientSlug='<?= $existingSlug ?>';
 let usdToEgp = 0;
 
-function updateRateFromRow(usd, egp){
-  if(!usdToEgp && usd>0 && egp>0){
-    usdToEgp = egp / usd;
+function computeInitialRate(){
+  const rates=[];
+  document.querySelectorAll('.package-selector .add-btn').forEach(btn=>{
+    const u=parseFloat(btn.dataset.usd);
+    const e=parseFloat(btn.dataset.egp);
+    if(u>0 && e>0) rates.push(e/u);
+  });
+  if(rates.length){
+    usdToEgp=rates.reduce((a,b)=>a+b,0)/rates.length;
   }
 }
+
+computeInitialRate();
 const defaultContent=`<ul>
 <li>Payment Terms: A 50% advance payment is required upon confirmation, with the remaining 50% due upon final delivery.</li>
 <li>Website Additional Costs: An annual server fee of $400 will be added to the total amount.</li>
@@ -280,7 +288,6 @@ function addRow(service, desc, usd, egp, table=currentTable){
   const tbody=table.querySelector('tbody');
   const tr=document.createElement('tr');
   const term='one-time';
-  updateRateFromRow(usd, egp);
   const initEgp = usdToEgp ? roundEgp(usd*usdToEgp) : egp;
   tr.innerHTML='<td><strong>'+cleanServiceName(service)+'</strong><br><button class="btn btn-sm btn-danger mt-1 remove-row-btn">&times;</button></td>'+
     '<td contenteditable="true">'+desc.replace(/\n/g,'<br>')+'</td>'+
@@ -328,7 +335,6 @@ function attachPriceListeners(tr, table){
   }
   const startUsd = parseFloat(usdCell.dataset.usd)||0;
   const startEgp = parseFloat(egpCell.dataset.egp)||0;
-  updateRateFromRow(startUsd, startEgp);
 
   function formatUsd(){
     usdCell.textContent='$'+formatNum(usdCell.dataset.usd);
