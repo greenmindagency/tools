@@ -73,11 +73,11 @@ $packages = fetch_packages();
 .table-handle{cursor:move;}
 /* larger space between tables */
 .quote-table{margin-bottom:3rem;table-layout:fixed;width:100%;}
-.quote-table th:nth-child(1),.quote-table td:nth-child(1){width:25%;}
-.quote-table th:nth-child(2),.quote-table td:nth-child(2){width:40%;}
-.quote-table th:nth-child(3),.quote-table td:nth-child(3){width:10%;text-align:center;}
-.quote-table th:nth-child(4),.quote-table td:nth-child(4){width:10%;text-align:center;}
-.quote-table th:nth-child(5),.quote-table td:nth-child(5){width:10%;text-align:center;}
+.quote-table th:nth-child(1),.quote-table td:nth-child(1){width:30%;}
+.quote-table th:nth-child(2),.quote-table td:nth-child(2){width:45%;}
+.quote-table th:nth-child(3),.quote-table td:nth-child(3){width:8%;text-align:center;}
+.quote-table th:nth-child(4),.quote-table td:nth-child(4){width:8%;text-align:center;}
+.quote-table th:nth-child(5),.quote-table td:nth-child(5){width:9%;text-align:center;}
 /* center the payment term and cost columns */
 .quote-table th:nth-child(3),
 .quote-table th:nth-child(4),
