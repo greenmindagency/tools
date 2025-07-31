@@ -203,13 +203,11 @@ const editingExisting = <?= $existingHtml ? 'true' : 'false' ?>;
 let clientSlug='<?= $existingSlug ?>';
 let usdToEgp = 0;
 
-function fetchRate(){
-  fetch('https://api.exchangerate.host/latest?base=USD&symbols=EGP')
-    .then(r=>r.json())
-    .then(d=>{if(d && d.rates && d.rates.EGP) usdToEgp=parseFloat(d.rates.EGP);})
-    .catch(()=>{});
+function updateRateFromRow(usd, egp){
+  if(!usdToEgp && usd>0 && egp>0){
+    usdToEgp = egp / usd;
+  }
 }
-fetchRate();
 const defaultContent=`<ul>
 <li>Payment Terms: A 50% advance payment is required upon confirmation, with the remaining 50% due upon final delivery.</li>
 <li>Website Additional Costs: An annual server fee of $400 will be added to the total amount.</li>
@@ -279,6 +277,7 @@ function addRow(service, desc, usd, egp, table=currentTable){
   const tbody=table.querySelector('tbody');
   const tr=document.createElement('tr');
   const term='one-time';
+  updateRateFromRow(usd, egp);
   const initEgp = usdToEgp ? usd*usdToEgp : egp;
   tr.innerHTML='<td><strong>'+cleanServiceName(service)+'</strong><br><button class="btn btn-sm btn-danger mt-1 remove-row-btn">&times;</button></td>'+
     '<td contenteditable="true">'+desc.replace(/\n/g,'<br>')+'</td>'+
@@ -317,9 +316,21 @@ function attachPriceListeners(tr, table){
   const usdCell=tr.querySelector('.usd');
   const egpCell=tr.querySelector('.egp');
   usdCell.setAttribute('contenteditable','true');
+
+  if(!usdCell.dataset.usd){
+    usdCell.dataset.usd = parseFloat(usdCell.textContent.replace(/[^0-9.]/g,'')) || 0;
+  }
+  if(!egpCell.dataset.egp){
+    egpCell.dataset.egp = parseFloat(egpCell.textContent.replace(/[^0-9.]/g,'')) || 0;
+  }
+  const startUsd = parseFloat(usdCell.dataset.usd)||0;
+  const startEgp = parseFloat(egpCell.dataset.egp)||0;
+  updateRateFromRow(startUsd, startEgp);
+
   function formatUsd(){
     usdCell.textContent='$'+formatNum(usdCell.dataset.usd);
   }
+
   usdCell.addEventListener('input',()=>{
     const val=parseFloat(usdCell.textContent.replace(/[^0-9.]/g,''))||0;
     usdCell.dataset.usd=val;
@@ -329,11 +340,13 @@ function attachPriceListeners(tr, table){
     updateTotals(table);
   });
   usdCell.addEventListener('blur',formatUsd);
-  const startVal=parseFloat(usdCell.dataset.usd)||0;
+
   if(usdToEgp){
-    const egpVal=startVal*usdToEgp;
+    const egpVal=startUsd*usdToEgp;
     egpCell.dataset.egp=egpVal;
     egpCell.textContent='EGP '+formatNum(egpVal);
+  } else if(startEgp){
+    egpCell.textContent='EGP '+formatNum(startEgp);
   }
   formatUsd();
 }
