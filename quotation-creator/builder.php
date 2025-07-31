@@ -195,6 +195,22 @@ new Sortable(tablesContainer,{animation:150,handle:'.table-handle'});
 let currentTable=null;
 const editingExisting = <?= $existingHtml ? 'true' : 'false' ?>;
 let clientSlug='<?= $existingSlug ?>';
+const defaultContent=`<ul>
+<li>Payment Terms: A 50% advance payment is required upon confirmation, with the remaining 50% due upon final delivery.</li>
+<li>Website Additional Costs: An annual server fee of $400 will be added to the total amount.</li>
+<li>Website Estimated Timeline: The estimated completion time is 1 month</li>
+<li>Branding Estimated Timeline: The estimated completion time is 1 month</li>
+<li>VAT Policy: A 0% VAT applies if payment is made from outside Egypt in USD. A 14% VAT will be applied if payment is made within Egypt by an Egyptian company.</li>
+</ul>
+<p>Bank Details<br>
+Bank Name: Commercial International Bank (CIB)<br>
+Account Number (EGP): 100024157727<br>
+IBAN Account Number (EGP): EG390010011900000100024157727<br>
+Account Number (USD): 100024157754<br>
+IBAN Account Number (USD): EG860010011900000100024157754<br>
+Name: Green Mind Company<br>
+Bank Address: Financial Area – Zone F10 B211 km 28 Cairo Alex Road, Egypt<br>
+Swift Code: CIBEEGCX119</p>`;
 
 function createTable(){
   const table=document.createElement('table');
@@ -217,6 +233,7 @@ function createTable(){
 }
 
 function createContentBlock(html=''){
+  if(!html) html = defaultContent;
   const block=document.createElement('div');
   block.className='content-block';
   block.innerHTML=`<div class="content-toolbar">
@@ -319,6 +336,11 @@ function restoreExisting(){
   addBtn.id='addTableBtn';
   addBtn.className='btn btn-primary btn-sm mb-3 me-2';
   addBtn.innerHTML='&#43; Add Table';
+  if(!contentContainer){
+    contentContainer=document.createElement('div');
+    contentContainer.id='contentContainer';
+    qa.appendChild(contentContainer);
+  }
   qa.appendChild(addBtn);
   addBtn.addEventListener('click',()=>{createTable();});
   const addContent=document.createElement('button');
