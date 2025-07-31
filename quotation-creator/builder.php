@@ -229,7 +229,7 @@ const defaultContent=`<b>Terms</b><br><ul>
 <li>Branding Estimated Timeline: The estimated completion time is 1 month</li>
 <li>VAT Policy: A 0% VAT applies if payment is made from outside Egypt in USD. A 14% VAT will be applied if payment is made within Egypt by an Egyptian company.</li>
 </ul>
-<b>Bank Details</b>
+<b>Bank Details</b><br>
   <p>
 Bank Name: Commercial International Bank (CIB)<br>
 Account Number (EGP): 100024157727<br>
