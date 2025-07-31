@@ -16,7 +16,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["keywords"])) {
         fwrite($pipes[0], $keywords);  // send to stdin
         fclose($pipes[0]);
 
-        $output = stream_get_contents($pipes[1]);  // get stdout
+        $raw = stream_get_contents($pipes[1]);  // get stdout
         fclose($pipes[1]);
 
         $error = stream_get_contents($pipes[2]);  // get stderr
@@ -26,6 +26,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["keywords"])) {
 
         if ($error) {
             $output = "❌ Python Error:\n" . $error;
+        } else {
+            $clusters = json_decode($raw, true);
+            if (is_array($clusters)) {
+                $output = "";
+                foreach ($clusters as $i => $cluster) {
+                    $output .= "Cluster " . ($i+1) . ":\n";
+                    foreach ($cluster as $kw) {
+                        $output .= "  - " . $kw . "\n";
+                    }
+                    $output .= "\n";
+                }
+            } else {
+                $output = $raw;
+            }
         }
     } else {
         $output = "❌ Could not run Python script.";
