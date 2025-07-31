@@ -229,7 +229,8 @@ const defaultContent=`<b>Terms</b><br><ul>
 <li>Branding Estimated Timeline: The estimated completion time is 1 month</li>
 <li>VAT Policy: A 0% VAT applies if payment is made from outside Egypt in USD. A 14% VAT will be applied if payment is made within Egypt by an Egyptian company.</li>
 </ul>
-<b>Bank Details<b><br>
+<b>Bank Details</b>
+  <p>
 Bank Name: Commercial International Bank (CIB)<br>
 Account Number (EGP): 100024157727<br>
 IBAN Account Number (EGP): EG390010011900000100024157727<br>
@@ -237,7 +238,8 @@ Account Number (USD): 100024157754<br>
 IBAN Account Number (USD): EG860010011900000100024157754<br>
 Name: Green Mind Company<br>
 Bank Address: Financial Area – Zone F10 B211 km 28 Cairo Alex Road, Egypt<br>
-Swift Code: CIBEEGCX119`;
+Swift Code: CIBEEGCX119
+  </p>`;
 
 const colgroupTemplate=`<colgroup>
   <col style="width:25%">
