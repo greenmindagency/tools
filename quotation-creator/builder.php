@@ -201,6 +201,15 @@ new Sortable(tablesContainer,{animation:150,handle:'.table-handle'});
 let currentTable=null;
 const editingExisting = <?= $existingHtml ? 'true' : 'false' ?>;
 let clientSlug='<?= $existingSlug ?>';
+let usdToEgp = 0;
+
+function fetchRate(){
+  fetch('https://api.exchangerate.host/latest?base=USD&symbols=EGP')
+    .then(r=>r.json())
+    .then(d=>{if(d && d.rates && d.rates.EGP) usdToEgp=parseFloat(d.rates.EGP);})
+    .catch(()=>{});
+}
+fetchRate();
 const defaultContent=`<ul>
 <li>Payment Terms: A 50% advance payment is required upon confirmation, with the remaining 50% due upon final delivery.</li>
 <li>Website Additional Costs: An annual server fee of $400 will be added to the total amount.</li>
@@ -270,15 +279,17 @@ function addRow(service, desc, usd, egp, table=currentTable){
   const tbody=table.querySelector('tbody');
   const tr=document.createElement('tr');
   const term='one-time';
+  const initEgp = usdToEgp ? usd*usdToEgp : egp;
   tr.innerHTML='<td><strong>'+cleanServiceName(service)+'</strong><br><button class="btn btn-sm btn-danger mt-1 remove-row-btn">&times;</button></td>'+
     '<td contenteditable="true">'+desc.replace(/\n/g,'<br>')+'</td>'+
     '<td class="text-center"><select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select></td>'+
-    '<td class="usd text-center" data-usd="'+usd+'">$'+formatNum(usd)+'</td>'+
-    '<td class="egp text-center" data-egp="'+egp+'">EGP '+formatNum(egp)+'</td>';
+    '<td class="usd text-center" contenteditable="true" data-usd="'+usd+'">$'+formatNum(usd)+'</td>'+
+    '<td class="egp text-center" data-egp="'+initEgp+'">EGP '+formatNum(initEgp)+'</td>';
   tr.querySelector('.term-select').value=term;
   tr.querySelector('.remove-row-btn').addEventListener('click', ()=>{tr.remove();updateTotals(table);});
   tr.querySelector('.term-select').addEventListener('change',()=>updateTotals(table));
   tbody.appendChild(tr);
+  attachPriceListeners(tr, table);
   updateTotals(table);
 }
 function updateTotals(table=currentTable){
@@ -300,6 +311,31 @@ function updateTotals(table=currentTable){
     currentTable=tablesContainer.querySelector('table.quote-table');
 
   }
+}
+
+function attachPriceListeners(tr, table){
+  const usdCell=tr.querySelector('.usd');
+  const egpCell=tr.querySelector('.egp');
+  usdCell.setAttribute('contenteditable','true');
+  function formatUsd(){
+    usdCell.textContent='$'+formatNum(usdCell.dataset.usd);
+  }
+  usdCell.addEventListener('input',()=>{
+    const val=parseFloat(usdCell.textContent.replace(/[^0-9.]/g,''))||0;
+    usdCell.dataset.usd=val;
+    const egpVal=usdToEgp?val*usdToEgp:0;
+    egpCell.dataset.egp=egpVal;
+    egpCell.textContent='EGP '+formatNum(egpVal);
+    updateTotals(table);
+  });
+  usdCell.addEventListener('blur',formatUsd);
+  const startVal=parseFloat(usdCell.dataset.usd)||0;
+  if(usdToEgp){
+    const egpVal=startVal*usdToEgp;
+    egpCell.dataset.egp=egpVal;
+    egpCell.textContent='EGP '+formatNum(egpVal);
+  }
+  formatUsd();
 }
 document.querySelectorAll('.add-btn').forEach(btn=>{
   btn.addEventListener('click',()=>{
@@ -394,11 +430,12 @@ function restoreExisting(){
       serviceCell.appendChild(removeBtn);
       const termCell=tr.cells[2];
       const termText=termCell.textContent.trim().toLowerCase().includes('month')?'monthly':'one-time';
-      termCell.innerHTML='<select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select>';
-      termCell.querySelector('select').value=termText;
-      termCell.querySelector('select').addEventListener('change',()=>updateTotals(table));
-    });
-    updateTotals(table);
+    termCell.innerHTML='<select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select>';
+    termCell.querySelector('select').value=termText;
+    termCell.querySelector('select').addEventListener('change',()=>updateTotals(table));
+      attachPriceListeners(tr, table);
+  });
+  updateTotals(table);
   });
   currentTable=document.querySelector('table.quote-table');
 
