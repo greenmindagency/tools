@@ -39,11 +39,11 @@ $html = $data['html'];
 .table-bordered{border-color:#000;border-width:var(--tbl-border);}
 .table-bordered th,.table-bordered td{border-color:#000;border-width:var(--tbl-border);vertical-align:middle; border: 1px;}
 .quote-table{table-layout:fixed;width:100%;}
-.quote-table th:nth-child(1),.quote-table td:nth-child(1){width:20%;}
-.quote-table th:nth-child(2),.quote-table td:nth-child(2){width:35%;}
-.quote-table th:nth-child(3),.quote-table td:nth-child(3){width:15%;text-align:center;}
-.quote-table th:nth-child(4),.quote-table td:nth-child(4){width:15%;text-align:center;}
-.quote-table th:nth-child(5),.quote-table td:nth-child(5){width:15%;text-align:center;}
+.quote-table th:nth-child(1),.quote-table td:nth-child(1){width:30%;}
+.quote-table th:nth-child(2),.quote-table td:nth-child(2){width:45%;}
+.quote-table th:nth-child(3),.quote-table td:nth-child(3){width:8%;text-align:center;}
+.quote-table th:nth-child(4),.quote-table td:nth-child(4){width:8%;text-align:center;}
+.quote-table th:nth-child(5),.quote-table td:nth-child(5){width:9%;text-align:center;}
 html,body{transition:font-size .2s;}
 .content-block{border:1px dashed #ccc;padding:10px;min-height:60px;margin-bottom:1rem;}
 </style>
