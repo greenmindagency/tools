@@ -218,10 +218,18 @@ Name: Green Mind Company<br>
 Bank Address: Financial Area – Zone F10 B211 km 28 Cairo Alex Road, Egypt<br>
 Swift Code: CIBEEGCX119</p>`;
 
+const colgroupTemplate=`<colgroup>
+  <col style="width:20%">
+  <col style="width:35%">
+  <col style="width:15%">
+  <col style="width:15%">
+  <col style="width:15%">
+</colgroup>`;
+
 function createTable(){
   const table=document.createElement('table');
   table.className='table table-bordered quote-table mb-5';
-  table.innerHTML=`<thead>
+  table.innerHTML=`${colgroupTemplate}<thead>
     <tr class="bg-light"><th colspan="5" class="text-end">
       <span class="table-handle me-2" style="cursor:move">&#9776;</span>
       <button class="btn btn-sm btn-danger remove-table-btn">&minus;</button>
@@ -362,6 +370,9 @@ function restoreExisting(){
   });
   document.querySelectorAll('#quote-area table').forEach(table=>{
     table.classList.add('table','table-bordered','quote-table','mb-5');
+    if(!table.querySelector('colgroup')){
+      table.insertAdjacentHTML('afterbegin', colgroupTemplate);
+    }
     const thead=table.querySelector('thead');
     const headRow=document.createElement('tr');
     headRow.className='bg-light';
@@ -419,7 +430,7 @@ function saveQuote(publish){
   const origSelects=quoteArea.querySelectorAll('.term-select');
   const clonedSelects=clone.querySelectorAll('.term-select');
   clonedSelects.forEach((sel,i)=>{sel.value=origSelects[i].value;});
-  clone.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .remove-row-btn, #addTableBtn, #addContentBtn, .content-toolbar').forEach(el=>el.remove());
+  clone.querySelectorAll('.remove-table-btn, .quote-table thead tr.bg-light, .remove-row-btn, #addTableBtn, #addContentBtn, .content-toolbar, colgroup').forEach(el=>el.remove());
   clone.querySelectorAll('.term-select').forEach(sel=>{
     const td=sel.parentElement;
     td.textContent=sel.options[sel.selectedIndex].textContent;
