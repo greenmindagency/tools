@@ -190,6 +190,9 @@ function updateHeader(){
 function formatNum(num){
   return Number(num).toLocaleString('en-US');
 }
+function roundEgp(val){
+  return Math.round(val/100)*100;
+}
 
 function cleanServiceName(name){
   return name.replace(/\bPrices\b/i,'').trim();
@@ -278,7 +281,7 @@ function addRow(service, desc, usd, egp, table=currentTable){
   const tr=document.createElement('tr');
   const term='one-time';
   updateRateFromRow(usd, egp);
-  const initEgp = usdToEgp ? usd*usdToEgp : egp;
+  const initEgp = usdToEgp ? roundEgp(usd*usdToEgp) : egp;
   tr.innerHTML='<td><strong>'+cleanServiceName(service)+'</strong><br><button class="btn btn-sm btn-danger mt-1 remove-row-btn">&times;</button></td>'+
     '<td contenteditable="true">'+desc.replace(/\n/g,'<br>')+'</td>'+
     '<td class="text-center"><select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select></td>'+
@@ -334,7 +337,7 @@ function attachPriceListeners(tr, table){
   usdCell.addEventListener('input',()=>{
     const val=parseFloat(usdCell.textContent.replace(/[^0-9.]/g,''))||0;
     usdCell.dataset.usd=val;
-    const egpVal=usdToEgp?val*usdToEgp:0;
+    const egpVal=usdToEgp?roundEgp(val*usdToEgp):0;
     egpCell.dataset.egp=egpVal;
     egpCell.textContent='EGP '+formatNum(egpVal);
     updateTotals(table);
@@ -342,7 +345,7 @@ function attachPriceListeners(tr, table){
   usdCell.addEventListener('blur',formatUsd);
 
   if(usdToEgp){
-    const egpVal=startUsd*usdToEgp;
+    const egpVal=roundEgp(startUsd*usdToEgp);
     egpCell.dataset.egp=egpVal;
     egpCell.textContent='EGP '+formatNum(egpVal);
   } else if(startEgp){
