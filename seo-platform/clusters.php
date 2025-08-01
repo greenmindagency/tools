@@ -242,6 +242,11 @@ Group commercial keywords (like company, agency, services) **together only when 
 let currentClusters = [];
 let orderMap = {};
 let loadedKeywords = [];
+const filterTerms = (document.getElementById('clusterFilter').value || '')
+  .toLowerCase()
+  .split('|')
+  .map(s => s.trim())
+  .filter(Boolean);
 
 function escapeHtml(str) {
   return str
@@ -403,7 +408,10 @@ function renderClusters(data) {
     const textDiv = document.createElement('div');
     textDiv.className = 'form-control cluster-edit';
     textDiv.contentEditable = 'true';
-    textDiv.innerHTML = cluster.map(k => `<div>${escapeHtml(k)}</div>`).join('');
+    textDiv.innerHTML = cluster.map(k => {
+      const match = filterTerms.some(t => k.toLowerCase().includes(t));
+      return `<div${match ? ' class="bg-warning-subtle"' : ''}>${escapeHtml(k)}</div>`;
+    }).join('');
     textDiv.addEventListener('input', function() {
       const lines = getLines(this);
       countSpan.textContent = lines.length;
