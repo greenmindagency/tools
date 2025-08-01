@@ -37,11 +37,13 @@ for kw in keywords:
             continue
     unassigned.append(kw)
 
+unclustered_out = []
+
 # Cluster any remaining keywords among themselves
 if unassigned:
     X = vectorizer.transform(unassigned)
     if X.shape[0] == 1:
-        assigned.append([unassigned[0]])
+        unclustered_out.append(unassigned[0])
     else:
         n_clusters = max(2, len(unassigned) // 3)
         n_clusters = min(n_clusters, len(unassigned))
@@ -70,5 +72,30 @@ if unassigned:
         ordered = sorted(clusters, key=lambda lbl: min(label_indices[lbl]))
         assigned.extend(clusters[lbl] for lbl in ordered)
 
-print(json.dumps(assigned, ensure_ascii=False))
+# Try to merge or uncluster any single-keyword clusters
+singles = [(i, c[0]) for i, c in enumerate(assigned) if len(c) == 1]
+for idx, kw in singles:
+    if not assigned[idx] or len(assigned[idx]) != 1:
+        continue
+    vec = vectorizer.transform([kw])
+    best_idx = -1
+    best_sim = 0.0
+    for j, cluster in enumerate(assigned):
+        if j == idx or not cluster:
+            continue
+        vecs = vectorizer.transform(cluster)
+        centroid = vecs.mean(axis=0)
+        sim = cosine_similarity(vec, centroid)[0][0]
+        if sim > best_sim:
+            best_sim = sim
+            best_idx = j
+    if best_idx >= 0 and best_sim >= 0.3:
+        assigned[best_idx].append(kw)
+    else:
+        unclustered_out.append(kw)
+    assigned[idx] = None
+
+assigned = [c for c in assigned if c]
+
+print(json.dumps({"clusters": assigned, "unclustered": unclustered_out}, ensure_ascii=False))
 

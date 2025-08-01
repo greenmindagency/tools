@@ -63,7 +63,7 @@ function updateKeywordStats(PDO $pdo, int $client_id): void {
     ]);
 }
 
-function loadClusters(PDO $pdo, int $client_id): array {
+function loadClusters(PDO $pdo, int $client_id, array &$singles = []): array {
     $stmt = $pdo->prepare(
         "SELECT keyword, cluster_name FROM keywords WHERE client_id = ? AND cluster_name <> '' ORDER BY id"
     );
@@ -72,7 +72,27 @@ function loadClusters(PDO $pdo, int $client_id): array {
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $clusters[$row['cluster_name']][] = $row['keyword'];
     }
-    return array_values($clusters);
+    $result = [];
+    foreach ($clusters as $cluster) {
+        if (count($cluster) > 1) {
+            $result[] = $cluster;
+        } else {
+            $singles[] = $cluster[0];
+        }
+    }
+    return $result;
+}
+
+function loadAllKeywords(PDO $pdo, int $client_id): array {
+    $stmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ? ORDER BY id");
+    $stmt->execute([$client_id]);
+    return $stmt->fetchAll(PDO::FETCH_COLUMN);
+}
+
+function loadUnclustered(PDO $pdo, int $client_id): array {
+    $stmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ? AND cluster_name = '' ORDER BY id");
+    $stmt->execute([$client_id]);
+    return $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
 
 function loadAllKeywords(PDO $pdo, int $client_id): array {
@@ -89,16 +109,20 @@ function loadUnclustered(PDO $pdo, int $client_id): array {
 
 $action = $_GET['action'] ?? '';
 if ($action === 'list') {
+    $singles = [];
+    $clusters = loadClusters($pdo, $client_id, $singles);
+    $unclustered = array_merge(loadUnclustered($pdo, $client_id), $singles);
     echo json_encode([
-        'clusters' => loadClusters($pdo, $client_id),
-        'unclustered' => loadUnclustered($pdo, $client_id),
+        'clusters' => $clusters,
+        'unclustered' => $unclustered,
         'allKeywords' => loadAllKeywords($pdo, $client_id)
     ]);
     exit;
 }
 if ($action === 'run' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    $existing = loadClusters($pdo, $client_id);
-    $unclustered = loadUnclustered($pdo, $client_id);
+    $singles = [];
+    $existing = loadClusters($pdo, $client_id, $singles);
+    $unclustered = array_merge(loadUnclustered($pdo, $client_id), $singles);
     if (!$unclustered) {
         echo json_encode(['clusters' => $existing, 'unclustered' => []]);
         exit;
@@ -121,7 +145,10 @@ if ($action === 'run' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['error' => $error]);
         } else {
             $new = json_decode($raw, true) ?: [];
-            echo json_encode(['clusters' => $new, 'unclustered' => []]);
+            echo json_encode([
+                'clusters' => $new['clusters'] ?? [],
+                'unclustered' => $new['unclustered'] ?? []
+            ]);
         }
     } else {
         echo json_encode(['error' => 'Could not run clustering script']);
@@ -130,7 +157,14 @@ if ($action === 'run' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    $clusters = json_decode($_POST['clusters'] ?? '[]', true) ?: [];
+    $raw = json_decode($_POST['clusters'] ?? '[]', true) ?: [];
+    $clusters = [];
+    foreach ($raw as $cluster) {
+        $cluster = array_values(array_filter($cluster, fn($s) => $s !== ''));
+        if (count($cluster) > 1) {
+            $clusters[] = $cluster;
+        }
+    }
     $seen = [];
     $dupes = [];
     foreach ($clusters as $cluster) {
@@ -176,7 +210,8 @@ if ($action === 'clear' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-$clusters = loadClusters($pdo, $client_id);
+$tempSingles = [];
+$clusters = loadClusters($pdo, $client_id, $tempSingles);
 
 include 'header.php';
 ?>
