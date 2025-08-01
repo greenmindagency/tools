@@ -206,7 +206,7 @@ Group commercial keywords (like company, agency, services) **together only when 
 </div>
 <div id="statusBar" class="alert alert-info"></div>
 <div id="msgArea"></div>
-<div id="clustersContainer" class="row"></div>
+<div id="clustersContainer"></div>
 
 <script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
 <script>
@@ -252,21 +252,19 @@ function renderClusters(data) {
     titleSpan.textContent = cluster[0] || 'Unnamed';
     header.appendChild(countSpan);
     header.appendChild(titleSpan);
-    const textarea = document.createElement('textarea');
-    textarea.className = 'form-control';
-    textarea.value = cluster.join('\n');
-    textarea.style.height = 'auto';
-    textarea.style.height = textarea.scrollHeight + 'px';
-    textarea.addEventListener('input', function() {
-      this.style.height = 'auto';
-      this.style.height = this.scrollHeight + 'px';
-      const lines = this.value.split(/\n+/).map(s => s.trim()).filter(Boolean);
+    const textDiv = document.createElement('div');
+    textDiv.className = 'form-control cluster-edit';
+    textDiv.contentEditable = 'true';
+    textDiv.style.whiteSpace = 'pre';
+    textDiv.textContent = cluster.join('\n');
+    textDiv.addEventListener('input', function() {
+      const lines = this.innerText.split(/\n+/).map(s => s.trim()).filter(Boolean);
       countSpan.textContent = lines.length;
       titleSpan.textContent = lines[0] || 'Unnamed';
       if (window.msnry) window.msnry.layout();
     });
     card.appendChild(header);
-    card.appendChild(textarea);
+    card.appendChild(textDiv);
     col.appendChild(card);
     wrap.appendChild(col);
   });
@@ -340,8 +338,8 @@ document.getElementById('addClusterBtn').addEventListener('click', function() {
 
 document.getElementById('saveBtn').addEventListener('click', function() {
   const msgArea = document.getElementById('msgArea');
-  const texts = Array.from(document.querySelectorAll('#clustersContainer textarea'));
-  let clusters = texts.map(t => t.value.split(/\n+/).map(s => s.trim()).filter(Boolean));
+  const texts = Array.from(document.querySelectorAll('#clustersContainer .cluster-edit'));
+  let clusters = texts.map(t => t.innerText.split(/\n+/).map(s => s.trim()).filter(Boolean));
   clusters = clusters.map(sortCluster);
   const seen = {};
   const dupes = [];
