@@ -107,7 +107,8 @@ if ($action === 'run' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $instructions = $_POST['instructions'] ?? '';
 
     $descriptorspec = [0 => ['pipe','r'], 1 => ['pipe','w'], 2 => ['pipe','w']];
-    $process = proc_open('python3 clustering/run_cluster.py', $descriptorspec, $pipes, __DIR__, ['INSTRUCTIONS' => $instructions]);
+    $env = ['INSTRUCTIONS' => $instructions, 'EXISTING' => json_encode($existing)];
+    $process = proc_open('python3 clustering/run_cluster.py', $descriptorspec, $pipes, __DIR__, $env);
     if (is_resource($process)) {
         fwrite($pipes[0], $input);
         fclose($pipes[0]);
@@ -120,7 +121,7 @@ if ($action === 'run' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['error' => $error]);
         } else {
             $new = json_decode($raw, true) ?: [];
-            echo json_encode(['clusters' => array_merge($existing, $new), 'unclustered' => []]);
+            echo json_encode(['clusters' => $new, 'unclustered' => []]);
         }
     } else {
         echo json_encode(['error' => 'Could not run clustering script']);
