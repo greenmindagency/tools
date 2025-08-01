@@ -197,6 +197,14 @@ if ($action === 'clear' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
+if ($action === 'remove_unclustered' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $pdo->prepare("DELETE FROM keywords WHERE client_id = ? AND cluster_name = ''")
+        ->execute([$client_id]);
+    updateKeywordStats($pdo, $client_id);
+    echo json_encode(['success' => true, 'unclustered' => loadUnclustered($pdo, $client_id)]);
+    exit;
+}
+
 include 'header.php';
 ?>
 <ul class="nav nav-tabs mb-3">
@@ -220,6 +228,7 @@ Group commercial keywords (like company, agency, services) **together only when 
     <button id="addClusterBtn" class="btn btn-secondary me-2">+ Add Cluster</button>
     <button id="generateBtn" class="btn btn-primary">Generate Clusters</button>
     <button id="saveBtn" class="btn btn-success" disabled>Save Clusters</button>
+    <button id="removeUnclusteredBtn" class="btn btn-warning me-2">Remove Unclustered Keywords</button>
     <button id="clearBtn" class="btn btn-danger">Clear Clusters</button>
   </div>
   <form id="clusterFilterForm" method="GET" class="d-flex">
@@ -531,8 +540,20 @@ document.getElementById('saveBtn').addEventListener('click', function() {
   saveClusters(clusters, singles);
 });
 
+document.getElementById('removeUnclusteredBtn').addEventListener('click', function() {
+  if (!confirm('Remove all unclustered keywords?')) return;
+  fetch('clusters.php?action=remove_unclustered&client_id=<?= $client_id ?>', {method:'POST'})
+    .then(r => r.json()).then(data => {
+      if (data.success) {
+        const singles = processClusters(currentClusters).singles;
+        updateStatusBar(data.unclustered || [], singles);
+        document.getElementById('msgArea').innerHTML = '<p class="text-success">Unclustered keywords removed.</p>';
+      }
+    });
+});
+
 document.getElementById('clearBtn').addEventListener('click', function() {
-  if (!confirm('Remove all clusters?')) return;
+  if (!confirm('Are you sure you want to remove all clusters?')) return;
   fetch('clusters.php?action=clear&client_id=<?= $client_id ?>', {method:'POST'})
     .then(r => r.json()).then(data => {
       if (data.success) {
