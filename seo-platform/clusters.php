@@ -206,9 +206,9 @@ Group commercial keywords (like company, agency, services) **together only when 
 </div>
 <div id="statusBar" class="alert alert-info"></div>
 <div id="msgArea"></div>
-<div id="clustersContainer"></div>
+<div id="clustersContainer" class="row" data-masonry='{"percentPosition": true }'></div>
 
-<script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/masonry-layout@4.2.2/dist/masonry.pkgd.min.js" integrity="sha384-GNFwBvfVxBkLMJpYMOABq3c+d3KnQxudP/mGPkzpZSTYykLBNsZEnG2D9G/X/+7D" crossorigin="anonymous" async onload="applyMasonry()"></script>
 <script>
 let currentClusters = [];
 let orderMap = {};
@@ -233,16 +233,22 @@ function updateStatusBar(unclustered) {
   }
 }
 
+function applyMasonry() {
+  const wrap = document.getElementById('clustersContainer');
+  if (!window.Masonry) return;
+  if (window.msnry) window.msnry.destroy();
+  window.msnry = new Masonry(wrap, {itemSelector: '.col-md-4', percentPosition: true});
+}
+
 function renderClusters(data) {
   currentClusters = data.map(sortCluster);
   const wrap = document.getElementById('clustersContainer');
   wrap.innerHTML = '';
   currentClusters.forEach(cluster => {
     const col = document.createElement('div');
-    col.className = 'cluster-item';
-    col.style.width = '33.333%';
+    col.className = 'col-md-4 mb-4';
     const card = document.createElement('div');
-    card.className = 'card mb-3';
+    card.className = 'card';
     const header = document.createElement('div');
     header.className = 'card-header d-flex align-items-center';
     const countSpan = document.createElement('span');
@@ -269,8 +275,7 @@ function renderClusters(data) {
     wrap.appendChild(col);
   });
   document.getElementById('saveBtn').disabled = currentClusters.length === 0;
-  if (window.msnry) window.msnry.destroy();
-  window.msnry = new Masonry(wrap, {itemSelector: '.cluster-item', columnWidth: '.cluster-item', percentPosition: true});
+  applyMasonry();
 }
 
 document.addEventListener('DOMContentLoaded', function() {
