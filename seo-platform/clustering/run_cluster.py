@@ -41,5 +41,6 @@ for lbl in list(clusters.keys()):
         del clusters[lbl]
         del label_indices[lbl]
 
-ordered = [kws for _, kws in sorted(clusters.items())]
+ordered_labels = sorted(clusters, key=lambda lbl: min(label_indices[lbl]))
+ordered = [clusters[lbl] for lbl in ordered_labels]
 print(json.dumps(ordered, ensure_ascii=False))

@@ -65,7 +65,7 @@ function updateKeywordStats(PDO $pdo, int $client_id): void {
 
 function loadClusters(PDO $pdo, int $client_id): array {
     $stmt = $pdo->prepare(
-        "SELECT keyword, cluster_name FROM keywords WHERE client_id = ? AND cluster_name <> '' ORDER BY cluster_name, id"
+        "SELECT keyword, cluster_name FROM keywords WHERE client_id = ? AND cluster_name <> '' ORDER BY id"
     );
     $stmt->execute([$client_id]);
     $clusters = [];
@@ -155,14 +155,6 @@ if ($action === 'clear' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-if ($action === 'clear' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    $pdo->prepare("UPDATE keywords SET cluster_name = '' WHERE client_id = ?")
-        ->execute([$client_id]);
-    updateKeywordStats($pdo, $client_id);
-    echo json_encode(['success' => true]);
-    exit;
-}
-
 $clusters = loadClusters($pdo, $client_id);
 
 include 'header.php';
@@ -200,19 +192,26 @@ function renderClusters(data) {
   wrap.innerHTML = '';
   data.forEach(cluster => {
     const col = document.createElement('div');
-    col.className = 'col-md-6';
+    col.className = 'col-md-4';
     const card = document.createElement('div');
     card.className = 'card mb-3';
     const header = document.createElement('div');
-    header.className = 'card-header';
-    header.textContent = cluster[0] || 'Unnamed';
+    header.className = 'card-header d-flex align-items-center';
+    const countSpan = document.createElement('span');
+    countSpan.className = 'badge bg-secondary me-2';
+    countSpan.textContent = cluster.length;
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = cluster[0] || 'Unnamed';
+    header.appendChild(countSpan);
+    header.appendChild(titleSpan);
     const textarea = document.createElement('textarea');
     textarea.className = 'form-control';
     textarea.rows = 4;
     textarea.value = cluster.join('\n');
     textarea.addEventListener('input', function() {
-      const first = this.value.split(/\n+/).map(s => s.trim()).filter(Boolean)[0] || 'Unnamed';
-      header.textContent = first;
+      const lines = this.value.split(/\n+/).map(s => s.trim()).filter(Boolean);
+      countSpan.textContent = lines.length;
+      titleSpan.textContent = lines[0] || 'Unnamed';
     });
     card.appendChild(header);
     card.appendChild(textarea);
