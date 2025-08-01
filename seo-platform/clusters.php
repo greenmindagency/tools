@@ -196,11 +196,17 @@ Group commercial keywords (like company, agency, services) **together only when 
   </div>
 </div>
 
-<div class="mb-3">
-  <button id="addClusterBtn" class="btn btn-secondary me-2">+ Add Cluster</button>
-  <button id="generateBtn" class="btn btn-primary">Generate Clusters</button>
-  <button id="saveBtn" class="btn btn-success" disabled>Save Clusters</button>
-  <button id="clearBtn" class="btn btn-danger">Clear Clusters</button>
+<div class="mb-3 d-flex justify-content-between">
+  <div>
+    <button id="addClusterBtn" class="btn btn-secondary me-2">+ Add Cluster</button>
+    <button id="generateBtn" class="btn btn-primary">Generate Clusters</button>
+    <button id="saveBtn" class="btn btn-success" disabled>Save Clusters</button>
+    <button id="clearBtn" class="btn btn-danger">Clear Clusters</button>
+  </div>
+  <form id="clusterFilterForm" class="d-flex" onsubmit="return false;">
+    <input type="text" id="clusterFilter" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
+    <a href="#" id="clearFilter" class="btn btn-outline-secondary btn-sm ms-1 d-flex align-items-center" title="Clear filter"><i class="bi bi-x-lg"></i></a>
+  </form>
 </div>
 <div id="progressWrap" class="progress mb-3 d-none">
   <div id="clusterProgress" class="progress-bar" role="progressbar" style="width:0%">0%</div>
@@ -209,10 +215,27 @@ Group commercial keywords (like company, agency, services) **together only when 
 <div id="msgArea"></div>
 <div id="clustersContainer" class="row" data-masonry='{"percentPosition": true }'></div>
 
+<style>
+  .filter-hl { background-color: #fff3cd; }
+</style>
+
 <script src="https://cdn.jsdelivr.net/npm/masonry-layout@4.2.2/dist/masonry.pkgd.min.js" integrity="sha384-GNFwBvfVxBkLMJpYMOABq3c+d3KnQxudP/mGPkzpZSTYykLBNsZEnG2D9G/X/+7D" crossorigin="anonymous" async onload="applyMasonry()"></script>
 <script>
 let currentClusters = [];
 let orderMap = {};
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function setOrder(list) {
   orderMap = {};
@@ -272,6 +295,30 @@ function applyMasonry() {
   window.msnry = new Masonry(wrap, {itemSelector: '.col-md-4', percentPosition: true});
 }
 
+function applyFilter() {
+  const input = document.getElementById('clusterFilter');
+  if (!input) return;
+  const terms = input.value.toLowerCase().split('|').map(s => s.trim()).filter(Boolean);
+  const cols = Array.from(document.querySelectorAll('#clustersContainer .col-md-4'));
+  cols.forEach(col => {
+    const textDiv = col.querySelector('.cluster-edit');
+    const lines = textDiv.innerText.split(/\n+/).map(s => s.trim());
+    let show = terms.length === 0 || lines.some(line => terms.some(t => line.toLowerCase().includes(t)));
+    col.style.display = show ? '' : 'none';
+    const html = lines.map(line => {
+      let safe = escapeHtml(line);
+      terms.forEach(t => {
+        if (!t) return;
+        const re = new RegExp(escapeRegExp(t), 'gi');
+        safe = safe.replace(re, m => `<span class="filter-hl">${m}</span>`);
+      });
+      return `<div>${safe}</div>`;
+    }).join('');
+    textDiv.innerHTML = html;
+  });
+  if (window.msnry) window.msnry.layout();
+}
+
 function renderClusters(data) {
   currentClusters = data.map(sortCluster);
   const wrap = document.getElementById('clustersContainer');
@@ -303,13 +350,13 @@ function renderClusters(data) {
     const textDiv = document.createElement('div');
     textDiv.className = 'form-control cluster-edit';
     textDiv.contentEditable = 'true';
-    textDiv.style.whiteSpace = 'pre';
-    textDiv.textContent = cluster.join('\n');
+    textDiv.innerHTML = cluster.map(k => `<div>${escapeHtml(k)}</div>`).join('');
     textDiv.addEventListener('input', function() {
       const lines = this.innerText.split(/\n+/).map(s => s.trim()).filter(Boolean);
       countSpan.textContent = lines.length;
       titleSpan.textContent = lines[0] || 'Unnamed';
       if (window.msnry) window.msnry.layout();
+      if (document.getElementById('clusterFilter').value.trim()) applyFilter();
     });
     card.appendChild(header);
     card.appendChild(textDiv);
@@ -318,6 +365,7 @@ function renderClusters(data) {
   });
   document.getElementById('saveBtn').disabled = currentClusters.length === 0;
   applyMasonry();
+  applyFilter();
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -373,6 +421,13 @@ function runClustering(instructions) {
       setTimeout(() => progressWrap.classList.add('d-none'), 500);
     });
 }
+
+document.getElementById('clusterFilter').addEventListener('input', applyFilter);
+document.getElementById('clearFilter').addEventListener('click', function(e) {
+  e.preventDefault();
+  document.getElementById('clusterFilter').value = '';
+  applyFilter();
+});
 
 document.getElementById('generateBtn').addEventListener('click', function() {
   runClustering('');
