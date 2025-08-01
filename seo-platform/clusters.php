@@ -75,16 +75,35 @@ function loadClusters(PDO $pdo, int $client_id): array {
     return array_values($clusters);
 }
 
+function loadAllKeywords(PDO $pdo, int $client_id): array {
+    $stmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ? ORDER BY id");
+    $stmt->execute([$client_id]);
+    return $stmt->fetchAll(PDO::FETCH_COLUMN);
+}
+
+function loadUnclustered(PDO $pdo, int $client_id): array {
+    $stmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ? AND cluster_name = '' ORDER BY id");
+    $stmt->execute([$client_id]);
+    return $stmt->fetchAll(PDO::FETCH_COLUMN);
+}
+
 $action = $_GET['action'] ?? '';
 if ($action === 'list') {
-    echo json_encode(['clusters' => loadClusters($pdo, $client_id)]);
+    echo json_encode([
+        'clusters' => loadClusters($pdo, $client_id),
+        'unclustered' => loadUnclustered($pdo, $client_id),
+        'allKeywords' => loadAllKeywords($pdo, $client_id)
+    ]);
     exit;
 }
 if ($action === 'run' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    $stmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ? ORDER BY id");
-    $stmt->execute([$client_id]);
-    $keywords = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    $input = implode("\n", $keywords);
+    $existing = loadClusters($pdo, $client_id);
+    $unclustered = loadUnclustered($pdo, $client_id);
+    if (!$unclustered) {
+        echo json_encode(['clusters' => $existing, 'unclustered' => []]);
+        exit;
+    }
+    $input = implode("\n", $unclustered);
     $instructions = $_POST['instructions'] ?? '';
 
     $descriptorspec = [0 => ['pipe','r'], 1 => ['pipe','w'], 2 => ['pipe','w']];
@@ -100,7 +119,8 @@ if ($action === 'run' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($error) {
             echo json_encode(['error' => $error]);
         } else {
-            echo json_encode(['clusters' => json_decode($raw, true) ?: []]);
+            $new = json_decode($raw, true) ?: [];
+            echo json_encode(['clusters' => array_merge($existing, $new), 'unclustered' => []]);
         }
     } else {
         echo json_encode(['error' => 'Could not run clustering script']);
@@ -143,7 +163,7 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $pdo->commit();
     updateKeywordStats($pdo, $client_id);
-    echo json_encode(['success' => true]);
+    echo json_encode(['success' => true, 'unclustered' => loadUnclustered($pdo, $client_id)]);
     exit;
 }
 
@@ -151,7 +171,7 @@ if ($action === 'clear' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $pdo->prepare("UPDATE keywords SET cluster_name = '' WHERE client_id = ?")
         ->execute([$client_id]);
     updateKeywordStats($pdo, $client_id);
-    echo json_encode(['success' => true]);
+    echo json_encode(['success' => true, 'unclustered' => loadUnclustered($pdo, $client_id)]);
     exit;
 }
 
@@ -176,6 +196,7 @@ Group commercial keywords (like company, agency, services) **together only when 
 </div>
 
 <div class="mb-3">
+  <button id="addClusterBtn" class="btn btn-secondary me-2">+ Add Cluster</button>
   <button id="generateBtn" class="btn btn-primary">Generate Clusters</button>
   <button id="saveBtn" class="btn btn-success" disabled>Save Clusters</button>
   <button id="clearBtn" class="btn btn-danger">Clear Clusters</button>
@@ -183,16 +204,43 @@ Group commercial keywords (like company, agency, services) **together only when 
 <div id="progressWrap" class="progress mb-3 d-none">
   <div id="clusterProgress" class="progress-bar" role="progressbar" style="width:0%">0%</div>
 </div>
+<div id="statusBar" class="alert alert-info"></div>
 <div id="msgArea"></div>
 <div id="clustersContainer" class="row"></div>
 
+<script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
 <script>
+let currentClusters = [];
+let orderMap = {};
+
+function setOrder(list) {
+  orderMap = {};
+  list.forEach((kw, idx) => orderMap[kw.toLowerCase()] = idx);
+}
+
+function sortCluster(cluster) {
+  return cluster.slice().sort((a,b) => (orderMap[a.toLowerCase()] ?? 0) - (orderMap[b.toLowerCase()] ?? 0));
+}
+
+function updateStatusBar(unclustered) {
+  const bar = document.getElementById('statusBar');
+  if (unclustered.length) {
+    bar.className = 'alert alert-warning';
+    bar.textContent = 'Unclustered keywords: ' + unclustered.join(', ');
+  } else {
+    bar.className = 'alert alert-success';
+    bar.textContent = 'All keywords are clustered.';
+  }
+}
+
 function renderClusters(data) {
+  currentClusters = data.map(sortCluster);
   const wrap = document.getElementById('clustersContainer');
   wrap.innerHTML = '';
-  data.forEach(cluster => {
+  currentClusters.forEach(cluster => {
     const col = document.createElement('div');
-    col.className = 'col-md-4';
+    col.className = 'cluster-item';
+    col.style.width = '33.333%';
     const card = document.createElement('div');
     card.className = 'card mb-3';
     const header = document.createElement('div');
@@ -206,19 +254,25 @@ function renderClusters(data) {
     header.appendChild(titleSpan);
     const textarea = document.createElement('textarea');
     textarea.className = 'form-control';
-    textarea.rows = 4;
     textarea.value = cluster.join('\n');
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
     textarea.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = this.scrollHeight + 'px';
       const lines = this.value.split(/\n+/).map(s => s.trim()).filter(Boolean);
       countSpan.textContent = lines.length;
       titleSpan.textContent = lines[0] || 'Unnamed';
+      if (window.msnry) window.msnry.layout();
     });
     card.appendChild(header);
     card.appendChild(textarea);
     col.appendChild(card);
     wrap.appendChild(col);
   });
-  document.getElementById('saveBtn').disabled = data.length === 0;
+  document.getElementById('saveBtn').disabled = currentClusters.length === 0;
+  if (window.msnry) window.msnry.destroy();
+  window.msnry = new Masonry(wrap, {itemSelector: '.cluster-item', columnWidth: '.cluster-item', percentPosition: true});
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -226,7 +280,9 @@ document.addEventListener('DOMContentLoaded', function() {
   msgArea.innerHTML = '<p>Loading clusters…</p>';
   fetch('clusters.php?action=list&client_id=<?= $client_id ?>')
     .then(r => r.json()).then(data => {
+      setOrder(data.allKeywords || []);
       renderClusters(data.clusters || []);
+      updateStatusBar(data.unclustered || []);
       msgArea.innerHTML = '';
     }).catch(() => {
       msgArea.innerHTML = '<pre class="text-danger">Failed to load clusters.</pre>';
@@ -258,6 +314,7 @@ function runClustering(instructions) {
         document.getElementById('msgArea').innerHTML = '<pre class="text-danger">'+data.error+'</pre>';
       } else {
         renderClusters(data.clusters);
+        updateStatusBar(data.unclustered || []);
         document.getElementById('msgArea').innerHTML = '';
       }
       setTimeout(() => progressWrap.classList.add('d-none'), 500);
@@ -276,11 +333,16 @@ document.getElementById('generateBtn').addEventListener('click', function() {
 document.getElementById('updateBtn').addEventListener('click', function() {
   runClustering(document.getElementById('clusterInstructions').value);
 });
+document.getElementById('addClusterBtn').addEventListener('click', function() {
+  currentClusters.push([]);
+  renderClusters(currentClusters);
+});
 
 document.getElementById('saveBtn').addEventListener('click', function() {
   const msgArea = document.getElementById('msgArea');
   const texts = Array.from(document.querySelectorAll('#clustersContainer textarea'));
-  const clusters = texts.map(t => t.value.split(/\n+/).map(s => s.trim()).filter(Boolean));
+  let clusters = texts.map(t => t.value.split(/\n+/).map(s => s.trim()).filter(Boolean));
+  clusters = clusters.map(sortCluster);
   const seen = {};
   const dupes = [];
   clusters.forEach(cluster => {
@@ -324,6 +386,7 @@ document.getElementById('saveBtn').addEventListener('click', function() {
     } else {
       msgArea.innerHTML = '<pre class="text-danger">' + data.error + '</pre>';
     }
+    updateStatusBar(data.unclustered || []);
     btn.disabled = false;
     msgArea.scrollIntoView({behavior:'smooth'});
     setTimeout(() => progressWrap.classList.add('d-none'), 500);
@@ -344,6 +407,7 @@ document.getElementById('clearBtn').addEventListener('click', function() {
     .then(r => r.json()).then(data => {
       if (data.success) {
         renderClusters([]);
+        updateStatusBar(data.unclustered || []);
         document.getElementById('msgArea').innerHTML = '<p class="text-success">Clusters removed.</p>';
       }
     });
