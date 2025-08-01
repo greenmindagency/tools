@@ -178,8 +178,8 @@ Group commercial keywords (like company, agency, services) **together only when 
 <div id="progressWrap" class="progress mb-3 d-none">
   <div id="clusterProgress" class="progress-bar" role="progressbar" style="width:0%">0%</div>
 </div>
-<div id="clustersContainer" class="row"></div>
 <div id="msgArea"></div>
+<div id="clustersContainer" class="row"></div>
 
 <script>
 function renderClusters(data) {
@@ -259,18 +259,40 @@ document.getElementById('updateBtn').addEventListener('click', function() {
 });
 
 document.getElementById('saveBtn').addEventListener('click', function() {
+  const msgArea = document.getElementById('msgArea');
   const texts = Array.from(document.querySelectorAll('#clustersContainer textarea'));
   const clusters = texts.map(t => t.value.split(/\n+/).map(s => s.trim()).filter(Boolean));
+  const seen = {};
+  const dupes = [];
+  clusters.forEach(cluster => {
+    cluster.forEach(kw => {
+      const key = kw.toLowerCase();
+      if (seen[key]) {
+        dupes.push(kw);
+      } else {
+        seen[key] = true;
+      }
+    });
+  });
+  if (dupes.length) {
+    msgArea.innerHTML = '<pre class="text-danger">Duplicate keywords: ' + Array.from(new Set(dupes)).join(', ') + '</pre>';
+    msgArea.scrollIntoView({behavior:'smooth'});
+    return;
+  }
   fetch('clusters.php?action=save&client_id=<?= $client_id ?>', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
     body: 'clusters=' + encodeURIComponent(JSON.stringify(clusters))
   }).then(r => r.json()).then(data => {
     if (data.success) {
-      document.getElementById('msgArea').innerHTML = '<p class="text-success">Clusters saved.</p>';
+      msgArea.innerHTML = '<p class="text-success">Clusters saved.</p>';
     } else {
-      document.getElementById('msgArea').innerHTML = '<pre class="text-danger">'+data.error+'</pre>';
+      msgArea.innerHTML = '<pre class="text-danger">' + data.error + '</pre>';
     }
+    msgArea.scrollIntoView({behavior:'smooth'});
+  }).catch(() => {
+    msgArea.innerHTML = '<pre class="text-danger">Save failed.</pre>';
+    msgArea.scrollIntoView({behavior:'smooth'});
   });
 });
 
