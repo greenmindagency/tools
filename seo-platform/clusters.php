@@ -145,6 +145,7 @@ if ($action === 'run' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
 if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $clusters = json_decode($_POST['clusters'] ?? '[]', true) ?: [];
+    $affected = json_decode($_POST['affected'] ?? '[]', true) ?: [];
     $seen = [];
     $dupes = [];
     foreach ($clusters as $cluster) {
@@ -165,8 +166,14 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     $pdo->beginTransaction();
-    $pdo->prepare("UPDATE keywords SET cluster_name = '' WHERE client_id = ?")
-        ->execute([$client_id]);
+    if ($affected) {
+        $placeholders = implode(',', array_fill(0, count($affected), '?'));
+        $pdo->prepare("UPDATE keywords SET cluster_name = '' WHERE client_id = ? AND keyword IN ($placeholders)")
+            ->execute(array_merge([$client_id], $affected));
+    } else {
+        $pdo->prepare("UPDATE keywords SET cluster_name = '' WHERE client_id = ?")
+            ->execute([$client_id]);
+    }
     foreach ($clusters as $cluster) {
         if (!$cluster) continue;
         $name = $cluster[0];
@@ -234,6 +241,7 @@ Group commercial keywords (like company, agency, services) **together only when 
 <script>
 let currentClusters = [];
 let orderMap = {};
+let loadedKeywords = [];
 
 function escapeHtml(str) {
   return str
@@ -310,10 +318,14 @@ function saveClusters(clusters, singles) {
   }, 500);
   const btn = document.getElementById('saveBtn');
   btn.disabled = true;
+  let affected = loadedKeywords.slice();
+  clusters.forEach(c => affected.push(...c));
+  affected = Array.from(new Set(affected));
   fetch('clusters.php?action=save&client_id=<?= $client_id ?>', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: 'clusters=' + encodeURIComponent(JSON.stringify(clusters))
+    body: 'clusters=' + encodeURIComponent(JSON.stringify(clusters)) +
+          '&affected=' + encodeURIComponent(JSON.stringify(affected))
   }).then(r => r.json()).then(data => {
     clearInterval(timer);
     bar.style.width = '100%';
@@ -415,6 +427,8 @@ document.addEventListener('DOMContentLoaded', function() {
   msgArea.innerHTML = '<p>Loading clusters…</p>';
   fetch('clusters.php?action=list&client_id=<?= $client_id ?>&q=<?= urlencode($q) ?>')
     .then(r => r.json()).then(data => {
+      loadedKeywords = [];
+      (data.clusters || []).forEach(c => loadedKeywords.push(...c));
       setOrder(data.allKeywords || []);
       const processed = processClusters(data.clusters || []);
       renderClusters(processed.clusters);
@@ -451,6 +465,8 @@ function runClustering(instructions, autoSave = false) {
         setTimeout(() => progressWrap.classList.add('d-none'), 500);
       } else {
         const processed = processClusters(data.clusters || []);
+        loadedKeywords = [];
+        processed.clusters.forEach(c => loadedKeywords.push(...c));
         renderClusters(processed.clusters);
         document.getElementById('msgArea').innerHTML = '';
         if (autoSave) {
