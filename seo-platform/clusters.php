@@ -90,6 +90,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'run') {
             echo json_encode(['error' => $error]);
         } else {
             $clusters = json_decode($raw, true) ?: [];
+            // Immediately save generated clusters to the database
+            $update = $pdo->prepare("UPDATE keywords SET cluster_name = ? WHERE client_id = ? AND keyword = ?");
+            foreach ($clusters as $cluster) {
+                if (!$cluster) continue;
+                $name = $cluster[0];
+                foreach ($cluster as $kw) {
+                    $update->execute([$name, $client_id, $kw]);
+                }
+            }
+            updateKeywordStats($pdo, $client_id);
             echo json_encode(['clusters' => $clusters]);
         }
     } else {
@@ -119,6 +129,14 @@ if ((isset($_GET['action']) && $_GET['action'] === 'save') ||
     }
     $saved = true;
 }
+
+// Load existing clusters from database for display
+$stmt = $pdo->prepare("SELECT cluster_name, keyword FROM keywords WHERE client_id = ? AND cluster_name <> '' ORDER BY cluster_name, id");
+$stmt->execute([$client_id]);
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $clusters[$row['cluster_name']][] = $row['keyword'];
+}
+$clusters = array_values($clusters);
 
 include 'header.php';
 ?>
@@ -167,6 +185,12 @@ function renderClusters(data) {
     wrap.appendChild(col);
   });
   document.getElementById('saveBtn').disabled = data.length === 0;
+}
+
+// Render any clusters already stored in the database on page load
+const existingClusters = <?= json_encode($clusters) ?>;
+if (existingClusters.length) {
+  renderClusters(existingClusters);
 }
 
 document.getElementById('generateBtn').addEventListener('click', function() {
