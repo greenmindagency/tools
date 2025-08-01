@@ -223,11 +223,42 @@ function sortCluster(cluster) {
   return cluster.slice().sort((a,b) => (orderMap[a.toLowerCase()] ?? 0) - (orderMap[b.toLowerCase()] ?? 0));
 }
 
-function updateStatusBar(unclustered) {
+function processClusters(list) {
+  let cleaned = list.map(c => c.filter(Boolean)).filter(c => c.length);
+  let singles = [];
+  let multi = [];
+  cleaned.forEach(c => {
+    if (c.length === 1) singles.push(c[0]);
+    else multi.push(c);
+  });
+  let leftover = [];
+  singles.forEach(kw => {
+    const words = kw.toLowerCase().split(/\s+/);
+    let merged = false;
+    for (let cluster of multi) {
+      if (cluster.some(other => words.some(w => other.toLowerCase().includes(w)))) {
+        cluster.push(kw);
+        merged = true;
+        break;
+      }
+    }
+    if (!merged) {
+      multi.push([kw]);
+      leftover.push(kw);
+    }
+  });
+  multi = multi.map(sortCluster);
+  return {clusters: multi, singles: leftover};
+}
+
+function updateStatusBar(unclustered, singles=[]) {
   const bar = document.getElementById('statusBar');
-  if (unclustered.length) {
+  const messages = [];
+  if (unclustered.length) messages.push('Unclustered keywords: ' + unclustered.join(', '));
+  if (singles.length) messages.push('Single keyword clusters: ' + singles.join(', '));
+  if (messages.length) {
     bar.className = 'alert alert-warning';
-    bar.textContent = 'Unclustered keywords: ' + unclustered.join(', ');
+    bar.textContent = messages.join(' | ');
   } else {
     bar.className = 'alert alert-success';
     bar.textContent = 'All keywords are clustered.';
@@ -245,7 +276,7 @@ function renderClusters(data) {
   currentClusters = data.map(sortCluster);
   const wrap = document.getElementById('clustersContainer');
   wrap.innerHTML = '';
-  currentClusters.forEach(cluster => {
+  currentClusters.forEach((cluster, idx) => {
     const col = document.createElement('div');
     col.className = 'col-md-4 mb-4';
     const card = document.createElement('div');
@@ -257,8 +288,18 @@ function renderClusters(data) {
     countSpan.textContent = cluster.length;
     const titleSpan = document.createElement('span');
     titleSpan.textContent = cluster[0] || 'Unnamed';
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn btn-sm btn-danger ms-auto';
+    removeBtn.textContent = '-';
+    removeBtn.addEventListener('click', function() {
+      currentClusters.splice(idx, 1);
+      const processed = processClusters(currentClusters);
+      renderClusters(processed.clusters);
+      updateStatusBar([], processed.singles);
+    });
     header.appendChild(countSpan);
     header.appendChild(titleSpan);
+    header.appendChild(removeBtn);
     const textDiv = document.createElement('div');
     textDiv.className = 'form-control cluster-edit';
     textDiv.contentEditable = 'true';
@@ -285,8 +326,9 @@ document.addEventListener('DOMContentLoaded', function() {
   fetch('clusters.php?action=list&client_id=<?= $client_id ?>')
     .then(r => r.json()).then(data => {
       setOrder(data.allKeywords || []);
-      renderClusters(data.clusters || []);
-      updateStatusBar(data.unclustered || []);
+      const processed = processClusters(data.clusters || []);
+      renderClusters(processed.clusters);
+      updateStatusBar(data.unclustered || [], processed.singles);
       msgArea.innerHTML = '';
     }).catch(() => {
       msgArea.innerHTML = '<pre class="text-danger">Failed to load clusters.</pre>';
@@ -317,8 +359,9 @@ function runClustering(instructions) {
       if (data.error) {
         document.getElementById('msgArea').innerHTML = '<pre class="text-danger">'+data.error+'</pre>';
       } else {
-        renderClusters(data.clusters);
-        updateStatusBar(data.unclustered || []);
+        const processed = processClusters(data.clusters || []);
+        renderClusters(processed.clusters);
+        updateStatusBar(data.unclustered || [], processed.singles);
         document.getElementById('msgArea').innerHTML = '';
       }
       setTimeout(() => progressWrap.classList.add('d-none'), 500);
@@ -345,8 +388,10 @@ document.getElementById('addClusterBtn').addEventListener('click', function() {
 document.getElementById('saveBtn').addEventListener('click', function() {
   const msgArea = document.getElementById('msgArea');
   const texts = Array.from(document.querySelectorAll('#clustersContainer .cluster-edit'));
-  let clusters = texts.map(t => t.innerText.split(/\n+/).map(s => s.trim()).filter(Boolean));
-  clusters = clusters.map(sortCluster);
+  let clusters = texts.map(t => t.innerText.split(/\n+/).map(s => s.trim()));
+  const processed = processClusters(clusters);
+  clusters = processed.clusters;
+  const singles = processed.singles;
   const seen = {};
   const dupes = [];
   clusters.forEach(cluster => {
@@ -390,7 +435,7 @@ document.getElementById('saveBtn').addEventListener('click', function() {
     } else {
       msgArea.innerHTML = '<pre class="text-danger">' + data.error + '</pre>';
     }
-    updateStatusBar(data.unclustered || []);
+    updateStatusBar(data.unclustered || [], singles);
     btn.disabled = false;
     msgArea.scrollIntoView({behavior:'smooth'});
     setTimeout(() => progressWrap.classList.add('d-none'), 500);
@@ -411,7 +456,7 @@ document.getElementById('clearBtn').addEventListener('click', function() {
     .then(r => r.json()).then(data => {
       if (data.success) {
         renderClusters([]);
-        updateStatusBar(data.unclustered || []);
+        updateStatusBar(data.unclustered || [], []);
         document.getElementById('msgArea').innerHTML = '<p class="text-success">Clusters removed.</p>';
       }
     });
