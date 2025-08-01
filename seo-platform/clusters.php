@@ -63,11 +63,20 @@ function updateKeywordStats(PDO $pdo, int $client_id): void {
     ]);
 }
 
-$clusters = [];
-$saved = false;
-$errorMsg = '';
+function loadClusters(PDO $pdo, int $client_id): array {
+    $stmt = $pdo->prepare(
+        "SELECT keyword, cluster_name FROM keywords WHERE client_id = ? AND cluster_name <> '' ORDER BY cluster_name, id"
+    );
+    $stmt->execute([$client_id]);
+    $clusters = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $clusters[$row['cluster_name']][] = $row['keyword'];
+    }
+    return array_values($clusters);
+}
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_clusters'])) {
+$action = $_GET['action'] ?? '';
+if ($action === 'run' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ? ORDER BY id");
     $stmt->execute([$client_id]);
     $keywords = $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -84,18 +93,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_clusters']))
         fclose($pipes[2]);
         proc_close($process);
         if ($error) {
-            $errorMsg = $error;
+            echo json_encode(['error' => $error]);
         } else {
-            $clusters = json_decode($raw, true) ?: [];
+            echo json_encode(['clusters' => json_decode($raw, true) ?: []]);
         }
     } else {
-        $errorMsg = 'Could not run clustering script';
+        echo json_encode(['error' => 'Could not run clustering script']);
     }
+    exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_clusters'])) {
+if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $clusters = json_decode($_POST['clusters'] ?? '[]', true) ?: [];
-    $update = $pdo->prepare("UPDATE keywords SET cluster_name = ? WHERE client_id = ? AND keyword = ?");
+    $seen = [];
+    $dupes = [];
+    foreach ($clusters as $cluster) {
+        foreach ($cluster as $kw) {
+            $key = mb_strtolower($kw);
+            if (isset($seen[$key])) {
+                $dupes[] = $kw;
+            } else {
+                $seen[$key] = true;
+            }
+        }
+    }
+    if ($dupes) {
+        echo json_encode([
+            'success' => false,
+            'error' => 'Duplicate keywords: ' . implode(', ', array_unique($dupes))
+        ]);
+        exit;
+    }
+    $pdo->prepare("UPDATE keywords SET cluster_name = '' WHERE client_id = ?")
+        ->execute([$client_id]);
+    $update = $pdo->prepare(
+        "UPDATE keywords SET cluster_name = ? WHERE client_id = ? AND keyword = ?"
+    );
     foreach ($clusters as $cluster) {
         if (!$cluster) continue;
         $name = $cluster[0];
@@ -104,8 +137,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_clusters'])) {
         }
     }
     updateKeywordStats($pdo, $client_id);
-    $saved = true;
+    echo json_encode(['success' => true]);
+    exit;
 }
+
+if ($action === 'clear' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $pdo->prepare("UPDATE keywords SET cluster_name = '' WHERE client_id = ?")
+        ->execute([$client_id]);
+    updateKeywordStats($pdo, $client_id);
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+$clusters = loadClusters($pdo, $client_id);
 
 include 'header.php';
 ?>
@@ -115,32 +159,14 @@ include 'header.php';
   <li class="nav-item"><a class="nav-link active" href="clusters.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>">Clusters</a></li>
 </ul>
 
-<form method="post">
-    <button type="submit" name="generate_clusters" class="btn btn-primary mb-3">Generate Clusters</button>
-</form>
-<?php if ($clusters): ?>
-<form method="post">
-    <input type="hidden" name="client_id" value="<?= $client_id ?>">
-    <input type="hidden" name="clusters" value='<?= htmlspecialchars(json_encode($clusters)) ?>'>
-    <button type="submit" name="save_clusters" class="btn btn-success mb-3">Save Clusters</button>
-</form>
-<div class="row">
-<?php foreach ($clusters as $i => $cluster): ?>
-  <div class="col-md-6">
-    <div class="card mb-3">
-      <div class="card-header">Cluster <?= $i+1 ?></div>
-      <ul class="list-group list-group-flush">
-      <?php foreach ($cluster as $kw): ?>
-        <li class="list-group-item"><?= htmlspecialchars($kw) ?></li>
-      <?php endforeach; ?>
-      </ul>
-    </div>
-  </div>
-<?php endforeach; ?>
+<div class="mb-3">
+  <button id="generateBtn" class="btn btn-primary">Generate Clusters</button>
+  <button id="saveBtn" class="btn btn-success" disabled>Save Clusters</button>
+  <button id="clearBtn" class="btn btn-danger">Clear Clusters</button>
 </div>
-<?php endif; ?>
-<?php if ($saved): ?><p class="text-success">Clusters saved.</p><?php endif; ?>
-<?php if ($errorMsg): ?><pre class="text-danger"><?= htmlspecialchars($errorMsg) ?></pre><?php endif; ?>
+<div id="progressWrap" class="progress mb-3 d-none">
+  <div id="clusterProgress" class="progress-bar" role="progressbar" style="width:0%">0%</div>
+</div>
 <div id="clustersContainer" class="row"></div>
 <div id="msgArea"></div>
 
@@ -172,7 +198,6 @@ function renderClusters(data) {
   document.getElementById('saveBtn').disabled = data.length === 0;
 }
 
-// Render any clusters already stored in the database on page load
 const existingClusters = <?= json_encode($clusters) ?>;
 if (existingClusters.length) {
   renderClusters(existingClusters);
@@ -190,45 +215,39 @@ document.getElementById('generateBtn').addEventListener('click', function() {
     bar.style.width = pct + '%';
     bar.textContent = pct + '%';
   }, 500);
-  const instructions = document.getElementById('instructions').value;
-  fetch('clusters.php?action=run&client_id=<?= $client_id ?>', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: 'instructions=' + encodeURIComponent(instructions)
-  }).then(r => r.json()).then(data => {
-    clearInterval(timer);
-    bar.style.width = '100%';
-    bar.textContent = '100%';
-    if (data.error) {
-      document.getElementById('msgArea').innerHTML = '<pre class="text-danger">'+data.error+'</pre>';
-    } else {
-      renderClusters(data.clusters);
-      document.getElementById('msgArea').innerHTML = '';
-    }
-    setTimeout(() => progressWrap.classList.add('d-none'), 500);
-  }).catch(() => {
-    clearInterval(timer);
-    bar.style.width = '100%';
-    bar.textContent = '100%';
-    document.getElementById('msgArea').innerHTML = '<pre class="text-danger">Request failed</pre>';
-    setTimeout(() => progressWrap.classList.add('d-none'), 500);
-  });
+  fetch('clusters.php?action=run&client_id=<?= $client_id ?>', {method:'POST'})
+    .then(r => r.json()).then(data => {
+      clearInterval(timer);
+      bar.style.width = '100%';
+      bar.textContent = '100%';
+      if (data.error) {
+        document.getElementById('msgArea').innerHTML = '<pre class="text-danger">'+data.error+'</pre>';
+      } else {
+        renderClusters(data.clusters);
+        document.getElementById('msgArea').innerHTML = '';
+      }
+      setTimeout(() => progressWrap.classList.add('d-none'), 500);
+    }).catch(() => {
+      clearInterval(timer);
+      bar.style.width = '100%';
+      bar.textContent = '100%';
+      document.getElementById('msgArea').innerHTML = '<pre class="text-danger">Request failed</pre>';
+      setTimeout(() => progressWrap.classList.add('d-none'), 500);
+    });
 });
 
 document.getElementById('saveBtn').addEventListener('click', function() {
   const texts = Array.from(document.querySelectorAll('#clustersContainer textarea'));
   const clusters = texts.map(t => t.value.split(/\n+/).map(s => s.trim()).filter(Boolean));
-  document.getElementById('clustersInput').value = JSON.stringify(clusters);
-  document.getElementById('instructionsInput').value = document.getElementById('instructions').value;
   fetch('clusters.php?action=save&client_id=<?= $client_id ?>', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: new URLSearchParams(new FormData(document.getElementById('saveForm'))).toString()
+    body: 'clusters=' + encodeURIComponent(JSON.stringify(clusters))
   }).then(r => r.json()).then(data => {
     if (data.success) {
       document.getElementById('msgArea').innerHTML = '<p class="text-success">Clusters saved.</p>';
     } else {
-      document.getElementById('msgArea').innerHTML = '<pre class="text-danger">Save failed</pre>';
+      document.getElementById('msgArea').innerHTML = '<pre class="text-danger">'+data.error+'</pre>';
     }
   });
 });
@@ -245,4 +264,4 @@ document.getElementById('clearBtn').addEventListener('click', function() {
 });
 </script>
 
-<?php include 'footer.php';
+<?php include 'footer.php'; ?>
