@@ -367,7 +367,10 @@ function applyFilter() {
     }).join('');
     textDiv.innerHTML = html;
   });
-  if (window.msnry) window.msnry.layout();
+  if (window.msnry) {
+    window.msnry.reloadItems();
+    window.msnry.layout();
+  }
 }
 
 function renderClusters(data) {
@@ -392,12 +395,15 @@ function renderClusters(data) {
     removeBtn.textContent = '-';
     removeBtn.addEventListener('click', function(e) {
       e.preventDefault();
+      const wrap = document.getElementById('clustersContainer');
       const top = window.scrollY;
+      wrap.style.minHeight = wrap.offsetHeight + 'px';
       currentClusters.splice(idx, 1);
       const processed = processClusters(currentClusters);
       renderClusters(processed.clusters);
       updateStatusBar([], processed.singles);
       window.scrollTo(0, top);
+      wrap.style.minHeight = '';
     });
     header.appendChild(countSpan);
     header.appendChild(titleSpan);
@@ -410,8 +416,10 @@ function renderClusters(data) {
       const lines = getLines(this);
       countSpan.textContent = lines.length;
       titleSpan.textContent = lines[0] || 'Unnamed';
-      if (window.msnry) window.msnry.layout();
-      if (document.getElementById('clusterFilter').value.trim()) applyFilter();
+      if (window.msnry) {
+        window.msnry.reloadItems();
+        window.msnry.layout();
+      }
     });
     card.appendChild(header);
     card.appendChild(textDiv);
