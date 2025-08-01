@@ -76,6 +76,10 @@ function loadClusters(PDO $pdo, int $client_id): array {
 }
 
 $action = $_GET['action'] ?? '';
+if ($action === 'list') {
+    echo json_encode(['clusters' => loadClusters($pdo, $client_id)]);
+    exit;
+}
 if ($action === 'run' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ? ORDER BY id");
     $stmt->execute([$client_id]);
@@ -125,18 +129,27 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
         exit;
     }
+    $pdo->beginTransaction();
     $pdo->prepare("UPDATE keywords SET cluster_name = '' WHERE client_id = ?")
         ->execute([$client_id]);
-    $update = $pdo->prepare(
-        "UPDATE keywords SET cluster_name = ? WHERE client_id = ? AND keyword = ?"
-    );
     foreach ($clusters as $cluster) {
         if (!$cluster) continue;
         $name = $cluster[0];
-        foreach ($cluster as $kw) {
-            $update->execute([$name, $client_id, $kw]);
-        }
+        $placeholders = implode(',', array_fill(0, count($cluster), '?'));
+        $stmt = $pdo->prepare(
+            "UPDATE keywords SET cluster_name = ? WHERE client_id = ? AND keyword IN ($placeholders)"
+        );
+        $stmt->execute(array_merge([$name, $client_id], $cluster));
     }
+    $pdo->commit();
+    updateKeywordStats($pdo, $client_id);
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+if ($action === 'clear' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $pdo->prepare("UPDATE keywords SET cluster_name = '' WHERE client_id = ?")
+        ->execute([$client_id]);
     updateKeywordStats($pdo, $client_id);
     echo json_encode(['success' => true]);
     exit;
@@ -209,10 +222,17 @@ function renderClusters(data) {
   document.getElementById('saveBtn').disabled = data.length === 0;
 }
 
-const existingClusters = <?= json_encode($clusters) ?>;
-if (existingClusters.length) {
-  renderClusters(existingClusters);
-}
+document.addEventListener('DOMContentLoaded', function() {
+  const msgArea = document.getElementById('msgArea');
+  msgArea.innerHTML = '<p>Loading clusters…</p>';
+  fetch('clusters.php?action=list&client_id=<?= $client_id ?>')
+    .then(r => r.json()).then(data => {
+      renderClusters(data.clusters || []);
+      msgArea.innerHTML = '';
+    }).catch(() => {
+      msgArea.innerHTML = '<pre class="text-danger">Failed to load clusters.</pre>';
+    });
+});
 
 function runClustering(instructions) {
   const progressWrap = document.getElementById('progressWrap');
@@ -279,20 +299,43 @@ document.getElementById('saveBtn').addEventListener('click', function() {
     msgArea.scrollIntoView({behavior:'smooth'});
     return;
   }
+  const progressWrap = document.getElementById('progressWrap');
+  const bar = document.getElementById('clusterProgress');
+  progressWrap.classList.remove('d-none');
+  let pct = 10;
+  bar.style.width = pct + '%';
+  bar.textContent = pct + '%';
+  const timer = setInterval(() => {
+    pct = Math.min(pct + 10, 90);
+    bar.style.width = pct + '%';
+    bar.textContent = pct + '%';
+  }, 500);
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
   fetch('clusters.php?action=save&client_id=<?= $client_id ?>', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
     body: 'clusters=' + encodeURIComponent(JSON.stringify(clusters))
   }).then(r => r.json()).then(data => {
+    clearInterval(timer);
+    bar.style.width = '100%';
+    bar.textContent = '100%';
     if (data.success) {
       msgArea.innerHTML = '<p class="text-success">Clusters saved.</p>';
     } else {
       msgArea.innerHTML = '<pre class="text-danger">' + data.error + '</pre>';
     }
+    btn.disabled = false;
     msgArea.scrollIntoView({behavior:'smooth'});
+    setTimeout(() => progressWrap.classList.add('d-none'), 500);
   }).catch(() => {
+    clearInterval(timer);
+    bar.style.width = '100%';
+    bar.textContent = '100%';
+    btn.disabled = false;
     msgArea.innerHTML = '<pre class="text-danger">Save failed.</pre>';
     msgArea.scrollIntoView({behavior:'smooth'});
+    setTimeout(() => progressWrap.classList.add('d-none'), 500);
   });
 });
 
