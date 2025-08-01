@@ -81,9 +81,10 @@ if ($action === 'run' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->execute([$client_id]);
     $keywords = $stmt->fetchAll(PDO::FETCH_COLUMN);
     $input = implode("\n", $keywords);
+    $instructions = $_POST['instructions'] ?? '';
 
     $descriptorspec = [0 => ['pipe','r'], 1 => ['pipe','w'], 2 => ['pipe','w']];
-    $process = proc_open('python3 clustering/run_cluster.py', $descriptorspec, $pipes, __DIR__);
+    $process = proc_open('python3 clustering/run_cluster.py', $descriptorspec, $pipes, __DIR__, ['INSTRUCTIONS' => $instructions]);
     if (is_resource($process)) {
         fwrite($pipes[0], $input);
         fclose($pipes[0]);
@@ -158,6 +159,16 @@ include 'header.php';
   <li class="nav-item"><a class="nav-link" href="positions.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>">Keyword Position</a></li>
   <li class="nav-item"><a class="nav-link active" href="clusters.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>">Clusters</a></li>
 </ul>
+<div class="mb-3">
+  <button class="btn btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#instructionsBox" aria-expanded="false" aria-controls="instructionsBox">Cluster Instructions</button>
+  <div class="collapse" id="instructionsBox">
+    <textarea id="clusterInstructions" class="form-control" rows="6">If you are using one of the keywords in the cluster don’t repeat it on another cluster
+Try to split as possible the same meaning groups, and cluster only the same meaning, if not keep it in a standalone cluster
+Don’t ever make a one cluster for all keywords. I need them split for the same meaning or they can be merged in one cluster to be used in a one page for SEO content creation. Please minimum 2 keywords per cluster, don't make a cluster for 1 keyword
+Group commercial keywords (like company, agency, services) **together only when they are of the same intent**.</textarea>
+    <button id="updateBtn" class="btn btn-secondary mt-2">Update Clusters</button>
+  </div>
+</div>
 
 <div class="mb-3">
   <button id="generateBtn" class="btn btn-primary">Generate Clusters</button>
@@ -203,7 +214,7 @@ if (existingClusters.length) {
   renderClusters(existingClusters);
 }
 
-document.getElementById('generateBtn').addEventListener('click', function() {
+function runClustering(instructions) {
   const progressWrap = document.getElementById('progressWrap');
   const bar = document.getElementById('clusterProgress');
   progressWrap.classList.remove('d-none');
@@ -215,7 +226,11 @@ document.getElementById('generateBtn').addEventListener('click', function() {
     bar.style.width = pct + '%';
     bar.textContent = pct + '%';
   }, 500);
-  fetch('clusters.php?action=run&client_id=<?= $client_id ?>', {method:'POST'})
+  fetch('clusters.php?action=run&client_id=<?= $client_id ?>', {
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:'instructions=' + encodeURIComponent(instructions || '')
+  })
     .then(r => r.json()).then(data => {
       clearInterval(timer);
       bar.style.width = '100%';
@@ -234,6 +249,13 @@ document.getElementById('generateBtn').addEventListener('click', function() {
       document.getElementById('msgArea').innerHTML = '<pre class="text-danger">Request failed</pre>';
       setTimeout(() => progressWrap.classList.add('d-none'), 500);
     });
+}
+
+document.getElementById('generateBtn').addEventListener('click', function() {
+  runClustering('');
+});
+document.getElementById('updateBtn').addEventListener('click', function() {
+  runClustering(document.getElementById('clusterInstructions').value);
 });
 
 document.getElementById('saveBtn').addEventListener('click', function() {
