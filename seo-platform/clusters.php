@@ -141,5 +141,108 @@ include 'header.php';
 <?php endif; ?>
 <?php if ($saved): ?><p class="text-success">Clusters saved.</p><?php endif; ?>
 <?php if ($errorMsg): ?><pre class="text-danger"><?= htmlspecialchars($errorMsg) ?></pre><?php endif; ?>
+<div id="clustersContainer" class="row"></div>
+<div id="msgArea"></div>
+
+<script>
+function renderClusters(data) {
+  const wrap = document.getElementById('clustersContainer');
+  wrap.innerHTML = '';
+  data.forEach(cluster => {
+    const col = document.createElement('div');
+    col.className = 'col-md-6';
+    const card = document.createElement('div');
+    card.className = 'card mb-3';
+    const header = document.createElement('div');
+    header.className = 'card-header';
+    header.textContent = cluster[0] || 'Unnamed';
+    const textarea = document.createElement('textarea');
+    textarea.className = 'form-control';
+    textarea.rows = 4;
+    textarea.value = cluster.join('\n');
+    textarea.addEventListener('input', function() {
+      const first = this.value.split(/\n+/).map(s => s.trim()).filter(Boolean)[0] || 'Unnamed';
+      header.textContent = first;
+    });
+    card.appendChild(header);
+    card.appendChild(textarea);
+    col.appendChild(card);
+    wrap.appendChild(col);
+  });
+  document.getElementById('saveBtn').disabled = data.length === 0;
+}
+
+// Render any clusters already stored in the database on page load
+const existingClusters = <?= json_encode($clusters) ?>;
+if (existingClusters.length) {
+  renderClusters(existingClusters);
+}
+
+document.getElementById('generateBtn').addEventListener('click', function() {
+  const progressWrap = document.getElementById('progressWrap');
+  const bar = document.getElementById('clusterProgress');
+  progressWrap.classList.remove('d-none');
+  let pct = 10;
+  bar.style.width = pct + '%';
+  bar.textContent = pct + '%';
+  const timer = setInterval(() => {
+    pct = Math.min(pct + 10, 90);
+    bar.style.width = pct + '%';
+    bar.textContent = pct + '%';
+  }, 500);
+  const instructions = document.getElementById('instructions').value;
+  fetch('clusters.php?action=run&client_id=<?= $client_id ?>', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'instructions=' + encodeURIComponent(instructions)
+  }).then(r => r.json()).then(data => {
+    clearInterval(timer);
+    bar.style.width = '100%';
+    bar.textContent = '100%';
+    if (data.error) {
+      document.getElementById('msgArea').innerHTML = '<pre class="text-danger">'+data.error+'</pre>';
+    } else {
+      renderClusters(data.clusters);
+      document.getElementById('msgArea').innerHTML = '';
+    }
+    setTimeout(() => progressWrap.classList.add('d-none'), 500);
+  }).catch(() => {
+    clearInterval(timer);
+    bar.style.width = '100%';
+    bar.textContent = '100%';
+    document.getElementById('msgArea').innerHTML = '<pre class="text-danger">Request failed</pre>';
+    setTimeout(() => progressWrap.classList.add('d-none'), 500);
+  });
+});
+
+document.getElementById('saveBtn').addEventListener('click', function() {
+  const texts = Array.from(document.querySelectorAll('#clustersContainer textarea'));
+  const clusters = texts.map(t => t.value.split(/\n+/).map(s => s.trim()).filter(Boolean));
+  document.getElementById('clustersInput').value = JSON.stringify(clusters);
+  document.getElementById('instructionsInput').value = document.getElementById('instructions').value;
+  fetch('clusters.php?action=save&client_id=<?= $client_id ?>', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams(new FormData(document.getElementById('saveForm'))).toString()
+  }).then(r => r.json()).then(data => {
+    if (data.success) {
+      document.getElementById('msgArea').innerHTML = '<p class="text-success">Clusters saved.</p>';
+    } else {
+      document.getElementById('msgArea').innerHTML = '<pre class="text-danger">Save failed</pre>';
+    }
+  });
+});
+
+document.getElementById('clearBtn').addEventListener('click', function() {
+  if (!confirm('Remove all clusters?')) return;
+  fetch('clusters.php?action=clear&client_id=<?= $client_id ?>', {method:'POST'})
+    .then(r => r.json()).then(data => {
+      if (data.success) {
+        renderClusters([]);
+        document.getElementById('msgArea').innerHTML = '<p class="text-success">Clusters removed.</p>';
+      }
+    });
+});
+</script>
 
 <?php include 'footer.php';
