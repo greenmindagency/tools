@@ -288,6 +288,49 @@ function updateStatusBar(unclustered, singles=[]) {
   }
 }
 
+function saveClusters(clusters, singles) {
+  const msgArea = document.getElementById('msgArea');
+  const progressWrap = document.getElementById('progressWrap');
+  const bar = document.getElementById('clusterProgress');
+  progressWrap.classList.remove('d-none');
+  let pct = 10;
+  bar.style.width = pct + '%';
+  bar.textContent = pct + '%';
+  const timer = setInterval(() => {
+    pct = Math.min(pct + 10, 90);
+    bar.style.width = pct + '%';
+    bar.textContent = pct + '%';
+  }, 500);
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  fetch('clusters.php?action=save&client_id=<?= $client_id ?>', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'clusters=' + encodeURIComponent(JSON.stringify(clusters))
+  }).then(r => r.json()).then(data => {
+    clearInterval(timer);
+    bar.style.width = '100%';
+    bar.textContent = '100%';
+    if (data.success) {
+      msgArea.innerHTML = '<p class="text-success">Clusters saved.</p>';
+    } else {
+      msgArea.innerHTML = '<pre class="text-danger">' + data.error + '</pre>';
+    }
+    updateStatusBar(data.unclustered || [], singles);
+    btn.disabled = false;
+    msgArea.scrollIntoView({behavior:'smooth'});
+    setTimeout(() => progressWrap.classList.add('d-none'), 500);
+  }).catch(() => {
+    clearInterval(timer);
+    bar.style.width = '100%';
+    bar.textContent = '100%';
+    btn.disabled = false;
+    msgArea.innerHTML = '<pre class="text-danger">Save failed.</pre>';
+    msgArea.scrollIntoView({behavior:'smooth'});
+    setTimeout(() => progressWrap.classList.add('d-none'), 500);
+  });
+}
+
 function applyMasonry() {
   const wrap = document.getElementById('clustersContainer');
   if (!window.Masonry) return;
@@ -383,7 +426,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-function runClustering(instructions) {
+function runClustering(instructions, autoSave = false) {
   const progressWrap = document.getElementById('progressWrap');
   const bar = document.getElementById('clusterProgress');
   progressWrap.classList.remove('d-none');
@@ -406,13 +449,18 @@ function runClustering(instructions) {
       bar.textContent = '100%';
       if (data.error) {
         document.getElementById('msgArea').innerHTML = '<pre class="text-danger">'+data.error+'</pre>';
+        setTimeout(() => progressWrap.classList.add('d-none'), 500);
       } else {
         const processed = processClusters(data.clusters || []);
         renderClusters(processed.clusters);
-        updateStatusBar(data.unclustered || [], processed.singles);
         document.getElementById('msgArea').innerHTML = '';
+        if (autoSave) {
+          saveClusters(processed.clusters, processed.singles);
+        } else {
+          updateStatusBar(data.unclustered || [], processed.singles);
+          setTimeout(() => progressWrap.classList.add('d-none'), 500);
+        }
       }
-      setTimeout(() => progressWrap.classList.add('d-none'), 500);
     }).catch(() => {
       clearInterval(timer);
       bar.style.width = '100%';
@@ -430,10 +478,10 @@ document.getElementById('clearFilter').addEventListener('click', function(e) {
 });
 
 document.getElementById('generateBtn').addEventListener('click', function() {
-  runClustering('');
+  runClustering('', true);
 });
 document.getElementById('updateBtn').addEventListener('click', function() {
-  runClustering(document.getElementById('clusterInstructions').value);
+  runClustering(document.getElementById('clusterInstructions').value, true);
 });
 document.getElementById('addClusterBtn').addEventListener('click', function() {
   currentClusters.push([]);
@@ -464,45 +512,7 @@ document.getElementById('saveBtn').addEventListener('click', function() {
     msgArea.scrollIntoView({behavior:'smooth'});
     return;
   }
-  const progressWrap = document.getElementById('progressWrap');
-  const bar = document.getElementById('clusterProgress');
-  progressWrap.classList.remove('d-none');
-  let pct = 10;
-  bar.style.width = pct + '%';
-  bar.textContent = pct + '%';
-  const timer = setInterval(() => {
-    pct = Math.min(pct + 10, 90);
-    bar.style.width = pct + '%';
-    bar.textContent = pct + '%';
-  }, 500);
-  const btn = document.getElementById('saveBtn');
-  btn.disabled = true;
-  fetch('clusters.php?action=save&client_id=<?= $client_id ?>', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: 'clusters=' + encodeURIComponent(JSON.stringify(clusters))
-  }).then(r => r.json()).then(data => {
-    clearInterval(timer);
-    bar.style.width = '100%';
-    bar.textContent = '100%';
-    if (data.success) {
-      msgArea.innerHTML = '<p class="text-success">Clusters saved.</p>';
-    } else {
-      msgArea.innerHTML = '<pre class="text-danger">' + data.error + '</pre>';
-    }
-    updateStatusBar(data.unclustered || [], singles);
-    btn.disabled = false;
-    msgArea.scrollIntoView({behavior:'smooth'});
-    setTimeout(() => progressWrap.classList.add('d-none'), 500);
-  }).catch(() => {
-    clearInterval(timer);
-    bar.style.width = '100%';
-    bar.textContent = '100%';
-    btn.disabled = false;
-    msgArea.innerHTML = '<pre class="text-danger">Save failed.</pre>';
-    msgArea.scrollIntoView({behavior:'smooth'});
-    setTimeout(() => progressWrap.classList.add('d-none'), 500);
-  });
+  saveClusters(clusters, singles);
 });
 
 document.getElementById('clearBtn').addEventListener('click', function() {
