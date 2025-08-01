@@ -236,21 +236,35 @@ document.getElementById('generateBtn').addEventListener('click', function() {
   const progressWrap = document.getElementById('progressWrap');
   const bar = document.getElementById('clusterProgress');
   progressWrap.classList.remove('d-none');
-  bar.style.width = '30%';
-  bar.textContent = 'Processing...';
+  let pct = 10;
+  bar.style.width = pct + '%';
+  bar.textContent = pct + '%';
+  const timer = setInterval(() => {
+    pct = Math.min(pct + 10, 90);
+    bar.style.width = pct + '%';
+    bar.textContent = pct + '%';
+  }, 500);
   const instructions = document.getElementById('instructions').value;
   fetch('clusters.php?action=run&client_id=<?= $client_id ?>', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
     body: 'instructions=' + encodeURIComponent(instructions)
   }).then(r => r.json()).then(data => {
+    clearInterval(timer);
     bar.style.width = '100%';
+    bar.textContent = '100%';
     if (data.error) {
       document.getElementById('msgArea').innerHTML = '<pre class="text-danger">'+data.error+'</pre>';
     } else {
       renderClusters(data.clusters);
       document.getElementById('msgArea').innerHTML = '';
     }
+    setTimeout(() => progressWrap.classList.add('d-none'), 500);
+  }).catch(() => {
+    clearInterval(timer);
+    bar.style.width = '100%';
+    bar.textContent = '100%';
+    document.getElementById('msgArea').innerHTML = '<pre class="text-danger">Request failed</pre>';
     setTimeout(() => progressWrap.classList.add('d-none'), 500);
   });
 });
