@@ -338,6 +338,14 @@ function applyMasonry() {
   window.msnry = new Masonry(wrap, {itemSelector: '.col-md-4', percentPosition: true});
 }
 
+function getLines(textDiv) {
+  const children = Array.from(textDiv.querySelectorAll('div'));
+  if (children.length) {
+    return children.map(d => d.textContent.trim()).filter(Boolean);
+  }
+  return textDiv.innerText.split(/\n+/).map(s => s.trim()).filter(Boolean);
+}
+
 function applyFilter() {
   const input = document.getElementById('clusterFilter');
   if (!input) return;
@@ -345,7 +353,7 @@ function applyFilter() {
   const cols = Array.from(document.querySelectorAll('#clustersContainer .col-md-4'));
   cols.forEach(col => {
     const textDiv = col.querySelector('.cluster-edit');
-    const lines = textDiv.innerText.split(/\n+/).map(s => s.trim());
+    const lines = getLines(textDiv);
     let show = terms.length === 0 || lines.some(line => terms.some(t => line.toLowerCase().includes(t)));
     col.style.display = show ? '' : 'none';
     const html = lines.map(line => {
@@ -379,13 +387,17 @@ function renderClusters(data) {
     const titleSpan = document.createElement('span');
     titleSpan.textContent = cluster[0] || 'Unnamed';
     const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
     removeBtn.className = 'btn btn-sm btn-danger ms-auto';
     removeBtn.textContent = '-';
-    removeBtn.addEventListener('click', function() {
+    removeBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const top = window.scrollY;
       currentClusters.splice(idx, 1);
       const processed = processClusters(currentClusters);
       renderClusters(processed.clusters);
       updateStatusBar([], processed.singles);
+      window.scrollTo(0, top);
     });
     header.appendChild(countSpan);
     header.appendChild(titleSpan);
@@ -395,7 +407,7 @@ function renderClusters(data) {
     textDiv.contentEditable = 'true';
     textDiv.innerHTML = cluster.map(k => `<div>${escapeHtml(k)}</div>`).join('');
     textDiv.addEventListener('input', function() {
-      const lines = this.innerText.split(/\n+/).map(s => s.trim()).filter(Boolean);
+      const lines = getLines(this);
       countSpan.textContent = lines.length;
       titleSpan.textContent = lines[0] || 'Unnamed';
       if (window.msnry) window.msnry.layout();
@@ -491,7 +503,7 @@ document.getElementById('addClusterBtn').addEventListener('click', function() {
 document.getElementById('saveBtn').addEventListener('click', function() {
   const msgArea = document.getElementById('msgArea');
   const texts = Array.from(document.querySelectorAll('#clustersContainer .cluster-edit'));
-  let clusters = texts.map(t => t.innerText.split(/\n+/).map(s => s.trim()));
+  let clusters = texts.map(t => getLines(t));
   const processed = processClusters(clusters);
   clusters = processed.clusters;
   const singles = processed.singles;
