@@ -66,7 +66,7 @@ function updateKeywordStats(PDO $pdo, int $client_id): void {
 
 function loadClusters(PDO $pdo, int $client_id): array {
     $stmt = $pdo->prepare(
-        "SELECT keyword, cluster_name FROM keywords WHERE client_id = ? AND cluster_name <> '' ORDER BY id"
+        "SELECT keyword, cluster_name FROM keywords WHERE client_id = ? AND cluster_name IS NOT NULL AND cluster_name <> '' ORDER BY id"
     );
     $stmt->execute([$client_id]);
     $clusters = [];
@@ -83,7 +83,7 @@ function loadAllKeywords(PDO $pdo, int $client_id): array {
 }
 
 function loadUnclustered(PDO $pdo, int $client_id): array {
-    $stmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ? AND cluster_name = '' ORDER BY id");
+    $stmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ? AND (cluster_name = '' OR cluster_name IS NULL) ORDER BY id");
     $stmt->execute([$client_id]);
     return $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
@@ -202,7 +202,7 @@ if ($action === 'clear' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($action === 'remove_unclustered' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    $pdo->prepare("DELETE FROM keywords WHERE client_id = ? AND cluster_name = ''")
+    $pdo->prepare("DELETE FROM keywords WHERE client_id = ? AND (cluster_name = '' OR cluster_name IS NULL)")
         ->execute([$client_id]);
     updateKeywordStats($pdo, $client_id);
     echo json_encode(['success' => true, 'unclustered' => loadUnclustered($pdo, $client_id)]);
