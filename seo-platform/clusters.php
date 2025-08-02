@@ -372,8 +372,8 @@ function applyMasonry() {
 }
 
 function getLines(textDiv) {
-  const children = Array.from(textDiv.querySelectorAll('div'));
-  if (children.length) {
+  const children = Array.from(textDiv.children).filter(el => el.tagName === 'DIV');
+  if (children.length > 1) {
     return children.map(d => d.textContent.trim()).filter(Boolean);
   }
   return textDiv.innerText.split(/\n+/).map(s => s.trim()).filter(Boolean);
