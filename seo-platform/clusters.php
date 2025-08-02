@@ -276,38 +276,16 @@ function sortCluster(cluster) {
 }
 
 function processClusters(list) {
-  let cleaned = list.map(c => c.filter(Boolean)).filter(c => c.length);
-  let singles = [];
-  let multi = [];
-  cleaned.forEach(c => {
-    if (c.length === 1) singles.push(c[0]);
-    else multi.push(c);
-  });
-  let leftover = [];
-  singles.forEach(kw => {
-    const words = kw.toLowerCase().split(/\s+/);
-    let merged = false;
-    for (let cluster of multi) {
-      if (cluster.some(other => words.some(w => other.toLowerCase().includes(w)))) {
-        cluster.push(kw);
-        merged = true;
-        break;
-      }
-    }
-    if (!merged) {
-      multi.push([kw]);
-      leftover.push(kw);
-    }
-  });
-  multi = multi.map(sortCluster);
-  return {clusters: multi, singles: leftover};
+  let cleaned = list.map(c => c.filter(Boolean)).filter(c => c.length).map(sortCluster);
+  let singles = cleaned.filter(c => c.length === 1).map(c => c[0]);
+  return {clusters: cleaned, singles};
 }
 
 function updateStatusBar(unclustered, singles=[]) {
   const bar = document.getElementById('statusBar');
   const messages = [];
   if (unclustered.length) messages.push('Unclustered keywords: ' + unclustered.join(', '));
-  if (singles.length) messages.push('Single keyword clusters: ' + singles.join(', '));
+  if (singles.length) messages.push('Single keyword clusters: ' + singles.length);
   if (messages.length) {
     bar.className = 'alert alert-warning';
     bar.textContent = messages.join(' | ');
@@ -391,6 +369,7 @@ function renderClusters(data) {
     col.className = 'col-md-4 mb-4';
     const card = document.createElement('div');
     card.className = 'card';
+    if (cluster.length === 1) card.classList.add('border', 'border-danger');
     const header = document.createElement('div');
     header.className = 'card-header d-flex align-items-center';
     const countSpan = document.createElement('span');
@@ -429,6 +408,8 @@ function renderClusters(data) {
       currentClusters[idx] = lines;
       countSpan.textContent = lines.length;
       titleSpan.textContent = lines[0] || 'Unnamed';
+      if (lines.length === 1) card.classList.add('border', 'border-danger');
+      else card.classList.remove('border', 'border-danger');
       if (window.msnry) {
         window.msnry.reloadItems();
         window.msnry.layout();
