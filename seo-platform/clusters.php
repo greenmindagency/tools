@@ -252,6 +252,7 @@ Group commercial keywords (like company, agency, services) **together only when 
 let currentClusters = [];
 let orderMap = {};
 let loadedKeywords = [];
+let currentUnclustered = [];
 const singleFilterActive = <?= isset($_GET['single']) ? 'true' : 'false' ?>;
 const filterTerms = (document.getElementById('clusterFilter').value || '')
   .toLowerCase()
@@ -302,7 +303,8 @@ function renderKeywordButtons(list) {
     .join('');
 }
 
-function updateStatusBars(unclustered, singles=[]) {
+function updateStatusBars(unclustered = null, singles = []) {
+  if (unclustered !== null) currentUnclustered = unclustered;
   const area = document.getElementById('statusArea');
   area.innerHTML = '';
   const dupes = findDuplicates(currentClusters);
@@ -321,22 +323,13 @@ function updateStatusBars(unclustered, singles=[]) {
     area.appendChild(bar);
   }
 
-  if (unclustered.length) {
+  if (currentUnclustered.length) {
     const bar = document.createElement('div');
     bar.className = 'alert alert-warning d-flex align-items-center flex-wrap';
+    bar.addEventListener('click', () => bar.remove());
     const span = document.createElement('span');
-    span.innerHTML = `Unclustered keywords (${unclustered.length}): ${renderKeywordButtons(unclustered)}`;
+    span.innerHTML = `Unclustered keywords (${currentUnclustered.length}): ${renderKeywordButtons(currentUnclustered)}`;
     bar.appendChild(span);
-    const fixBtn = document.createElement('button');
-    fixBtn.id = 'fixUnclusteredBtn';
-    fixBtn.className = 'btn btn-sm btn-primary ms-auto';
-    fixBtn.textContent = 'Fix now';
-    const rmBtn = document.createElement('button');
-    rmBtn.id = 'removeUnclusteredBtn';
-    rmBtn.className = 'btn btn-sm btn-warning ms-2';
-    rmBtn.textContent = 'Remove now';
-    bar.appendChild(fixBtn);
-    bar.appendChild(rmBtn);
     area.appendChild(bar);
   }
 
@@ -354,7 +347,7 @@ function updateStatusBars(unclustered, singles=[]) {
     area.appendChild(bar);
   }
 
-  if (!unclustered.length && !singles.length && !dupes.length) {
+  if (!currentUnclustered.length && !singles.length && !dupes.length) {
     const bar = document.createElement('div');
     bar.className = 'alert alert-success';
     bar.textContent = 'All keywords are clustered.';
@@ -364,24 +357,8 @@ function updateStatusBars(unclustered, singles=[]) {
   area.querySelectorAll('.kw-copy').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
-      e.stopPropagation();
       navigator.clipboard.writeText(btn.dataset.kw);
     });
-  });
-
-  const fixBtn = document.getElementById('fixUnclusteredBtn');
-  if (fixBtn) fixBtn.addEventListener('click', () => runClustering('', true));
-  const rmBtn = document.getElementById('removeUnclusteredBtn');
-  if (rmBtn) rmBtn.addEventListener('click', () => {
-    if (!confirm('Remove all unclustered keywords?')) return;
-    fetch('clusters.php?action=remove_unclustered&client_id=<?= $client_id ?>', {method:'POST'})
-      .then(r => r.json()).then(data => {
-        if (data.success) {
-          const singles = processClusters(currentClusters).singles;
-          updateStatusBars(data.unclustered || [], singles);
-          document.getElementById('msgArea').innerHTML = '<p class="text-success">Unclustered keywords removed.</p>';
-        }
-      });
   });
 }
 
@@ -479,7 +456,7 @@ function renderClusters(data) {
       currentClusters.splice(idx, 1);
       const processed = processClusters(currentClusters);
       renderClusters(processed.clusters);
-      updateStatusBars([], processed.singles);
+      updateStatusBars(null, processed.singles);
       window.scrollTo(0, top);
       wrap.style.minHeight = '';
     });
@@ -493,8 +470,8 @@ function renderClusters(data) {
       const match = filterTerms.some(t => k.toLowerCase().includes(t));
       return `<div${match ? ' class="bg-warning-subtle"' : ''}>${escapeHtml(k)}</div>`;
     }).join('');
-    textDiv.addEventListener('input', function() {
-      const lines = getLines(this);
+    const syncCluster = () => {
+      const lines = getLines(textDiv);
       currentClusters[idx] = lines;
       countSpan.textContent = lines.length;
       titleSpan.textContent = lines[0] || 'Unnamed';
@@ -505,7 +482,27 @@ function renderClusters(data) {
         window.msnry.layout();
       }
       const processed = processClusters(currentClusters);
-      updateStatusBars([], processed.singles);
+      updateStatusBars(null, processed.singles);
+    };
+    textDiv.addEventListener('input', syncCluster);
+    textDiv.addEventListener('paste', function(e) {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      const lines = text.split(/\r?\n+/).map(s => s.trim()).filter(Boolean);
+      const sel = window.getSelection();
+      if (!sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const frag = document.createDocumentFragment();
+      lines.forEach(line => {
+        const div = document.createElement('div');
+        if (filterTerms.some(t => line.toLowerCase().includes(t))) div.classList.add('bg-warning-subtle');
+        div.textContent = line;
+        frag.appendChild(div);
+      });
+      range.insertNode(frag);
+      range.collapse(false);
+      syncCluster();
     });
     card.appendChild(header);
     card.appendChild(textDiv);
@@ -532,17 +529,6 @@ document.addEventListener('DOMContentLoaded', function() {
       msgArea.innerHTML = '<pre class="text-danger">Failed to load clusters.</pre>';
     });
 });
-
-function refreshKeywordData() {
-  fetch('clusters.php?action=list&client_id=<?= $client_id ?>')
-    .then(r => r.json()).then(data => {
-      setOrder(data.allKeywords || []);
-      const processed = processClusters(currentClusters);
-      updateStatusBars(data.unclustered || [], processed.singles);
-    });
-}
-
-window.addEventListener('focus', refreshKeywordData);
 
 function runClustering(instructions, autoSave = false) {
   const progressWrap = document.getElementById('progressWrap');
@@ -577,7 +563,7 @@ function runClustering(instructions, autoSave = false) {
         if (autoSave) {
           saveClusters(processed.clusters, processed.singles);
         } else {
-          updateStatusBars(data.unclustered || [], processed.singles);
+          updateStatusBars(null, processed.singles);
           setTimeout(() => progressWrap.classList.add('d-none'), 500);
         }
       }
@@ -598,8 +584,8 @@ document.getElementById('updateBtn').addEventListener('click', function() {
 });
 document.getElementById('addClusterBtn').addEventListener('click', function() {
   currentClusters.push([]);
-  renderClusters(currentClusters);
-  updateStatusBars([], processClusters(currentClusters).singles);
+      renderClusters(currentClusters);
+      updateStatusBars(null, processClusters(currentClusters).singles);
 });
 
 document.getElementById('saveBtn').addEventListener('click', function() {
