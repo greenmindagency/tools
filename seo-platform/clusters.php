@@ -475,11 +475,29 @@ function applyMasonry() {
 }
 
 function getLines(textDiv) {
-  const children = Array.from(textDiv.children).filter(el => el.tagName === 'DIV');
-  if (children.length > 1) {
-    return children.map(d => d.textContent.trim()).filter(Boolean);
-  }
-  return textDiv.innerText.split(/\n+/).map(s => s.trim()).filter(Boolean);
+  const lines = [];
+  const gather = el => {
+    Array.from(el.childNodes).forEach(node => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node.tagName === 'DIV') {
+          gather(node);
+        } else {
+          node.textContent.split(/\r?\n+/).forEach(part => {
+            part = part.trim();
+            if (part) lines.push(part);
+          });
+        }
+      } else if (node.nodeType === Node.TEXT_NODE) {
+        node.textContent.split(/\r?\n+/).forEach(part => {
+          part = part.trim();
+          if (part) lines.push(part);
+        });
+      }
+    });
+  };
+  gather(textDiv);
+  if (lines.length) return lines;
+  return textDiv.innerText.split(/\r?\n+/).map(s => s.trim()).filter(Boolean);
 }
 
 function renderClusters(data) {
