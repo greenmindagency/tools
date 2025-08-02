@@ -245,7 +245,7 @@ Group commercial keywords (like company, agency, services) **together only when 
 <div id="progressWrap" class="progress mb-3 d-none">
   <div id="clusterProgress" class="progress-bar" role="progressbar" style="width:0%">0%</div>
 </div>
-<div id="statusBar" class="alert alert-info"></div>
+<div id="statusArea"></div>
 <div id="msgArea"></div>
 <div id="clustersContainer" class="row" data-masonry='{"percentPosition": true }'></div>
 
@@ -285,44 +285,104 @@ function processClusters(list) {
   return {clusters: cleaned, singles};
 }
 
-function updateStatusBar(unclustered, singles=[]) {
-  const bar = document.getElementById('statusBar');
-  const lines = [];
-  if (unclustered.length) {
-    lines.push(
-      `Unclustered keywords: ${unclustered.length}` +
-      ` <button id="fixUnclusteredBtn" class="btn btn-sm btn-primary ms-2">Fix now</button>` +
-      ` <button id="removeUnclusteredBtn" class="btn btn-sm btn-warning ms-2">Remove now</button>`
-    );
-  }
-  if (singles.length) {
-    let filterBtn = '';
-    if (!singleFilterActive) {
-      filterBtn = ` <a href="clusters.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>&single=1" class="btn btn-sm btn-secondary ms-2">Filter now</a>`;
-    }
-    lines.push(`Single keyword clusters: ${singles.length}${filterBtn}`);
-  }
-  if (lines.length) {
-    bar.className = 'alert alert-warning';
-    bar.innerHTML = lines.map(l => `<div class="d-flex align-items-center">${l}</div>`).join('');
-    const fixBtn = document.getElementById('fixUnclusteredBtn');
-    if (fixBtn) fixBtn.addEventListener('click', () => runClustering('', true));
-    const rmBtn = document.getElementById('removeUnclusteredBtn');
-    if (rmBtn) rmBtn.addEventListener('click', () => {
-      if (!confirm('Remove all unclustered keywords?')) return;
-      fetch('clusters.php?action=remove_unclustered&client_id=<?= $client_id ?>', {method:'POST'})
-        .then(r => r.json()).then(data => {
-          if (data.success) {
-            const singles = processClusters(currentClusters).singles;
-            updateStatusBar(data.unclustered || [], singles);
-            document.getElementById('msgArea').innerHTML = '<p class="text-success">Unclustered keywords removed.</p>';
-          }
-        });
+function findDuplicates(clusters) {
+  const seen = {};
+  const dupes = [];
+  clusters.forEach(cluster => {
+    cluster.forEach(kw => {
+      const key = kw.toLowerCase();
+      if (seen[key]) dupes.push(kw);
+      else seen[key] = true;
     });
-  } else {
+  });
+  return Array.from(new Set(dupes));
+}
+
+function renderKeywordButtons(list) {
+  return list
+    .map(k => `<button type="button" class="btn btn-link btn-sm kw-copy" data-kw="${escapeHtml(k)}">${escapeHtml(k)}</button>`)
+    .join('');
+}
+
+function updateStatusBars(unclustered, singles=[]) {
+  const area = document.getElementById('statusArea');
+  area.innerHTML = '';
+  const dupes = findDuplicates(currentClusters);
+
+  if (singles.length) {
+    const bar = document.createElement('div');
+    bar.className = 'alert alert-warning d-flex align-items-center';
+    bar.textContent = `Single keyword clusters: ${singles.length}`;
+    if (!singleFilterActive) {
+      const link = document.createElement('a');
+      link.className = 'btn btn-sm btn-secondary ms-2';
+      link.textContent = 'Filter now';
+      link.href = `clusters.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>&single=1`;
+      bar.appendChild(link);
+    }
+    area.appendChild(bar);
+  }
+
+  if (unclustered.length) {
+    const bar = document.createElement('div');
+    bar.className = 'alert alert-warning d-flex align-items-center flex-wrap';
+    const span = document.createElement('span');
+    span.innerHTML = `Unclustered keywords (${unclustered.length}): ${renderKeywordButtons(unclustered)}`;
+    bar.appendChild(span);
+    const fixBtn = document.createElement('button');
+    fixBtn.id = 'fixUnclusteredBtn';
+    fixBtn.className = 'btn btn-sm btn-primary ms-auto';
+    fixBtn.textContent = 'Fix now';
+    const rmBtn = document.createElement('button');
+    rmBtn.id = 'removeUnclusteredBtn';
+    rmBtn.className = 'btn btn-sm btn-warning ms-2';
+    rmBtn.textContent = 'Remove now';
+    bar.appendChild(fixBtn);
+    bar.appendChild(rmBtn);
+    area.appendChild(bar);
+  }
+
+  if (dupes.length) {
+    const bar = document.createElement('div');
+    bar.className = 'alert alert-danger d-flex align-items-center flex-wrap';
+    const span = document.createElement('span');
+    span.innerHTML = `Duplicate keywords (${dupes.length}): ${renderKeywordButtons(dupes)}`;
+    bar.appendChild(span);
+    const filter = document.createElement('a');
+    filter.className = 'btn btn-sm btn-secondary ms-auto';
+    filter.textContent = 'Filter now';
+    filter.href = `clusters.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>&q=${encodeURIComponent(dupes.join('|'))}`;
+    bar.appendChild(filter);
+    area.appendChild(bar);
+  }
+
+  if (!unclustered.length && !singles.length && !dupes.length) {
+    const bar = document.createElement('div');
     bar.className = 'alert alert-success';
     bar.textContent = 'All keywords are clustered.';
+    area.appendChild(bar);
   }
+
+  area.querySelectorAll('.kw-copy').forEach(btn => {
+    btn.addEventListener('click', () => {
+      navigator.clipboard.writeText(btn.dataset.kw);
+    });
+  });
+
+  const fixBtn = document.getElementById('fixUnclusteredBtn');
+  if (fixBtn) fixBtn.addEventListener('click', () => runClustering('', true));
+  const rmBtn = document.getElementById('removeUnclusteredBtn');
+  if (rmBtn) rmBtn.addEventListener('click', () => {
+    if (!confirm('Remove all unclustered keywords?')) return;
+    fetch('clusters.php?action=remove_unclustered&client_id=<?= $client_id ?>', {method:'POST'})
+      .then(r => r.json()).then(data => {
+        if (data.success) {
+          const singles = processClusters(currentClusters).singles;
+          updateStatusBars(data.unclustered || [], singles);
+          document.getElementById('msgArea').innerHTML = '<p class="text-success">Unclustered keywords removed.</p>';
+        }
+      });
+  });
 }
 
 function saveClusters(clusters, singles) {
@@ -360,7 +420,7 @@ function saveClusters(clusters, singles) {
     } else {
       msgArea.innerHTML = '<pre class="text-danger">' + data.error + '</pre>';
     }
-    updateStatusBar(data.unclustered || [], singles);
+    updateStatusBars(data.unclustered || [], singles);
     btn.disabled = false;
     msgArea.scrollIntoView({behavior:'smooth'});
     setTimeout(() => progressWrap.classList.add('d-none'), 500);
@@ -419,7 +479,7 @@ function renderClusters(data) {
       currentClusters.splice(idx, 1);
       const processed = processClusters(currentClusters);
       renderClusters(processed.clusters);
-      updateStatusBar([], processed.singles);
+      updateStatusBars([], processed.singles);
       window.scrollTo(0, top);
       wrap.style.minHeight = '';
     });
@@ -444,6 +504,8 @@ function renderClusters(data) {
         window.msnry.reloadItems();
         window.msnry.layout();
       }
+      const processed = processClusters(currentClusters);
+      updateStatusBars([], processed.singles);
     });
     card.appendChild(header);
     card.appendChild(textDiv);
@@ -464,12 +526,23 @@ document.addEventListener('DOMContentLoaded', function() {
       setOrder(data.allKeywords || []);
       const processed = processClusters(data.clusters || []);
       renderClusters(processed.clusters);
-      updateStatusBar(data.unclustered || [], processed.singles);
+      updateStatusBars(data.unclustered || [], processed.singles);
       msgArea.innerHTML = '';
     }).catch(() => {
       msgArea.innerHTML = '<pre class="text-danger">Failed to load clusters.</pre>';
     });
 });
+
+function refreshKeywordData() {
+  fetch('clusters.php?action=list&client_id=<?= $client_id ?>')
+    .then(r => r.json()).then(data => {
+      setOrder(data.allKeywords || []);
+      const processed = processClusters(currentClusters);
+      updateStatusBars(data.unclustered || [], processed.singles);
+    });
+}
+
+window.addEventListener('focus', refreshKeywordData);
 
 function runClustering(instructions, autoSave = false) {
   const progressWrap = document.getElementById('progressWrap');
@@ -504,7 +577,7 @@ function runClustering(instructions, autoSave = false) {
         if (autoSave) {
           saveClusters(processed.clusters, processed.singles);
         } else {
-          updateStatusBar(data.unclustered || [], processed.singles);
+          updateStatusBars(data.unclustered || [], processed.singles);
           setTimeout(() => progressWrap.classList.add('d-none'), 500);
         }
       }
@@ -526,6 +599,7 @@ document.getElementById('updateBtn').addEventListener('click', function() {
 document.getElementById('addClusterBtn').addEventListener('click', function() {
   currentClusters.push([]);
   renderClusters(currentClusters);
+  updateStatusBars([], processClusters(currentClusters).singles);
 });
 
 document.getElementById('saveBtn').addEventListener('click', function() {
@@ -572,7 +646,7 @@ document.getElementById('clearBtn').addEventListener('click', function() {
     .then(r => r.json()).then(data => {
       if (data.success) {
         renderClusters([]);
-        updateStatusBar(data.unclustered || [], []);
+        updateStatusBars(data.unclustered || [], []);
         document.getElementById('msgArea').innerHTML = '<p class="text-success">Clusters removed.</p>';
       }
     });
