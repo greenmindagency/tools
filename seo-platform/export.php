@@ -32,16 +32,15 @@ $stmt->execute([$client_id]);
 $clientName = $stmt->fetchColumn() ?: 'client';
 
 $kwRows = [];
-$kwRows[] = ['Keyword','Volume','Form','Link','Type','Priority','Group','#','Cluster'];
+$kwRows[] = ['Keyword','Volume','Form','Link','Type','Priority','Cluster'];
 
 $stmt = $pdo->prepare(
-    "SELECT keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name"
+    "SELECT keyword, volume, form, content_link, page_type, priority, cluster_name"
     . " FROM keywords WHERE client_id = ? ORDER BY id"
 );
 $stmt->execute([$client_id]);
 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $cluster  = trim($row['cluster_name'] ?? '');
-    $groupCnt = $row['group_count'] ?? '';
     $kwRows[] = [
         $row['keyword'],
         $row['volume'],
@@ -49,8 +48,6 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $row['content_link'],
         $row['page_type'],
         $row['priority'],
-        $row['group_name'],
-        $groupCnt,
         $cluster
     ];
 }

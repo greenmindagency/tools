@@ -43,7 +43,6 @@ $title = $client['name'] . ' Dashboard';
 $restored = false;
 $pageTypes = ['', 'Home', 'Service', 'Blog', 'Page', 'Article', 'Product', 'Other'];
 $priorityOptions = ['', 'Low', 'Mid', 'High'];
-maybeUpdateKeywordGroups($pdo, $client_id);
 updateKeywordStats($pdo, $client_id);
 
 $backupDir = __DIR__ . '/backups/client_' . $client_id;
@@ -65,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
         require_once __DIR__ . '/lib/SimpleXLSX.php';
         if ($xlsx = \Shuchkin\SimpleXLSX::parse($path)) {
             $rows = $xlsx->rows(0);
-            $ins = $pdo->prepare("INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $ins = $pdo->prepare("INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name) VALUES (?, ?, ?, ?, ?, ?, ?, '', 0, ?)");
             for ($i = 1; $i < count($rows); $i++) {
                 $data = $rows[$i];
                 $keyword = $data[0] ?? '';
@@ -73,16 +72,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
                 $form    = $data[2] ?? '';
                 $link    = $data[3] ?? '';
                 $type    = $data[4] ?? '';
-                if (count($data) >= 9) {
+                if (count($data) >= 7) {
                     $priority = $data[5] ?? '';
-                    $group    = $data[6] ?? '';
-                    $count    = (int)($data[7] ?? 0);
-                    $cluster  = $data[8] ?? '';
+                    $cluster  = $data[6] ?? '';
                 } else {
                     $priority = '';
-                    $group    = $data[5] ?? '';
-                    $count    = (int)($data[6] ?? 0);
-                    $cluster  = $data[7] ?? '';
+                    $cluster  = $data[5] ?? '';
                 }
                 $ins->execute([
                     $client_id,
@@ -92,8 +87,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
                     $link,
                     $type,
                     $priority,
-                    $group,
-                    $count,
                     $cluster
                 ]);
             }
@@ -113,7 +106,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
                 }
             }
         }
-        maybeUpdateKeywordGroups($pdo, $client_id);
         updateKeywordStats($pdo, $client_id);
         $restored = true;
     }
@@ -133,9 +125,9 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS keyword_stats (
     clustered INT DEFAULT 0,
     structured INT DEFAULT 0
 )");
-$statsStmt = $pdo->prepare("SELECT total, grouped, clustered, structured FROM keyword_stats WHERE client_id = ?");
+$statsStmt = $pdo->prepare("SELECT total, clustered FROM keyword_stats WHERE client_id = ?");
 $statsStmt->execute([$client_id]);
-$stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'grouped'=>0,'clustered'=>0,'structured'=>0];
+$stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'clustered'=>0];
 
 include 'header.php';
 ?>
@@ -151,9 +143,7 @@ include 'header.php';
 <div class="mb-3 d-flex justify-content-between align-items-center">
   <div>
     <span class="me-3">All keywords: <?= (int)$stats['total'] ?></span>
-    <span class="me-3">Grouped Keywords: <?= (int)$stats['grouped'] ?></span>
     <span class="me-3">Clustered Keywords: <?= (int)$stats['clustered'] ?></span>
-    <span class="me-3">Structured Keywords: <?= (int)$stats['structured'] ?></span>
   </div>
   <div class="d-flex flex-column align-items-end">
     <div class="mb-2">
@@ -270,7 +260,6 @@ if (isset($_POST['add_keywords'])) {
 $pdo->query("DELETE k1 FROM keywords k1
 JOIN keywords k2 ON k1.keyword = k2.keyword AND k1.id > k2.id
 WHERE k1.client_id = $client_id AND k2.client_id = $client_id");
-maybeUpdateKeywordGroups($pdo, $client_id);
 updateKeywordStats($pdo, $client_id);
 
 if (isset($_POST['add_clusters'])) {
@@ -286,7 +275,6 @@ if (isset($_POST['add_clusters'])) {
         }
     }
     echo "<p>Clusters updated.</p>";
-    maybeUpdateKeywordGroups($pdo, $client_id);
     updateKeywordStats($pdo, $client_id);
 }
 
@@ -295,7 +283,7 @@ if (isset($_POST['import_plan'])) {
         $pdo->prepare("DELETE FROM keywords WHERE client_id = ?")->execute([$client_id]);
         $pdo->prepare("DELETE FROM keyword_positions WHERE client_id = ?")->execute([$client_id]);
         $insert = $pdo->prepare(
-            "INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO keywords (client_id, keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name) VALUES (?, ?, ?, ?, ?, ?, ?, '', 0, ?)"
         );
         require_once __DIR__ . '/lib/SimpleXLSX.php';
         if ($xlsx = \Shuchkin\SimpleXLSX::parse($_FILES['csv_file']['tmp_name'])) {
@@ -312,15 +300,11 @@ if (isset($_POST['import_plan'])) {
             $link = $data[3] ?? '';
             $type = trim($data[4] ?? '');
             $priority = '';
-            if (count($data) >= 9) {
+            if (count($data) >= 7) {
                 $priority = trim($data[5] ?? '');
-                $group = trim($data[6] ?? '');
-                $groupCnt = is_numeric($data[7] ?? '') ? (int)$data[7] : 0;
-                $cluster = trim($data[8] ?? '');
+                $cluster = trim($data[6] ?? '');
             } else {
-                $group = trim($data[5] ?? '');
-                $groupCnt = is_numeric($data[6] ?? '') ? (int)$data[6] : 0;
-                $cluster = trim($data[7] ?? '');
+                $cluster = trim($data[5] ?? '');
             }
 
             if ($type !== '') {
@@ -328,7 +312,7 @@ if (isset($_POST['import_plan'])) {
                     if (strcasecmp($pt, $type) === 0) { $type = $pt; break; }
                 }
             }
-            $insert->execute([$client_id, $keyword, $vol, $form, $link, $type, $priority, $group, $groupCnt, $cluster]);
+            $insert->execute([$client_id, $keyword, $vol, $form, $link, $type, $priority, $cluster]);
         }
 
         if ($xlsx && $xlsx->sheetsCount() > 1) {
@@ -347,7 +331,6 @@ if (isset($_POST['import_plan'])) {
         }
 
         echo "<p>Plan imported.</p>";
-        maybeUpdateKeywordGroups($pdo, $client_id);
         updateKeywordStats($pdo, $client_id);
     }
 }
@@ -393,7 +376,6 @@ if (isset($_POST['update_keywords'])) {
     }
 
 
-    maybeUpdateKeywordGroups($pdo, $client_id);
     updateKeywordStats($pdo, $client_id);
 
     if (!isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
@@ -413,100 +395,6 @@ if (isset($_POST['update_keywords'])) {
     exit;
 }
 
-// ---------- Auto Grouping Logic ----------
-function getBasePhrases(string $phrase): array {
-    $words = preg_split('/\s+/', trim($phrase));
-    $bases = [];
-    $count = count($words);
-    for ($n = 2; $n <= 8; $n++) {
-        if ($count >= $n) {
-            $bases[] = implode(' ', array_slice($words, 0, $n));
-        }
-    }
-    return $bases;
-}
-
-function findGroup(string $keyword, array $phraseCount): string {
-    $bestGroup = '';
-    $maxWords = 0;
-    $kwWordCount = count(preg_split('/\s+/', $keyword));
-    foreach ($phraseCount as $phrase => $cnt) {
-        $phraseWords = preg_split('/\s+/', $phrase);
-        $numWords = count($phraseWords);
-        if ($numWords > $kwWordCount) {
-            continue;
-        }
-        $regex = '/(^|\s)' . preg_quote($phrase, '/') . '(\s|$)/i';
-        if (preg_match($regex, $keyword) && $numWords > $maxWords) {
-            $bestGroup = $phrase;
-            $maxWords = $numWords;
-        }
-    }
-    return $bestGroup;
-}
-
-
-/**
- * Update keyword grouping only when keywords have changed.
- */
-function maybeUpdateKeywordGroups(PDO $pdo, int $client_id): void {
-    $stmt = $pdo->prepare("SELECT id, keyword FROM keywords WHERE client_id = ? ORDER BY id");
-    $stmt->execute([$client_id]);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    if (!$rows) {
-        return;
-    }
-
-    $hashInput = '';
-    foreach ($rows as $r) {
-        $hashInput .= $r['id'] . ':' . $r['keyword'] . ';';
-    }
-    $hash = md5($hashInput);
-    $cacheDir = __DIR__ . '/cache';
-    if (!is_dir($cacheDir)) {
-        mkdir($cacheDir, 0777, true);
-    }
-    $cacheFile = $cacheDir . "/groups_{$client_id}.txt";
-    $prev = file_exists($cacheFile) ? trim(file_get_contents($cacheFile)) : '';
-    if ($hash === $prev) {
-        return; // nothing changed
-    }
-    file_put_contents($cacheFile, $hash);
-
-    $keywords = [];
-    foreach ($rows as $r) {
-        $keywords[$r['id']] = $r['keyword'];
-    }
-
-    $phraseCount = [];
-    foreach ($keywords as $kw) {
-        foreach (getBasePhrases($kw) as $base) {
-            $phraseCount[$base] = ($phraseCount[$base] ?? 0) + 1;
-        }
-    }
-
-    $phraseCount = array_filter($phraseCount, fn($c) => $c > 1);
-
-    $update = $pdo->prepare("UPDATE keywords SET group_name = ?, group_count = 0 WHERE id = ?");
-    foreach ($keywords as $id => $kw) {
-        $group = findGroup($kw, $phraseCount);
-        $update->execute([$group, $id]);
-    }
-
-    updateGroupCounts($pdo, $client_id);
-}
-
-function updateGroupCounts(PDO $pdo, int $client_id): void {
-    $stmt = $pdo->prepare("SELECT group_name, COUNT(*) as cnt FROM keywords WHERE client_id = ? GROUP BY group_name");
-    $stmt->execute([$client_id]);
-    $counts = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
-    $update = $pdo->prepare("UPDATE keywords SET group_count = ? WHERE client_id = ? AND group_name = ?");
-    foreach ($counts as $group => $cnt) {
-        $update->execute([$cnt, $client_id, $group]);
-    }
-}
-
 function updateKeywordStats(PDO $pdo, int $client_id): void {
     $pdo->exec("CREATE TABLE IF NOT EXISTS keyword_stats (
         client_id INT PRIMARY KEY,
@@ -518,20 +406,18 @@ function updateKeywordStats(PDO $pdo, int $client_id): void {
 
     $stmt = $pdo->prepare("SELECT
         COUNT(*) AS total,
-        SUM(CASE WHEN COALESCE(group_name,'') <> '' THEN 1 ELSE 0 END) AS grouped,
-        SUM(CASE WHEN COALESCE(cluster_name,'') <> '' THEN 1 ELSE 0 END) AS clustered,
-        SUM(CASE WHEN COALESCE(group_name,'') <> '' AND group_count <= 5 THEN 1 ELSE 0 END) AS structured
+        SUM(CASE WHEN COALESCE(cluster_name,'') <> '' THEN 1 ELSE 0 END) AS clustered
         FROM keywords WHERE client_id = ?");
     $stmt->execute([$client_id]);
-    $stats = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'grouped'=>0,'clustered'=>0,'structured'=>0];
+    $stats = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'clustered'=>0];
 
     $up = $pdo->prepare("REPLACE INTO keyword_stats (client_id,total,grouped,clustered,structured) VALUES (?,?,?,?,?)");
     $up->execute([
         $client_id,
         (int)$stats['total'],
-        (int)$stats['grouped'],
+        0,
         (int)$stats['clustered'],
-        (int)$stats['structured']
+        0
     ]);
 }
 
@@ -544,8 +430,8 @@ function createXlsxBackup(PDO $pdo, int $client_id, string $dir, string $client_
     $slug = preg_replace('/[^a-zA-Z0-9]+/', '-', strtolower(iconv('UTF-8', 'ASCII//TRANSLIT', $client_name)));
     $file = "$dir/{$slug}_$ts.xlsx";
     $kwRows = [];
-    $kwRows[] = ['Keyword','Volume','Form','Link','Type','Priority','Group','#','Cluster'];
-    $stmt = $pdo->prepare("SELECT keyword, volume, form, content_link, page_type, priority, group_name, group_count, cluster_name FROM keywords WHERE client_id = ? ORDER BY id");
+    $kwRows[] = ['Keyword','Volume','Form','Link','Type','Priority','Cluster'];
+    $stmt = $pdo->prepare("SELECT keyword, volume, form, content_link, page_type, priority, cluster_name FROM keywords WHERE client_id = ? ORDER BY id");
     $stmt->execute([$client_id]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $kwRows[] = [
@@ -555,8 +441,6 @@ function createXlsxBackup(PDO $pdo, int $client_id, string $dir, string $client_
             $row['content_link'],
             $row['page_type'],
             $row['priority'],
-            $row['group_name'],
-            $row['group_count'],
             $row['cluster_name']
         ];
     }
@@ -600,7 +484,7 @@ $perPage = 100;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $q = trim($_GET['q'] ?? '');
 $field = $_GET['field'] ?? 'keyword';
-$allowedFields = ['keyword', 'group_name', 'group_exact', 'cluster_name', 'content_link', 'keyword_empty_cluster', 'keyword_empty_group'];
+$allowedFields = ['keyword', 'cluster_name', 'content_link', 'keyword_empty_cluster'];
 if (!in_array($field, $allowedFields, true)) {
     $field = 'keyword';
 }
@@ -608,7 +492,7 @@ if (!in_array($field, $allowedFields, true)) {
 $baseQuery = "FROM keywords WHERE client_id = ?";
 $params = [$client_id];
 $terms = array_values(array_filter(array_map('trim', explode('|', $q)), 'strlen'));
-if ($field === 'keyword_empty_cluster' || $field === 'keyword_empty_group') {
+if ($field === 'keyword_empty_cluster') {
     if ($terms) {
         $likeParts = [];
         foreach ($terms as $t) {
@@ -617,14 +501,10 @@ if ($field === 'keyword_empty_cluster' || $field === 'keyword_empty_group') {
         }
         $baseQuery .= " AND (" . implode(' OR ', $likeParts) . ")";
     }
-    if ($field === 'keyword_empty_cluster') {
-        $baseQuery .= " AND (cluster_name = '' OR cluster_name IS NULL)";
-    } else {
-        $baseQuery .= " AND (group_name = '' OR group_name IS NULL)";
-    }
+    $baseQuery .= " AND (cluster_name = '' OR cluster_name IS NULL)";
 } elseif ($terms) {
-    $column = ($field === 'group_exact') ? 'group_name' : $field;
-    if ($field === 'group_exact' || $field === 'cluster_name') {
+    $column = $field;
+    if ($field === 'cluster_name') {
         $placeholders = implode(',', array_fill(0, count($terms), '?'));
         $baseQuery .= " AND {$column} IN ($placeholders)";
         array_push($params, ...$terms);
@@ -670,12 +550,9 @@ while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
     <input type="hidden" name="slug" value="<?= $slug ?>">
     <select name="field" id="filterField" class="form-select form-select-sm me-2" style="width:auto;">
       <option value="keyword"<?= $field==='keyword' ? ' selected' : '' ?>>Keyword</option>
-      <option value="group_name"<?= $field==='group_name' ? ' selected' : '' ?>>Group</option>
-      <option value="group_exact"<?= $field==='group_exact' ? ' selected' : '' ?>>Group Exact</option>
       <option value="cluster_name"<?= $field==='cluster_name' ? ' selected' : '' ?>>Cluster</option>
       <option value="content_link"<?= $field==='content_link' ? ' selected' : '' ?>>Link</option>
       <option value="keyword_empty_cluster"<?= $field==='keyword_empty_cluster' ? ' selected' : '' ?>>Keyword/Empty Cluster</option>
-      <option value="keyword_empty_group"<?= $field==='keyword_empty_group' ? ' selected' : '' ?>>Keyword/Empty Group</option>
     </select>
     <input type="text" name="q" id="filterInput" value="<?= htmlspecialchars($q) ?>" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
     <button type="submit" class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-search"></i></button>
@@ -697,8 +574,6 @@ while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
         <th>Link</th>
         <th class="text-center">Type</th>
         <th class="text-center">Priority</th>
-        <th>Group</th>
-        <th class="text-center">#</th>
         <th>Cluster</th>
         <th class="text-center">Position</th>
     </tr>
@@ -739,12 +614,6 @@ foreach ($stmt as $row) {
         }
     }
 
-    $groupBg = '';
-    if (is_numeric($row['group_count']) && (int)$row['group_count'] > 5) {
-        $groupBg = '#fff9c4';
-    }
-
-
     $options = '';
     foreach ($pageTypes as $pt) {
         $sel = strcasecmp(trim($row['page_type']), $pt) === 0 ? ' selected' : '';
@@ -773,8 +642,6 @@ foreach ($stmt as $row) {
         "</div></td>
         <td class='text-center'><select name='page_type[{$row['id']}]' class='form-select form-select-sm'>$options</select></td>
         <td class='text-center'><select name='priority[{$row['id']}]' class='form-select form-select-sm'>$prioOptions</select></td>
-        <td>" . htmlspecialchars($row['group_name']) . "</td>
-        <td class='text-center' style='background-color: $groupBg'>" . $row['group_count'] . "</td>
         <td>" . htmlspecialchars($row['cluster_name']) . "</td>
         <td class='text-center' style='background-color: $posBg'>" . htmlspecialchars($posVal) . "</td>
     </tr>";

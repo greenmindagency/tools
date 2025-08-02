@@ -48,19 +48,17 @@ function updateKeywordStats(PDO $pdo, int $client_id): void {
     )");
     $stmt = $pdo->prepare("SELECT
         COUNT(*) AS total,
-        SUM(CASE WHEN COALESCE(group_name,'') <> '' THEN 1 ELSE 0 END) AS grouped,
-        SUM(CASE WHEN COALESCE(cluster_name,'') <> '' THEN 1 ELSE 0 END) AS clustered,
-        SUM(CASE WHEN COALESCE(group_name,'') <> '' AND group_count <= 5 THEN 1 ELSE 0 END) AS structured
+        SUM(CASE WHEN COALESCE(cluster_name,'') <> '' THEN 1 ELSE 0 END) AS clustered
         FROM keywords WHERE client_id = ?");
     $stmt->execute([$client_id]);
-    $stats = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'grouped'=>0,'clustered'=>0,'structured'=>0];
+    $stats = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'clustered'=>0];
     $up = $pdo->prepare("REPLACE INTO keyword_stats (client_id,total,grouped,clustered,structured) VALUES (?,?,?,?,?)");
     $up->execute([
         $client_id,
         (int)$stats['total'],
-        (int)$stats['grouped'],
+        0,
         (int)$stats['clustered'],
-        (int)$stats['structured']
+        0
     ]);
 }
 
