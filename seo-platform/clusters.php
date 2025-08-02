@@ -529,6 +529,26 @@ function renderClusters(data) {
       range.collapse(false);
       syncCluster();
     });
+    textDiv.addEventListener('dragover', e => e.preventDefault());
+    textDiv.addEventListener('drop', function(e) {
+      e.preventDefault();
+      const text = e.dataTransfer.getData('text');
+      const lines = text.split(/\r?\n+/).map(s => s.trim()).filter(Boolean);
+      const sel = window.getSelection();
+      if (!sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const frag = document.createDocumentFragment();
+      lines.forEach(line => {
+        const div = document.createElement('div');
+        if (filterTerms.some(t => line.toLowerCase().includes(t))) div.classList.add('bg-warning-subtle');
+        div.textContent = line;
+        frag.appendChild(div);
+      });
+      range.insertNode(frag);
+      range.collapse(false);
+      syncCluster();
+    });
     card.appendChild(header);
     card.appendChild(textDiv);
     col.appendChild(card);
@@ -615,6 +635,9 @@ document.getElementById('addClusterBtn').addEventListener('click', function() {
 
 document.getElementById('saveBtn').addEventListener('click', function() {
   const msgArea = document.getElementById('msgArea');
+  document.querySelectorAll('.cluster-edit').forEach((div, idx) => {
+    currentClusters[idx] = getLines(div);
+  });
   const processed = processClusters(currentClusters);
   currentClusters = processed.clusters;
   const clusters = currentClusters;
