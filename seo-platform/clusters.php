@@ -145,6 +145,36 @@ if ($action === 'run' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
+if ($action === 'split' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $cluster = json_decode($_POST['cluster'] ?? '[]', true) ?: [];
+    if (!$cluster) {
+        echo json_encode(['clusters' => []]);
+        exit;
+    }
+    $input = implode("\n", $cluster);
+
+    $descriptorspec = [0 => ['pipe','r'], 1 => ['pipe','w'], 2 => ['pipe','w']];
+    $process = proc_open('python3 clustering/run_cluster.py', $descriptorspec, $pipes, __DIR__);
+    if (is_resource($process)) {
+        fwrite($pipes[0], $input);
+        fclose($pipes[0]);
+        $raw = stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        $error = stream_get_contents($pipes[2]);
+        fclose($pipes[2]);
+        proc_close($process);
+        if ($error) {
+            echo json_encode(['error' => $error]);
+        } else {
+            $new = json_decode($raw, true) ?: [];
+            echo json_encode(['clusters' => $new]);
+        }
+    } else {
+        echo json_encode(['error' => 'Could not run clustering script']);
+    }
+    exit;
+}
+
 if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $clusters = json_decode($_POST['clusters'] ?? '[]', true) ?: [];
     $affected = json_decode($_POST['affected'] ?? '[]', true) ?: [];
@@ -469,9 +499,40 @@ function renderClusters(data) {
     countSpan.textContent = cluster.length;
     const titleSpan = document.createElement('span');
     titleSpan.textContent = cluster[0] || 'Unnamed';
+    const splitBtn = document.createElement('button');
+    splitBtn.type = 'button';
+    splitBtn.className = 'btn btn-sm btn-secondary ms-auto me-1';
+    splitBtn.textContent = 'Split';
+    splitBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const target = currentClusters[idx].slice();
+      if (target.length < 2) return;
+      fetch('clusters.php?action=split&client_id=<?= $client_id ?>', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'cluster=' + encodeURIComponent(JSON.stringify(target))
+      }).then(r => r.json()).then(data => {
+        if (data.error) {
+          document.getElementById('msgArea').innerHTML = '<pre class="text-danger">' + data.error + '</pre>';
+          return;
+        }
+        let newClusters = data.clusters || [];
+        if (filterTerms.length) {
+          newClusters = newClusters.filter(c => c.some(k =>
+            filterTerms.some(t => k.toLowerCase().includes(t))
+          ));
+        }
+        currentClusters.splice(idx, 1, ...newClusters);
+        const processed = processClusters(currentClusters);
+        renderClusters(processed.clusters);
+        updateStatusBars(null, processed.singles);
+      }).catch(() => {
+        document.getElementById('msgArea').innerHTML = '<pre class="text-danger">Split failed.</pre>';
+      });
+    });
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
-    removeBtn.className = 'btn btn-sm btn-danger ms-auto';
+    removeBtn.className = 'btn btn-sm btn-danger';
     removeBtn.textContent = '-';
     removeBtn.addEventListener('click', function(e) {
       e.preventDefault();
@@ -487,6 +548,7 @@ function renderClusters(data) {
     });
     header.appendChild(countSpan);
     header.appendChild(titleSpan);
+    header.appendChild(splitBtn);
     header.appendChild(removeBtn);
     const textDiv = document.createElement('div');
     textDiv.className = 'form-control cluster-edit';
