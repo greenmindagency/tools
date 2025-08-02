@@ -384,6 +384,9 @@ function updateStatusBars(unclustered, singles=[]) {
       .then(r => r.json()).then(data => {
         if (data.success) {
           const singles = processClusters(currentClusters).singles;
+          loadedKeywords = [];
+          currentClusters.forEach(c => loadedKeywords.push(...c));
+          (data.unclustered || []).forEach(k => loadedKeywords.push(k));
           updateStatusBars(data.unclustered || [], singles);
           document.getElementById('msgArea').innerHTML = '<p class="text-success">Unclustered keywords removed.</p>';
         }
@@ -422,6 +425,7 @@ function saveClusters(clusters, singles) {
       msgArea.innerHTML = '<p class="text-success">Clusters saved.</p>';
       loadedKeywords = [];
       clusters.forEach(c => loadedKeywords.push(...c));
+      (data.unclustered || []).forEach(k => loadedKeywords.push(k));
       renderClusters(clusters);
     } else {
       msgArea.innerHTML = '<pre class="text-danger">' + data.error + '</pre>';
@@ -499,6 +503,13 @@ function renderClusters(data) {
       const match = filterTerms.some(t => k.toLowerCase().includes(t));
       return `<div${match ? ' class="bg-warning-subtle"' : ''}>${escapeHtml(k)}</div>`;
     }).join('');
+    textDiv.addEventListener('paste', function(e) {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      const html = lines.map(line => `<div>${escapeHtml(line)}</div>`).join('');
+      document.execCommand('insertHTML', false, html);
+    });
     textDiv.addEventListener('input', function() {
       const lines = getLines(this);
       currentClusters[idx] = lines;
@@ -527,9 +538,8 @@ document.addEventListener('DOMContentLoaded', function() {
   msgArea.innerHTML = '<p>Loading clusters…</p>';
   fetch('clusters.php?action=list&client_id=<?= $client_id ?>&q=<?= urlencode($q) ?><?= isset($_GET['single']) ? "&single=1" : '' ?>')
     .then(r => r.json()).then(data => {
-      loadedKeywords = [];
-      (data.clusters || []).forEach(c => loadedKeywords.push(...c));
-      setOrder(data.allKeywords || []);
+      loadedKeywords = data.allKeywords || [];
+      setOrder(loadedKeywords);
       const processed = processClusters(data.clusters || []);
       renderClusters(processed.clusters);
       updateStatusBars(data.unclustered || [], processed.singles);
@@ -542,7 +552,8 @@ document.addEventListener('DOMContentLoaded', function() {
 function refreshKeywordData() {
   fetch('clusters.php?action=list&client_id=<?= $client_id ?>')
     .then(r => r.json()).then(data => {
-      setOrder(data.allKeywords || []);
+      loadedKeywords = data.allKeywords || [];
+      setOrder(loadedKeywords);
       const processed = processClusters(currentClusters);
       updateStatusBars(data.unclustered || [], processed.singles);
     });
@@ -578,6 +589,7 @@ function runClustering(instructions, autoSave = false) {
         const processed = processClusters(data.clusters || []);
         loadedKeywords = [];
         processed.clusters.forEach(c => loadedKeywords.push(...c));
+        (data.unclustered || []).forEach(k => loadedKeywords.push(k));
         renderClusters(processed.clusters);
         document.getElementById('msgArea').innerHTML = '';
         if (autoSave) {
@@ -640,6 +652,7 @@ document.getElementById('clearBtn').addEventListener('click', function() {
     .then(r => r.json()).then(data => {
       if (data.success) {
         renderClusters([]);
+        loadedKeywords = data.unclustered || [];
         updateStatusBars(data.unclustered || [], []);
         document.getElementById('msgArea').innerHTML = '<p class="text-success">Clusters removed.</p>';
       }
