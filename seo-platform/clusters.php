@@ -86,6 +86,26 @@ function loadUnclustered(PDO $pdo, int $client_id): array {
     return $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
 
+function ensureCollapseTable(PDO $pdo): void {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS cluster_state (
+        client_id INT NOT NULL,
+        cluster_name VARCHAR(255) NOT NULL,
+        collapsed TINYINT(1) NOT NULL DEFAULT 0,
+        PRIMARY KEY (client_id, cluster_name)
+    )");
+}
+
+function loadCollapsed(PDO $pdo, int $client_id): array {
+    ensureCollapseTable($pdo);
+    $stmt = $pdo->prepare("SELECT cluster_name, collapsed FROM cluster_state WHERE client_id = ?");
+    $stmt->execute([$client_id]);
+    $out = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $out[$row['cluster_name']] = (bool)$row['collapsed'];
+    }
+    return $out;
+}
+
 $action = $_GET['action'] ?? '';
 if ($action === 'list') {
     $q = $_GET['q'] ?? '';
@@ -108,7 +128,8 @@ if ($action === 'list') {
     echo json_encode([
         'clusters' => $clusters,
         'unclustered' => loadUnclustered($pdo, $client_id),
-        'allKeywords' => loadAllKeywords($pdo, $client_id)
+        'allKeywords' => loadAllKeywords($pdo, $client_id),
+        'collapsed' => loadCollapsed($pdo, $client_id)
     ]);
     exit;
 }
@@ -120,10 +141,9 @@ if ($action === 'run' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     $input = implode("\n", $unclustered);
-    $instructions = $_POST['instructions'] ?? '';
 
     $descriptorspec = [0 => ['pipe','r'], 1 => ['pipe','w'], 2 => ['pipe','w']];
-    $env = ['INSTRUCTIONS' => $instructions, 'EXISTING' => json_encode($existing)];
+    $env = ['INSTRUCTIONS' => '', 'EXISTING' => json_encode($existing)];
     $process = proc_open('python3 clustering/run_cluster.py', $descriptorspec, $pipes, __DIR__, $env);
     if (is_resource($process)) {
         fwrite($pipes[0], $input);
@@ -148,6 +168,7 @@ if ($action === 'run' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $clusters = json_decode($_POST['clusters'] ?? '[]', true) ?: [];
     $affected = json_decode($_POST['affected'] ?? '[]', true) ?: [];
+    $collapsed = json_decode($_POST['collapsed'] ?? '{}', true) ?: [];
     $seen = [];
     $dupes = [];
     foreach ($clusters as $cluster) {
@@ -185,15 +206,37 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         );
         $stmt->execute(array_merge([$name, $client_id], $cluster));
     }
+    ensureCollapseTable($pdo);
+    $pdo->prepare("DELETE FROM cluster_state WHERE client_id = ?")->execute([$client_id]);
+    $cs = $pdo->prepare("REPLACE INTO cluster_state (client_id, cluster_name, collapsed) VALUES (?,?,?)");
+    foreach ($clusters as $cluster) {
+        if (!$cluster) continue;
+        $name = $cluster[0];
+        $isCollapsed = !empty($collapsed[$name]) ? 1 : 0;
+        $cs->execute([$client_id, $name, $isCollapsed]);
+    }
     $pdo->commit();
     updateKeywordStats($pdo, $client_id);
     echo json_encode(['success' => true, 'unclustered' => loadUnclustered($pdo, $client_id)]);
     exit;
 }
 
+if ($action === 'set_collapsed' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $cluster = $_POST['cluster'] ?? '';
+    $state = isset($_POST['collapsed']) && $_POST['collapsed'] == '1' ? 1 : 0;
+    if ($cluster !== '') {
+        ensureCollapseTable($pdo);
+        $stmt = $pdo->prepare("REPLACE INTO cluster_state (client_id, cluster_name, collapsed) VALUES (?,?,?)");
+        $stmt->execute([$client_id, $cluster, $state]);
+    }
+    echo json_encode(['success' => true]);
+    exit;
+}
+
 if ($action === 'clear' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $pdo->prepare("UPDATE keywords SET cluster_name = '' WHERE client_id = ?")
         ->execute([$client_id]);
+    $pdo->prepare("DELETE FROM cluster_state WHERE client_id = ?")->execute([$client_id]);
     updateKeywordStats($pdo, $client_id);
     echo json_encode(['success' => true, 'unclustered' => loadUnclustered($pdo, $client_id)]);
     exit;
@@ -214,17 +257,6 @@ include 'header.php';
   <li class="nav-item"><a class="nav-link" href="positions.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>">Keyword Position</a></li>
   <li class="nav-item"><a class="nav-link active" href="clusters.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>">Clusters</a></li>
 </ul>
-<div class="mb-3">
-  <button class="btn btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#instructionsBox" aria-expanded="false" aria-controls="instructionsBox">Cluster Instructions</button>
-  <div class="collapse" id="instructionsBox">
-    <textarea id="clusterInstructions" class="form-control" rows="6">If you are using one of the keywords in the cluster don’t repeat it on another cluster
-Try to split as possible the same meaning groups, and cluster only the same meaning, if not keep it in a standalone cluster
-Don’t ever make a one cluster for all keywords. I need them split for the same meaning or they can be merged in one cluster to be used in a one page for SEO content creation. Please minimum 2 keywords per cluster, don't make a cluster for 1 keyword
-Group commercial keywords (like company, agency, services) **together only when they are of the same intent**.</textarea>
-    <button id="updateBtn" class="btn btn-secondary btn-sm mt-2">Update Clusters</button>
-  </div>
-</div>
-
 <div class="mb-3 d-flex justify-content-between">
   <div>
     <button id="addClusterBtn" class="btn btn-secondary btn-sm me-2">+ Add Cluster</button>
@@ -252,6 +284,7 @@ Group commercial keywords (like company, agency, services) **together only when 
 let currentClusters = [];
 let orderMap = {};
 let loadedKeywords = [];
+let collapsedMap = {};
 const singleFilterActive = <?= isset($_GET['single']) ? 'true' : 'false' ?>;
 const filterTerms = (document.getElementById('clusterFilter').value || '')
   .toLowerCase()
@@ -376,7 +409,7 @@ function updateStatusBars(unclustered, singles=[]) {
   });
 
   const fixBtn = document.getElementById('fixUnclusteredBtn');
-  if (fixBtn) fixBtn.addEventListener('click', () => runClustering('', true));
+  if (fixBtn) fixBtn.addEventListener('click', () => runClustering(true));
   const rmBtn = document.getElementById('removeUnclusteredBtn');
   if (rmBtn) rmBtn.addEventListener('click', () => {
     if (!confirm('Remove all unclustered keywords?')) return;
@@ -416,7 +449,8 @@ function saveClusters(clusters, singles) {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
     body: 'clusters=' + encodeURIComponent(JSON.stringify(clusters)) +
-          '&affected=' + encodeURIComponent(JSON.stringify(affected))
+          '&affected=' + encodeURIComponent(JSON.stringify(affected)) +
+          '&collapsed=' + encodeURIComponent(JSON.stringify(collapsedMap))
   }).then(r => r.json()).then(data => {
     clearInterval(timer);
     bar.style.width = '100%';
@@ -465,6 +499,7 @@ function renderClusters(data) {
   const wrap = document.getElementById('clustersContainer');
   wrap.innerHTML = '';
   currentClusters.forEach((cluster, idx) => {
+    let clusterName = cluster[0] || 'Unnamed';
     const col = document.createElement('div');
     col.className = 'col-md-4 mb-4';
     const card = document.createElement('div');
@@ -476,10 +511,13 @@ function renderClusters(data) {
     countSpan.className = 'badge bg-secondary me-2';
     countSpan.textContent = cluster.length;
     const titleSpan = document.createElement('span');
-    titleSpan.textContent = cluster[0] || 'Unnamed';
+    titleSpan.textContent = clusterName;
+    const collapseBtn = document.createElement('button');
+    collapseBtn.type = 'button';
+    collapseBtn.className = 'btn btn-sm btn-outline-secondary ms-auto';
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
-    removeBtn.className = 'btn btn-sm btn-danger ms-auto';
+    removeBtn.className = 'btn btn-sm btn-danger ms-2';
     removeBtn.textContent = '-';
     removeBtn.addEventListener('click', function(e) {
       e.preventDefault();
@@ -487,6 +525,7 @@ function renderClusters(data) {
       const top = window.scrollY;
       wrap.style.minHeight = wrap.offsetHeight + 'px';
       currentClusters.splice(idx, 1);
+      delete collapsedMap[clusterName];
       const processed = processClusters(currentClusters);
       renderClusters(processed.clusters);
       updateStatusBars(getUnclusteredKeywords(), processed.singles);
@@ -495,6 +534,7 @@ function renderClusters(data) {
     });
     header.appendChild(countSpan);
     header.appendChild(titleSpan);
+    header.appendChild(collapseBtn);
     header.appendChild(removeBtn);
     const textDiv = document.createElement('div');
     textDiv.className = 'form-control cluster-edit';
@@ -503,6 +543,26 @@ function renderClusters(data) {
       const match = filterTerms.some(t => k.toLowerCase().includes(t));
       return `<div${match ? ' class="bg-warning-subtle"' : ''}>${escapeHtml(k)}</div>`;
     }).join('');
+    const updateCollapse = () => {
+      if (collapsedMap[clusterName]) {
+        textDiv.classList.add('d-none');
+        collapseBtn.innerHTML = '<i class="bi bi-chevron-down"></i>';
+      } else {
+        textDiv.classList.remove('d-none');
+        collapseBtn.innerHTML = '<i class="bi bi-chevron-up"></i>';
+      }
+    };
+    updateCollapse();
+    collapseBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      collapsedMap[clusterName] = !collapsedMap[clusterName];
+      updateCollapse();
+      fetch('clusters.php?action=set_collapsed&client_id=<?= $client_id ?>', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'cluster=' + encodeURIComponent(clusterName) + '&collapsed=' + (collapsedMap[clusterName] ? 1 : 0)
+      });
+    });
     textDiv.addEventListener('paste', function(e) {
       e.preventDefault();
       const text = (e.clipboardData || window.clipboardData).getData('text');
@@ -513,10 +573,17 @@ function renderClusters(data) {
     textDiv.addEventListener('input', function() {
       const lines = getLines(this);
       currentClusters[idx] = lines;
+      const oldName = clusterName;
+      clusterName = lines[0] || 'Unnamed';
       countSpan.textContent = lines.length;
-      titleSpan.textContent = lines[0] || 'Unnamed';
+      titleSpan.textContent = clusterName;
       if (lines.length === 1) card.classList.add('border', 'border-danger');
       else card.classList.remove('border', 'border-danger');
+      if (collapsedMap[oldName] !== undefined && oldName !== clusterName) {
+        collapsedMap[clusterName] = collapsedMap[oldName];
+        delete collapsedMap[oldName];
+        updateCollapse();
+      }
       if (window.msnry) {
         window.msnry.reloadItems();
         window.msnry.layout();
@@ -539,6 +606,7 @@ document.addEventListener('DOMContentLoaded', function() {
   fetch('clusters.php?action=list&client_id=<?= $client_id ?>&q=<?= urlencode($q) ?><?= isset($_GET['single']) ? "&single=1" : '' ?>')
     .then(r => r.json()).then(data => {
       loadedKeywords = data.allKeywords || [];
+      collapsedMap = data.collapsed || {};
       setOrder(loadedKeywords);
       const processed = processClusters(data.clusters || []);
       renderClusters(processed.clusters);
@@ -556,12 +624,13 @@ function refreshKeywordData() {
       setOrder(loadedKeywords);
       const processed = processClusters(currentClusters);
       updateStatusBars(data.unclustered || [], processed.singles);
+      collapsedMap = data.collapsed || collapsedMap;
     });
 }
 
 window.addEventListener('focus', refreshKeywordData);
 
-function runClustering(instructions, autoSave = false) {
+function runClustering(autoSave = false) {
   const progressWrap = document.getElementById('progressWrap');
   const bar = document.getElementById('clusterProgress');
   progressWrap.classList.remove('d-none');
@@ -574,9 +643,7 @@ function runClustering(instructions, autoSave = false) {
     bar.textContent = pct + '%';
   }, 500);
   fetch('clusters.php?action=run&client_id=<?= $client_id ?>', {
-    method:'POST',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body:'instructions=' + encodeURIComponent(instructions || '')
+    method:'POST'
   })
     .then(r => r.json()).then(data => {
       clearInterval(timer);
@@ -587,6 +654,7 @@ function runClustering(instructions, autoSave = false) {
         setTimeout(() => progressWrap.classList.add('d-none'), 500);
       } else {
         const processed = processClusters(data.clusters || []);
+        collapsedMap = {};
         loadedKeywords = [];
         processed.clusters.forEach(c => loadedKeywords.push(...c));
         (data.unclustered || []).forEach(k => loadedKeywords.push(k));
@@ -609,10 +677,7 @@ function runClustering(instructions, autoSave = false) {
 }
 
 document.getElementById('generateBtn').addEventListener('click', function() {
-  runClustering('', true);
-});
-document.getElementById('updateBtn').addEventListener('click', function() {
-  runClustering(document.getElementById('clusterInstructions').value, true);
+  runClustering(true);
 });
 document.getElementById('addClusterBtn').addEventListener('click', function() {
   currentClusters.push([]);
@@ -652,6 +717,7 @@ document.getElementById('clearBtn').addEventListener('click', function() {
     .then(r => r.json()).then(data => {
       if (data.success) {
         renderClusters([]);
+        collapsedMap = {};
         loadedKeywords = data.unclustered || [];
         updateStatusBars(data.unclustered || [], []);
         document.getElementById('msgArea').innerHTML = '<p class="text-success">Clusters removed.</p>';
