@@ -125,9 +125,9 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS keyword_stats (
     clustered INT DEFAULT 0,
     structured INT DEFAULT 0
 )");
-$statsStmt = $pdo->prepare("SELECT total, clustered FROM keyword_stats WHERE client_id = ?");
+$statsStmt = $pdo->prepare("SELECT total, clustered AS clusters FROM keyword_stats WHERE client_id = ?");
 $statsStmt->execute([$client_id]);
-$stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'clustered'=>0];
+$stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'clusters'=>0];
 
 include 'header.php';
 ?>
@@ -143,7 +143,7 @@ include 'header.php';
 <div class="mb-3 d-flex justify-content-between align-items-center">
   <div>
     <span class="me-3">All keywords: <?= (int)$stats['total'] ?></span>
-    <span class="me-3">Clustered Keywords: <?= (int)$stats['clustered'] ?></span>
+    <span class="me-3">Clusters: <?= (int)$stats['clusters'] ?></span>
   </div>
   <div class="d-flex flex-column align-items-end">
     <div class="mb-2">
@@ -406,17 +406,17 @@ function updateKeywordStats(PDO $pdo, int $client_id): void {
 
     $stmt = $pdo->prepare("SELECT
         COUNT(*) AS total,
-        SUM(CASE WHEN COALESCE(cluster_name,'') <> '' THEN 1 ELSE 0 END) AS clustered
+        COUNT(DISTINCT NULLIF(cluster_name,'')) AS clusters
         FROM keywords WHERE client_id = ?");
     $stmt->execute([$client_id]);
-    $stats = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'clustered'=>0];
+    $stats = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'clusters'=>0];
 
     $up = $pdo->prepare("REPLACE INTO keyword_stats (client_id,total,grouped,clustered,structured) VALUES (?,?,?,?,?)");
     $up->execute([
         $client_id,
         (int)$stats['total'],
         0,
-        (int)$stats['clustered'],
+        (int)$stats['clusters'],
         0
     ]);
 }

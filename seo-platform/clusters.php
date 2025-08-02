@@ -48,16 +48,16 @@ function updateKeywordStats(PDO $pdo, int $client_id): void {
     )");
     $stmt = $pdo->prepare("SELECT
         COUNT(*) AS total,
-        SUM(CASE WHEN COALESCE(cluster_name,'') <> '' THEN 1 ELSE 0 END) AS clustered
+        COUNT(DISTINCT NULLIF(cluster_name,'')) AS clusters
         FROM keywords WHERE client_id = ?");
     $stmt->execute([$client_id]);
-    $stats = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'clustered'=>0];
+    $stats = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'clusters'=>0];
     $up = $pdo->prepare("REPLACE INTO keyword_stats (client_id,total,grouped,clustered,structured) VALUES (?,?,?,?,?)");
     $up->execute([
         $client_id,
         (int)$stats['total'],
         0,
-        (int)$stats['clustered'],
+        (int)$stats['clusters'],
         0
     ]);
 }
@@ -167,6 +167,16 @@ if ($action === 'split' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['error' => $error]);
         } else {
             $new = json_decode($raw, true) ?: [];
+            $flat = [];
+            foreach ($new as $c) {
+                foreach ($c as $kw) {
+                    $flat[] = $kw;
+                }
+            }
+            $missing = array_diff($cluster, $flat);
+            foreach ($missing as $kw) {
+                $new[] = [$kw];
+            }
             echo json_encode(['clusters' => $new]);
         }
     } else {
@@ -535,15 +545,15 @@ function renderClusters(data) {
           return;
         }
         let newClusters = data.clusters || [];
-        if (filterTerms.length) {
-          newClusters = newClusters.filter(c => c.some(k =>
-            filterTerms.some(t => k.toLowerCase().includes(t))
-          ));
-        }
+        const flat = newClusters.flat();
+        target.forEach(kw => {
+          if (!flat.includes(kw)) newClusters.push([kw]);
+        });
         currentClusters.splice(idx, 1, ...newClusters);
         const processed = processClusters(currentClusters);
         renderClusters(processed.clusters);
         updateStatusBars(null, processed.singles);
+        document.getElementById('msgArea').innerHTML = `<p class="text-success">Cluster "${escapeHtml(target[0])}" split into ${newClusters.length} clusters.</p>`;
       }).catch(() => {
         document.getElementById('msgArea').innerHTML = '<pre class="text-danger">Split failed.</pre>';
       });
