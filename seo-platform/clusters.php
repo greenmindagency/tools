@@ -360,6 +360,22 @@ function updateStatusBars(unclustered = null, singles = []) {
       navigator.clipboard.writeText(btn.dataset.kw);
     });
   });
+
+  const fixBtn = document.getElementById('fixUnclusteredBtn');
+  if (fixBtn) fixBtn.addEventListener('click', () => runClustering('', true));
+  const rmBtn = document.getElementById('removeUnclusteredBtn');
+  if (rmBtn) rmBtn.addEventListener('click', () => {
+    if (!confirm('Remove all unclustered keywords?')) return;
+    fetch('clusters.php?action=remove_unclustered&client_id=<?= $client_id ?>', {method:'POST'})
+      .then(r => r.json()).then(data => {
+        if (data.success) {
+          const singles = processClusters(currentClusters).singles;
+          currentUnclustered = data.unclustered || [];
+          updateStatusBars(currentUnclustered, singles);
+          document.getElementById('msgArea').innerHTML = '<p class="text-success">Unclustered keywords removed.</p>';
+        }
+      });
+  });
 }
 
 function saveClusters(clusters, singles) {
