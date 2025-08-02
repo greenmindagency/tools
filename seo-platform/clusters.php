@@ -93,6 +93,10 @@ if ($action === 'list') {
     $q = $_GET['q'] ?? '';
     $terms = array_values(array_filter(array_map('trim', explode('|', $q)), 'strlen'));
     $clusters = loadClusters($pdo, $client_id);
+    $singlesOnly = isset($_GET['single']) && $_GET['single'] === '1';
+    if ($singlesOnly) {
+        $clusters = array_values(array_filter($clusters, function($c) { return count($c) === 1; }));
+    }
     if ($terms) {
         $clusters = array_values(array_filter($clusters, function($cluster) use ($terms) {
             foreach ($cluster as $kw) {
@@ -219,17 +223,16 @@ include 'header.php';
 Try to split as possible the same meaning groups, and cluster only the same meaning, if not keep it in a standalone cluster
 Don’t ever make a one cluster for all keywords. I need them split for the same meaning or they can be merged in one cluster to be used in a one page for SEO content creation. Please minimum 2 keywords per cluster, don't make a cluster for 1 keyword
 Group commercial keywords (like company, agency, services) **together only when they are of the same intent**.</textarea>
-    <button id="updateBtn" class="btn btn-secondary mt-2">Update Clusters</button>
+    <button id="updateBtn" class="btn btn-secondary btn-sm mt-2">Update Clusters</button>
   </div>
 </div>
 
 <div class="mb-3 d-flex justify-content-between">
   <div>
-    <button id="addClusterBtn" class="btn btn-secondary me-2">+ Add Cluster</button>
-    <button id="generateBtn" class="btn btn-primary">Generate Clusters</button>
-    <button id="saveBtn" class="btn btn-success" disabled>Save Clusters</button>
-    <button id="removeUnclusteredBtn" class="btn btn-warning me-2">Remove Unclustered Keywords</button>
-    <button id="clearBtn" class="btn btn-danger">Clear Clusters</button>
+    <button id="addClusterBtn" class="btn btn-secondary btn-sm me-2">+ Add Cluster</button>
+    <button id="generateBtn" class="btn btn-primary btn-sm">Generate Clusters</button>
+    <button id="saveBtn" class="btn btn-success btn-sm" disabled>Save Clusters</button>
+    <button id="clearBtn" class="btn btn-danger btn-sm">Clear Clusters</button>
   </div>
   <form id="clusterFilterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
@@ -251,6 +254,7 @@ Group commercial keywords (like company, agency, services) **together only when 
 let currentClusters = [];
 let orderMap = {};
 let loadedKeywords = [];
+const singleFilterActive = <?= isset($_GET['single']) ? 'true' : 'false' ?>;
 const filterTerms = (document.getElementById('clusterFilter').value || '')
   .toLowerCase()
   .split('|')
@@ -283,12 +287,38 @@ function processClusters(list) {
 
 function updateStatusBar(unclustered, singles=[]) {
   const bar = document.getElementById('statusBar');
-  const messages = [];
-  if (unclustered.length) messages.push('Unclustered keywords: ' + unclustered.join(', '));
-  if (singles.length) messages.push('Single keyword clusters: ' + singles.length);
-  if (messages.length) {
+  const lines = [];
+  if (unclustered.length) {
+    lines.push(
+      `Unclustered keywords: ${unclustered.length}` +
+      ` <button id="fixUnclusteredBtn" class="btn btn-sm btn-primary ms-2">Fix now</button>` +
+      ` <button id="removeUnclusteredBtn" class="btn btn-sm btn-warning ms-2">Remove now</button>`
+    );
+  }
+  if (singles.length) {
+    let filterBtn = '';
+    if (!singleFilterActive) {
+      filterBtn = ` <a href="clusters.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>&single=1" class="btn btn-sm btn-secondary ms-2">Filter now</a>`;
+    }
+    lines.push(`Single keyword clusters: ${singles.length}${filterBtn}`);
+  }
+  if (lines.length) {
     bar.className = 'alert alert-warning';
-    bar.textContent = messages.join(' | ');
+    bar.innerHTML = lines.map(l => `<div class="d-flex align-items-center">${l}</div>`).join('');
+    const fixBtn = document.getElementById('fixUnclusteredBtn');
+    if (fixBtn) fixBtn.addEventListener('click', () => runClustering('', true));
+    const rmBtn = document.getElementById('removeUnclusteredBtn');
+    if (rmBtn) rmBtn.addEventListener('click', () => {
+      if (!confirm('Remove all unclustered keywords?')) return;
+      fetch('clusters.php?action=remove_unclustered&client_id=<?= $client_id ?>', {method:'POST'})
+        .then(r => r.json()).then(data => {
+          if (data.success) {
+            const singles = processClusters(currentClusters).singles;
+            updateStatusBar(data.unclustered || [], singles);
+            document.getElementById('msgArea').innerHTML = '<p class="text-success">Unclustered keywords removed.</p>';
+          }
+        });
+    });
   } else {
     bar.className = 'alert alert-success';
     bar.textContent = 'All keywords are clustered.';
@@ -427,7 +457,7 @@ function renderClusters(data) {
 document.addEventListener('DOMContentLoaded', function() {
   const msgArea = document.getElementById('msgArea');
   msgArea.innerHTML = '<p>Loading clusters…</p>';
-  fetch('clusters.php?action=list&client_id=<?= $client_id ?>&q=<?= urlencode($q) ?>')
+  fetch('clusters.php?action=list&client_id=<?= $client_id ?>&q=<?= urlencode($q) ?><?= isset($_GET['single']) ? "&single=1" : '' ?>')
     .then(r => r.json()).then(data => {
       loadedKeywords = [];
       (data.clusters || []).forEach(c => loadedKeywords.push(...c));
