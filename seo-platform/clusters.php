@@ -326,10 +326,19 @@ function updateStatusBars(unclustered = null, singles = []) {
   if (currentUnclustered.length) {
     const bar = document.createElement('div');
     bar.className = 'alert alert-warning d-flex align-items-center flex-wrap';
-    bar.addEventListener('click', () => bar.remove());
     const span = document.createElement('span');
     span.innerHTML = `Unclustered keywords (${currentUnclustered.length}): ${renderKeywordButtons(currentUnclustered)}`;
     bar.appendChild(span);
+    const fix = document.createElement('button');
+    fix.id = 'fixUnclusteredBtn';
+    fix.className = 'btn btn-sm btn-secondary ms-2';
+    fix.textContent = 'Fix';
+    bar.appendChild(fix);
+    const rm = document.createElement('button');
+    rm.id = 'removeUnclusteredBtn';
+    rm.className = 'btn btn-sm btn-danger ms-2';
+    rm.textContent = 'Remove';
+    bar.appendChild(rm);
     area.appendChild(bar);
   }
 
