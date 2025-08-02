@@ -285,6 +285,8 @@ let currentClusters = [];
 let orderMap = {};
 let loadedKeywords = [];
 let collapsedMap = {};
+let baseUnclustered = [];
+let localUnclustered = new Set();
 const singleFilterActive = <?= isset($_GET['single']) ? 'true' : 'false' ?>;
 const filterTerms = (document.getElementById('clusterFilter').value || '')
   .toLowerCase()
@@ -336,9 +338,11 @@ function renderKeywordButtons(list) {
 }
 
 function getUnclusteredKeywords() {
-  const clustered = new Set();
-  currentClusters.forEach(c => c.forEach(k => clustered.add(k.toLowerCase())));
-  return loadedKeywords.filter(k => !clustered.has(k.toLowerCase()));
+  const merged = baseUnclustered.slice();
+  localUnclustered.forEach(k => {
+    if (!merged.some(u => u.toLowerCase() === k.toLowerCase())) merged.push(k);
+  });
+  return merged;
 }
 
 function updateStatusBars(unclustered, singles=[]) {
@@ -420,7 +424,9 @@ function updateStatusBars(unclustered, singles=[]) {
           loadedKeywords = [];
           currentClusters.forEach(c => loadedKeywords.push(...c));
           (data.unclustered || []).forEach(k => loadedKeywords.push(k));
-          updateStatusBars(data.unclustered || [], singles);
+          baseUnclustered = data.unclustered || [];
+          localUnclustered = new Set();
+          updateStatusBars(getUnclusteredKeywords(), singles);
           document.getElementById('msgArea').innerHTML = '<p class="text-success">Unclustered keywords removed.</p>';
         }
       });
@@ -460,11 +466,13 @@ function saveClusters(clusters, singles) {
       loadedKeywords = [];
       clusters.forEach(c => loadedKeywords.push(...c));
       (data.unclustered || []).forEach(k => loadedKeywords.push(k));
+      baseUnclustered = data.unclustered || [];
+      localUnclustered = new Set();
       renderClusters(clusters);
     } else {
       msgArea.innerHTML = '<pre class="text-danger">' + data.error + '</pre>';
     }
-    updateStatusBars(data.unclustered || [], singles);
+    updateStatusBars(getUnclusteredKeywords(), singles);
     btn.disabled = false;
     msgArea.scrollIntoView({behavior:'smooth'});
     setTimeout(() => progressWrap.classList.add('d-none'), 500);
@@ -525,6 +533,10 @@ function renderClusters(data) {
       const top = window.scrollY;
       wrap.style.minHeight = wrap.offsetHeight + 'px';
       currentClusters.splice(idx, 1);
+      cluster.forEach(k => {
+        localUnclustered.add(k);
+        baseUnclustered = baseUnclustered.filter(u => u.toLowerCase() !== k.toLowerCase());
+      });
       delete collapsedMap[clusterName];
       const processed = processClusters(currentClusters);
       renderClusters(processed.clusters);
@@ -572,7 +584,13 @@ function renderClusters(data) {
     });
     textDiv.addEventListener('input', function() {
       const lines = getLines(this);
-      currentClusters[idx] = lines;
+      const removed = cluster.filter(k => !lines.includes(k));
+      const added = lines.filter(k => !cluster.includes(k));
+      removed.forEach(k => localUnclustered.add(k));
+      added.forEach(k => {
+        localUnclustered.delete(k);
+        baseUnclustered = baseUnclustered.filter(u => u.toLowerCase() !== k.toLowerCase());
+      });
       const oldName = clusterName;
       clusterName = lines[0] || 'Unnamed';
       countSpan.textContent = lines.length;
@@ -584,6 +602,7 @@ function renderClusters(data) {
         delete collapsedMap[oldName];
         updateCollapse();
       }
+      cluster.splice(0, cluster.length, ...lines);
       if (window.msnry) {
         window.msnry.reloadItems();
         window.msnry.layout();
@@ -607,10 +626,12 @@ document.addEventListener('DOMContentLoaded', function() {
     .then(r => r.json()).then(data => {
       loadedKeywords = data.allKeywords || [];
       collapsedMap = data.collapsed || {};
+      baseUnclustered = data.unclustered || [];
+      localUnclustered = new Set();
       setOrder(loadedKeywords);
       const processed = processClusters(data.clusters || []);
       renderClusters(processed.clusters);
-      updateStatusBars(data.unclustered || [], processed.singles);
+      updateStatusBars(getUnclusteredKeywords(), processed.singles);
       msgArea.innerHTML = '';
     }).catch(() => {
       msgArea.innerHTML = '<pre class="text-danger">Failed to load clusters.</pre>';
@@ -622,8 +643,9 @@ function refreshKeywordData() {
     .then(r => r.json()).then(data => {
       loadedKeywords = data.allKeywords || [];
       setOrder(loadedKeywords);
+      baseUnclustered = data.unclustered || baseUnclustered;
       const processed = processClusters(currentClusters);
-      updateStatusBars(data.unclustered || [], processed.singles);
+      updateStatusBars(getUnclusteredKeywords(), processed.singles);
       collapsedMap = data.collapsed || collapsedMap;
     });
 }
@@ -659,11 +681,13 @@ function runClustering(autoSave = false) {
         processed.clusters.forEach(c => loadedKeywords.push(...c));
         (data.unclustered || []).forEach(k => loadedKeywords.push(k));
         renderClusters(processed.clusters);
+        baseUnclustered = data.unclustered || [];
+        localUnclustered = new Set();
         document.getElementById('msgArea').innerHTML = '';
         if (autoSave) {
           saveClusters(processed.clusters, processed.singles);
         } else {
-          updateStatusBars(data.unclustered || [], processed.singles);
+          updateStatusBars(getUnclusteredKeywords(), processed.singles);
           setTimeout(() => progressWrap.classList.add('d-none'), 500);
         }
       }
@@ -719,7 +743,9 @@ document.getElementById('clearBtn').addEventListener('click', function() {
         renderClusters([]);
         collapsedMap = {};
         loadedKeywords = data.unclustered || [];
-        updateStatusBars(data.unclustered || [], []);
+        baseUnclustered = data.unclustered || [];
+        localUnclustered = new Set();
+        updateStatusBars(getUnclusteredKeywords(), []);
         document.getElementById('msgArea').innerHTML = '<p class="text-success">Clusters removed.</p>';
       }
     });
