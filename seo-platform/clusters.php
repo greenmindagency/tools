@@ -384,8 +384,6 @@ function updateStatusBars(unclustered, singles=[]) {
       .then(r => r.json()).then(data => {
         if (data.success) {
           const singles = processClusters(currentClusters).singles;
-          loadedKeywords = (data.unclustered || []).slice();
-          currentClusters.forEach(c => loadedKeywords.push(...c));
           updateStatusBars(data.unclustered || [], singles);
           document.getElementById('msgArea').innerHTML = '<p class="text-success">Unclustered keywords removed.</p>';
         }
@@ -422,7 +420,7 @@ function saveClusters(clusters, singles) {
     bar.textContent = '100%';
     if (data.success) {
       msgArea.innerHTML = '<p class="text-success">Clusters saved.</p>';
-      loadedKeywords = (data.unclustered || []).slice();
+      loadedKeywords = [];
       clusters.forEach(c => loadedKeywords.push(...c));
       renderClusters(clusters);
     } else {
@@ -529,7 +527,8 @@ document.addEventListener('DOMContentLoaded', function() {
   msgArea.innerHTML = '<p>Loading clusters…</p>';
   fetch('clusters.php?action=list&client_id=<?= $client_id ?>&q=<?= urlencode($q) ?><?= isset($_GET['single']) ? "&single=1" : '' ?>')
     .then(r => r.json()).then(data => {
-      loadedKeywords = data.allKeywords || [];
+      loadedKeywords = [];
+      (data.clusters || []).forEach(c => loadedKeywords.push(...c));
       setOrder(data.allKeywords || []);
       const processed = processClusters(data.clusters || []);
       renderClusters(processed.clusters);
@@ -543,7 +542,6 @@ document.addEventListener('DOMContentLoaded', function() {
 function refreshKeywordData() {
   fetch('clusters.php?action=list&client_id=<?= $client_id ?>')
     .then(r => r.json()).then(data => {
-      loadedKeywords = data.allKeywords || [];
       setOrder(data.allKeywords || []);
       const processed = processClusters(currentClusters);
       updateStatusBars(data.unclustered || [], processed.singles);
@@ -578,7 +576,7 @@ function runClustering(instructions, autoSave = false) {
         setTimeout(() => progressWrap.classList.add('d-none'), 500);
       } else {
         const processed = processClusters(data.clusters || []);
-        loadedKeywords = (data.unclustered || []).slice();
+        loadedKeywords = [];
         processed.clusters.forEach(c => loadedKeywords.push(...c));
         renderClusters(processed.clusters);
         document.getElementById('msgArea').innerHTML = '';
