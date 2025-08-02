@@ -346,6 +346,9 @@ function saveClusters(clusters, singles) {
     bar.textContent = '100%';
     if (data.success) {
       msgArea.innerHTML = '<p class="text-success">Clusters saved.</p>';
+      loadedKeywords = [];
+      clusters.forEach(c => loadedKeywords.push(...c));
+      renderClusters(clusters);
     } else {
       msgArea.innerHTML = '<pre class="text-danger">' + data.error + '</pre>';
     }
@@ -423,6 +426,7 @@ function renderClusters(data) {
     }).join('');
     textDiv.addEventListener('input', function() {
       const lines = getLines(this);
+      currentClusters[idx] = lines;
       countSpan.textContent = lines.length;
       titleSpan.textContent = lines[0] || 'Unnamed';
       if (window.msnry) {
@@ -515,10 +519,9 @@ document.getElementById('addClusterBtn').addEventListener('click', function() {
 
 document.getElementById('saveBtn').addEventListener('click', function() {
   const msgArea = document.getElementById('msgArea');
-  const texts = Array.from(document.querySelectorAll('#clustersContainer .cluster-edit'));
-  let clusters = texts.map(t => getLines(t));
-  const processed = processClusters(clusters);
-  clusters = processed.clusters;
+  const processed = processClusters(currentClusters);
+  currentClusters = processed.clusters;
+  const clusters = currentClusters;
   const singles = processed.singles;
   const seen = {};
   const dupes = [];
