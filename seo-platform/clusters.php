@@ -302,6 +302,12 @@ function renderKeywordButtons(list) {
     .join('');
 }
 
+function getUnclusteredKeywords() {
+  const clustered = new Set();
+  currentClusters.forEach(c => c.forEach(k => clustered.add(k.toLowerCase())));
+  return loadedKeywords.filter(k => !clustered.has(k.toLowerCase()));
+}
+
 function updateStatusBars(unclustered, singles=[]) {
   const area = document.getElementById('statusArea');
   area.innerHTML = '';
@@ -479,7 +485,7 @@ function renderClusters(data) {
       currentClusters.splice(idx, 1);
       const processed = processClusters(currentClusters);
       renderClusters(processed.clusters);
-      updateStatusBars([], processed.singles);
+      updateStatusBars(getUnclusteredKeywords(), processed.singles);
       window.scrollTo(0, top);
       wrap.style.minHeight = '';
     });
@@ -505,7 +511,7 @@ function renderClusters(data) {
         window.msnry.layout();
       }
       const processed = processClusters(currentClusters);
-      updateStatusBars([], processed.singles);
+      updateStatusBars(getUnclusteredKeywords(), processed.singles);
     });
     card.appendChild(header);
     card.appendChild(textDiv);
@@ -599,7 +605,7 @@ document.getElementById('updateBtn').addEventListener('click', function() {
 document.getElementById('addClusterBtn').addEventListener('click', function() {
   currentClusters.push([]);
   renderClusters(currentClusters);
-  updateStatusBars([], processClusters(currentClusters).singles);
+  updateStatusBars(getUnclusteredKeywords(), processClusters(currentClusters).singles);
 });
 
 document.getElementById('saveBtn').addEventListener('click', function() {
