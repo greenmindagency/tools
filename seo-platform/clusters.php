@@ -545,8 +545,7 @@ function renderClusters(data) {
     countSpan.textContent = cluster.length;
     const titleSpan = document.createElement('span');
     const firstTitle = cluster[0] || 'Unnamed';
-    const firstLink = keywordLinks[firstTitle];
-    titleSpan.innerHTML = firstLink ? `<a href="${escapeHtml(firstLink)}" target="_blank" rel="noopener">${escapeHtml(firstTitle)}</a>` : escapeHtml(firstTitle);
+    titleSpan.textContent = firstTitle;
     const splitBtn = document.createElement('button');
     splitBtn.type = 'button';
     splitBtn.className = 'btn btn-sm btn-secondary ms-auto me-1';
@@ -598,6 +597,21 @@ function renderClusters(data) {
     header.appendChild(titleSpan);
     header.appendChild(splitBtn);
     header.appendChild(removeBtn);
+    header.style.cursor = 'pointer';
+    header.addEventListener('click', function(e) {
+      if (e.target.closest('button')) return;
+      const cols = document.querySelectorAll('#clustersContainer .col-md-4');
+      const single = col.classList.contains('solo-view');
+      cols.forEach(c => {
+        c.style.display = single ? '' : 'none';
+        c.classList.remove('solo-view');
+      });
+      if (!single) {
+        col.style.display = '';
+        col.classList.add('solo-view');
+      }
+      applyMasonry();
+    });
     const textDiv = document.createElement('div');
     textDiv.className = 'form-control cluster-edit';
     textDiv.contentEditable = 'true';
@@ -612,8 +626,7 @@ function renderClusters(data) {
       currentClusters[idx] = lines;
       countSpan.textContent = lines.length;
       const first = lines[0] || 'Unnamed';
-      const firstL = keywordLinks[first];
-      titleSpan.innerHTML = firstL ? `<a href="${escapeHtml(firstL)}" target="_blank" rel="noopener">${escapeHtml(first)}</a>` : escapeHtml(first);
+      titleSpan.textContent = first;
       if (lines.length === 1) card.classList.add('border', 'border-danger');
       else card.classList.remove('border', 'border-danger');
       if (window.msnry) {
