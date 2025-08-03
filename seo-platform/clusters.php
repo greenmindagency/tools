@@ -600,17 +600,10 @@ function renderClusters(data) {
     header.style.cursor = 'pointer';
     header.addEventListener('click', function(e) {
       if (e.target.closest('button')) return;
-      const cols = document.querySelectorAll('#clustersContainer .col-md-4');
-      const single = col.classList.contains('solo-view');
-      cols.forEach(c => {
-        c.style.display = single ? '' : 'none';
-        c.classList.remove('solo-view');
-      });
-      if (!single) {
-        col.style.display = '';
-        col.classList.add('solo-view');
-      }
-      applyMasonry();
+      const first = currentClusters[idx][0];
+      if (!first) return;
+      const url = `clusters.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>&q=${encodeURIComponent(first)}`;
+      window.location.href = url;
     });
     const textDiv = document.createElement('div');
     textDiv.className = 'form-control cluster-edit';
