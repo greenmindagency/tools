@@ -148,7 +148,11 @@ if ($action === 'run' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $instructions = $_POST['instructions'] ?? '';
 
     $descriptorspec = [0 => ['pipe','r'], 1 => ['pipe','w'], 2 => ['pipe','w']];
-    $env = ['INSTRUCTIONS' => $instructions, 'EXISTING' => json_encode($existing)];
+    $env = [
+        'PYTHONIOENCODING' => 'utf-8',
+        'INSTRUCTIONS' => $instructions,
+        'EXISTING' => json_encode($existing, JSON_UNESCAPED_UNICODE)
+    ];
     $process = proc_open('python3 clustering/run_cluster.py', $descriptorspec, $pipes, __DIR__, $env);
     if (is_resource($process)) {
         fwrite($pipes[0], $input);
@@ -179,7 +183,8 @@ if ($action === 'split' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = implode("\n", $cluster);
 
     $descriptorspec = [0 => ['pipe','r'], 1 => ['pipe','w'], 2 => ['pipe','w']];
-    $process = proc_open('python3 clustering/run_cluster.py', $descriptorspec, $pipes, __DIR__);
+    $env = ['PYTHONIOENCODING' => 'utf-8'];
+    $process = proc_open('python3 clustering/run_cluster.py', $descriptorspec, $pipes, __DIR__, $env);
     if (is_resource($process)) {
         fwrite($pipes[0], $input);
         fclose($pipes[0]);

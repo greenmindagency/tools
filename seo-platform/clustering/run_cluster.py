@@ -1,9 +1,18 @@
 import sys
 import json
 import os
+import io
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import cosine_similarity
+
+# Ensure UTF-8 I/O for Arabic and other multibyte keywords
+if hasattr(sys.stdin, "reconfigure"):
+    sys.stdin.reconfigure(encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8")
+else:  # Python <3.7
+    sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding="utf-8")
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
 # Read keywords to cluster from stdin
 keywords = [line.strip() for line in sys.stdin if line.strip()]

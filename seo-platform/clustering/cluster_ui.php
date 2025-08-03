@@ -10,7 +10,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["keywords"])) {
         2 => ["pipe", "w"]   // stderr
     ];
 
-    $process = proc_open("python3 run_cluster.py", $descriptorspec, $pipes);
+    $env = ['PYTHONIOENCODING' => 'utf-8'];
+    $process = proc_open("python3 run_cluster.py", $descriptorspec, $pipes, __DIR__, $env);
 
     if (is_resource($process)) {
         fwrite($pipes[0], $keywords);  // send to stdin
