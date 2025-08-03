@@ -354,10 +354,8 @@ function renderKeywordButtons(list) {
     .map(k => {
       const link = keywordLinks[k];
       const text = escapeHtml(k);
-      if (link) {
-        return `<button type="button" class="btn btn-link btn-sm kw-copy me-1" data-kw="${text}">${text}</button>`;
-      }
-      return `<span class="kw-copy me-1" data-kw="${text}" style="cursor:pointer;">${text}</span>`;
+      const extra = link ? ` data-link="${encodeURIComponent(link)}"` : '';
+      return `<button type="button" class="btn btn-link btn-sm kw-copy me-1 text-decoration-none"${extra} data-kw="${text}">${text}</button>`;
     })
     .join('');
 }
