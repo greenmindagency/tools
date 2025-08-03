@@ -279,6 +279,85 @@ include 'header.php';
   <li class="nav-item"><a class="nav-link" href="positions.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>">Keyword Position</a></li>
   <li class="nav-item"><a class="nav-link active" href="clusters.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>">Clusters</a></li>
 </ul>
+<!-- Add Keyword Form -->
+<form method="POST" id="addKeywordsForm" class="mb-4" style="display:none;">
+    <textarea name="keywords" class="form-control" placeholder="Paste keywords with optional volume and form" rows="6"></textarea>
+    <button type="submit" name="add_keywords" class="btn btn-primary btn-sm mt-2">Add Keywords</button>
+</form>
+
+<?php
+if (isset($_POST['add_keywords'])) {
+    $convertVolume = function(string $vol): string {
+        $v = trim($vol);
+        if ($v === '') return '';
+        $v = str_replace([',', '–'], ['', '-'], $v);
+        $key = preg_replace('/\s+/', '', $v);
+        $map = [
+            '1M-10M'   => 5000000,
+            '100K-1M'  => 500000,
+            '10K-100K' => 50000,
+            '1K-10K'   => 5000,
+            '100-1K'   => 500,
+            '10-100'   => 50,
+        ];
+        if (isset($map[$key])) {
+            return (string)$map[$key];
+        }
+        if (preg_match('/^(\d+(?:\.\d+)?)([KM]?)$/i', $key, $m)) {
+            $num = (float)$m[1];
+            $suffix = strtoupper($m[2]);
+            if ($suffix === 'K') $num *= 1000;
+            elseif ($suffix === 'M') $num *= 1000000;
+            return (string)(int)$num;
+        }
+        return $v;
+    };
+    $text = trim($_POST['keywords']);
+    $lines = preg_split('/\r\n|\n|\r/', $text);
+    $lines = array_values(array_filter(array_map('trim', $lines), 'strlen'));
+
+    $insert = $pdo->prepare(
+        "INSERT INTO keywords (client_id, keyword, volume, form) VALUES (?, ?, ?, ?)"
+    );
+    $update = $pdo->prepare(
+        "UPDATE keywords SET volume = ?, form = ? WHERE client_id = ? AND keyword = ?"
+    );
+    $entries = [];
+
+    if (!empty($lines) && preg_match('/\d+$/', $lines[0])) {
+        foreach ($lines as $line) {
+            if (preg_match('/^(.*?)\s+(\S+)\s+(\S+)$/', $line, $m)) {
+                $entries[] = [$m[1], $convertVolume($m[2]), $m[3]];
+            } else {
+                $entries[] = [$line, '', ''];
+            }
+        }
+    } else {
+        for ($i = 0; $i < count($lines); $i += 3) {
+            $keyword = $lines[$i] ?? '';
+            $volume  = $lines[$i + 1] ?? '';
+            $form    = $lines[$i + 2] ?? '';
+            if ($keyword !== '') {
+                $entries[] = [$keyword, $convertVolume($volume), $form];
+            }
+        }
+    }
+
+    foreach ($entries as $e) {
+        [$k, $v, $f] = $e;
+        $update->execute([$v, $f, $client_id, $k]);
+        if ($update->rowCount() === 0) {
+            $insert->execute([$client_id, $k, $v, $f]);
+        }
+    }
+    echo "<p>Keywords added.</p>";
+}
+
+$pdo->query("DELETE k1 FROM keywords k1
+JOIN keywords k2 ON k1.keyword = k2.keyword AND k1.id > k2.id
+WHERE k1.client_id = $client_id AND k2.client_id = $client_id");
+updateKeywordStats($pdo, $client_id);
+?>
 <div class="mb-3">
   <button class="btn btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#instructionsBox" aria-expanded="false" aria-controls="instructionsBox">Cluster Instructions</button>
   <div class="collapse" id="instructionsBox">
@@ -293,8 +372,9 @@ Group commercial keywords (like company, agency, services) **together only when 
 <div class="mb-3 d-flex justify-content-between">
   <div>
     <button id="addClusterBtn" class="btn btn-secondary btn-sm me-2">+ Add Cluster</button>
-    <button id="generateBtn" class="btn btn-primary btn-sm">Generate Clusters</button>
-    <button id="saveBtn" class="btn btn-success btn-sm" disabled>Save Clusters</button>
+    <button id="generateBtn" class="btn btn-primary btn-sm me-2">Generate Clusters</button>
+    <button id="saveBtn" class="btn btn-success btn-sm me-2" disabled>Save Clusters</button>
+    <button type="button" id="toggleAddForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
     <button id="clearBtn" class="btn btn-danger btn-sm">Clear Clusters</button>
   </div>
   <form id="clusterFilterForm" method="GET" class="d-flex">
@@ -825,6 +905,15 @@ document.getElementById('clearBtn').addEventListener('click', function() {
         document.getElementById('msgArea').innerHTML = '<p class="text-success">Clusters removed.</p>';
       }
     });
+});
+
+document.getElementById('toggleAddForm').addEventListener('click', function() {
+  const form = document.getElementById('addKeywordsForm');
+  if (form.style.display === 'none' || form.style.display === '') {
+    form.style.display = 'block';
+  } else {
+    form.style.display = 'none';
+  }
 });
 </script>
 
