@@ -37,6 +37,8 @@ $breadcrumb_client = [
 
 $title = $client['name'] . ' Clusters';
 $q = $_GET['q'] ?? '';
+$mode = $_GET['mode'] ?? 'keyword';
+if (!in_array($mode, ['keyword', 'exact'], true)) $mode = 'keyword';
 
 function updateKeywordStats(PDO $pdo, int $client_id): void {
     $pdo->exec("CREATE TABLE IF NOT EXISTS keyword_stats (
@@ -99,6 +101,8 @@ function loadUnclustered(PDO $pdo, int $client_id): array {
 $action = $_GET['action'] ?? '';
 if ($action === 'list') {
     $q = $_GET['q'] ?? '';
+    $mode = $_GET['mode'] ?? 'keyword';
+    if (!in_array($mode, ['keyword', 'exact'], true)) $mode = 'keyword';
     $terms = array_values(array_filter(array_map('trim', explode('|', $q)), 'strlen'));
     $clusters = loadClusters($pdo, $client_id);
     $singlesOnly = isset($_GET['single']) && $_GET['single'] === '1';
@@ -106,14 +110,24 @@ if ($action === 'list') {
         $clusters = array_values(array_filter($clusters, function($c) { return count($c) === 1; }));
     }
     if ($terms) {
-        $clusters = array_values(array_filter($clusters, function($cluster) use ($terms) {
-            foreach ($cluster as $kw) {
-                foreach ($terms as $t) {
-                    if (stripos($kw, $t) !== false) return true;
+        if ($mode === 'exact') {
+            $lower = array_map('mb_strtolower', $terms);
+            $clusters = array_values(array_filter($clusters, function($cluster) use ($lower) {
+                foreach ($cluster as $kw) {
+                    if (in_array(mb_strtolower($kw), $lower, true)) return true;
                 }
-            }
-            return false;
-        }));
+                return false;
+            }));
+        } else {
+            $clusters = array_values(array_filter($clusters, function($cluster) use ($terms) {
+                foreach ($cluster as $kw) {
+                    foreach ($terms as $t) {
+                        if (stripos($kw, $t) !== false) return true;
+                    }
+                }
+                return false;
+            }));
+        }
     }
     echo json_encode([
         'clusters' => $clusters,
@@ -286,6 +300,10 @@ Group commercial keywords (like company, agency, services) **together only when 
   <form id="clusterFilterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
     <input type="hidden" name="slug" value="<?= $slug ?>">
+    <select name="mode" id="clusterFilterMode" class="form-select form-select-sm me-1" style="width:auto;">
+      <option value="keyword"<?= $mode === 'keyword' ? ' selected' : '' ?>>Keyword</option>
+      <option value="exact"<?= $mode === 'exact' ? ' selected' : '' ?>>Keyword/Exact</option>
+    </select>
     <input type="text" name="q" id="clusterFilter" value="<?= htmlspecialchars($q) ?>" class="form-control form-control-sm w-auto" placeholder="Filter..." style="max-width:200px;">
     <button type="submit" class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-search"></i></button>
     <a href="clusters.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>" class="btn btn-outline-secondary btn-sm ms-1 d-flex align-items-center" title="Clear filter"><i class="bi bi-x-lg"></i></a>
@@ -311,6 +329,8 @@ const filterTerms = (document.getElementById('clusterFilter').value || '')
   .split('|')
   .map(s => s.trim())
   .filter(Boolean);
+const modeEl = document.getElementById('clusterFilterMode');
+const filterMode = modeEl ? modeEl.value : 'keyword';
 
 function escapeHtml(str) {
   return str
@@ -602,14 +622,17 @@ function renderClusters(data) {
       if (e.target.closest('button')) return;
       const first = currentClusters[idx][0];
       if (!first) return;
-      const url = `clusters.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>&q=${encodeURIComponent(first)}`;
+      const url = `clusters.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>&q=${encodeURIComponent(first)}&mode=exact`;
       window.location.href = url;
     });
     const textDiv = document.createElement('div');
     textDiv.className = 'form-control cluster-edit';
     textDiv.contentEditable = 'true';
     textDiv.innerHTML = cluster.map(k => {
-      const match = filterTerms.some(t => k.toLowerCase().includes(t));
+      const lc = k.toLowerCase();
+      const match = filterMode === 'exact'
+        ? filterTerms.some(t => lc === t)
+        : filterTerms.some(t => lc.includes(t));
       const link = keywordLinks[k];
       const kwHtml = link ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(k)}</a>` : escapeHtml(k);
       return `<div${match ? ' class="bg-warning-subtle"' : ''}>${kwHtml}</div>`;
@@ -641,7 +664,8 @@ function renderClusters(data) {
       const frag = document.createDocumentFragment();
       lines.forEach(line => {
         const div = document.createElement('div');
-        if (filterTerms.some(t => line.toLowerCase().includes(t))) div.classList.add('bg-warning-subtle');
+        const lc = line.toLowerCase();
+        if (filterMode === 'exact' ? filterTerms.some(t => lc === t) : filterTerms.some(t => lc.includes(t))) div.classList.add('bg-warning-subtle');
         div.textContent = line;
         frag.appendChild(div);
       });
@@ -661,7 +685,8 @@ function renderClusters(data) {
       const frag = document.createDocumentFragment();
       lines.forEach(line => {
         const div = document.createElement('div');
-        if (filterTerms.some(t => line.toLowerCase().includes(t))) div.classList.add('bg-warning-subtle');
+        const lc = line.toLowerCase();
+        if (filterMode === 'exact' ? filterTerms.some(t => lc === t) : filterTerms.some(t => lc.includes(t))) div.classList.add('bg-warning-subtle');
         div.textContent = line;
         frag.appendChild(div);
       });
@@ -688,7 +713,7 @@ function renderClusters(data) {
 document.addEventListener('DOMContentLoaded', function() {
   const msgArea = document.getElementById('msgArea');
   msgArea.innerHTML = '<p>Loading clusters…</p>';
-  fetch('clusters.php?action=list&client_id=<?= $client_id ?>&q=<?= urlencode($q) ?><?= isset($_GET['single']) ? "&single=1" : '' ?>')
+  fetch('clusters.php?action=list&client_id=<?= $client_id ?>&q=<?= urlencode($q) ?>&mode=<?= urlencode($mode) ?><?= isset($_GET['single']) ? "&single=1" : '' ?>')
     .then(r => r.json()).then(data => {
       loadedKeywords = [];
       (data.clusters || []).forEach(c => loadedKeywords.push(...c));
