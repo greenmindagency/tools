@@ -80,6 +80,16 @@ function loadAllKeywords(PDO $pdo, int $client_id): array {
     return $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
 
+function loadKeywordLinks(PDO $pdo, int $client_id): array {
+    $stmt = $pdo->prepare("SELECT keyword, content_link FROM keywords WHERE client_id = ? AND content_link <> ''");
+    $stmt->execute([$client_id]);
+    $map = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $map[$row['keyword']] = $row['content_link'];
+    }
+    return $map;
+}
+
 function loadUnclustered(PDO $pdo, int $client_id): array {
     $stmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ? AND (cluster_name = '' OR cluster_name IS NULL) ORDER BY id");
     $stmt->execute([$client_id]);
@@ -108,7 +118,8 @@ if ($action === 'list') {
     echo json_encode([
         'clusters' => $clusters,
         'unclustered' => loadUnclustered($pdo, $client_id),
-        'allKeywords' => loadAllKeywords($pdo, $client_id)
+        'allKeywords' => loadAllKeywords($pdo, $client_id),
+        'links' => loadKeywordLinks($pdo, $client_id)
     ]);
     exit;
 }
@@ -293,6 +304,7 @@ let currentClusters = [];
 let orderMap = {};
 let loadedKeywords = [];
 let currentUnclustered = [];
+let keywordLinks = {};
 const singleFilterActive = <?= isset($_GET['single']) ? 'true' : 'false' ?>;
 const filterTerms = (document.getElementById('clusterFilter').value || '')
   .toLowerCase()
@@ -339,7 +351,14 @@ function findDuplicates(clusters) {
 
 function renderKeywordButtons(list) {
   return list
-    .map(k => `<button type="button" class="btn btn-link btn-sm kw-copy" data-kw="${escapeHtml(k)}">${escapeHtml(k)}</button>`)
+    .map(k => {
+      const link = keywordLinks[k];
+      const text = escapeHtml(k);
+      if (link) {
+        return `<button type="button" class="btn btn-link btn-sm kw-copy me-1" data-kw="${text}">${text}</button>`;
+      }
+      return `<span class="kw-copy me-1" data-kw="${text}" style="cursor:pointer;">${text}</span>`;
+    })
     .join('');
 }
 
@@ -526,7 +545,9 @@ function renderClusters(data) {
     countSpan.className = 'badge bg-secondary me-2';
     countSpan.textContent = cluster.length;
     const titleSpan = document.createElement('span');
-    titleSpan.textContent = cluster[0] || 'Unnamed';
+    const firstTitle = cluster[0] || 'Unnamed';
+    const firstLink = keywordLinks[firstTitle];
+    titleSpan.innerHTML = firstLink ? `<a href="${escapeHtml(firstLink)}" target="_blank" rel="noopener">${escapeHtml(firstTitle)}</a>` : escapeHtml(firstTitle);
     const splitBtn = document.createElement('button');
     splitBtn.type = 'button';
     splitBtn.className = 'btn btn-sm btn-secondary ms-auto me-1';
@@ -583,13 +604,17 @@ function renderClusters(data) {
     textDiv.contentEditable = 'true';
     textDiv.innerHTML = cluster.map(k => {
       const match = filterTerms.some(t => k.toLowerCase().includes(t));
-      return `<div${match ? ' class="bg-warning-subtle"' : ''}>${escapeHtml(k)}</div>`;
+      const link = keywordLinks[k];
+      const kwHtml = link ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(k)}</a>` : escapeHtml(k);
+      return `<div${match ? ' class="bg-warning-subtle"' : ''}>${kwHtml}</div>`;
     }).join('');
     const syncCluster = () => {
       const lines = getLines(textDiv);
       currentClusters[idx] = lines;
       countSpan.textContent = lines.length;
-      titleSpan.textContent = lines[0] || 'Unnamed';
+      const first = lines[0] || 'Unnamed';
+      const firstL = keywordLinks[first];
+      titleSpan.innerHTML = firstL ? `<a href="${escapeHtml(firstL)}" target="_blank" rel="noopener">${escapeHtml(first)}</a>` : escapeHtml(first);
       if (lines.length === 1) card.classList.add('border', 'border-danger');
       else card.classList.remove('border', 'border-danger');
       if (window.msnry) {
@@ -656,6 +681,7 @@ document.addEventListener('DOMContentLoaded', function() {
       loadedKeywords = [];
       (data.clusters || []).forEach(c => loadedKeywords.push(...c));
       setOrder(data.allKeywords || []);
+      keywordLinks = data.links || {};
       const processed = processClusters(data.clusters || []);
       renderClusters(processed.clusters);
       updateStatusBars(data.unclustered || [], processed.singles);
