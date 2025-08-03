@@ -355,7 +355,8 @@ function renderKeywordButtons(list) {
       const link = keywordLinks[k];
       const text = escapeHtml(k);
       const extra = link ? ` data-link="${encodeURIComponent(link)}"` : '';
-      return `<button type="button" class="btn btn-link btn-sm kw-copy me-1 text-decoration-none"${extra} data-kw="${text}">${text}</button>`;
+      const cls = link ? ' text-primary' : ' text-body';
+      return `<button type="button" class="btn btn-link btn-sm kw-copy me-1 text-decoration-none${cls}"${extra} data-kw="${text}">${text}</button>`;
     })
     .join('');
 }
@@ -661,6 +662,13 @@ function renderClusters(data) {
       range.insertNode(frag);
       range.collapse(false);
       syncCluster();
+    });
+    textDiv.addEventListener('click', function(e) {
+      const a = e.target.closest('a');
+      if (a) {
+        e.preventDefault();
+        window.open(a.href, '_blank');
+      }
     });
     card.appendChild(header);
     card.appendChild(textDiv);
