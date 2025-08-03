@@ -124,7 +124,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS keyword_stats (
     grouped INT DEFAULT 0,
     clustered INT DEFAULT 0,
     structured INT DEFAULT 0
-)");
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 $statsStmt = $pdo->prepare("SELECT total, clustered AS clusters FROM keyword_stats WHERE client_id = ?");
 $statsStmt->execute([$client_id]);
 $stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'clusters'=>0];
@@ -402,7 +402,7 @@ function updateKeywordStats(PDO $pdo, int $client_id): void {
         grouped INT DEFAULT 0,
         clustered INT DEFAULT 0,
         structured INT DEFAULT 0
-    )");
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
     $stmt = $pdo->prepare("SELECT
         COUNT(*) AS total,

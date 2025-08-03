@@ -47,7 +47,7 @@ function updateKeywordStats(PDO $pdo, int $client_id): void {
         grouped INT DEFAULT 0,
         clustered INT DEFAULT 0,
         structured INT DEFAULT 0
-    )");
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
     $stmt = $pdo->prepare("SELECT
         COUNT(*) AS total,
         COUNT(DISTINCT NULLIF(cluster_name,'')) AS clusters

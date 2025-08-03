@@ -56,7 +56,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS keyword_positions (
     m10 FLOAT DEFAULT NULL,
     m11 FLOAT DEFAULT NULL,
     m12 FLOAT DEFAULT NULL
-)");
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 for ($i = 1; $i <= 12; $i++) {
     $pdo->exec("ALTER TABLE keyword_positions ADD COLUMN IF NOT EXISTS m{$i} FLOAT DEFAULT NULL");
 }
@@ -64,7 +64,7 @@ $pdo->exec("ALTER TABLE keyword_positions ADD COLUMN IF NOT EXISTS sort_order IN
 $pdo->exec("CREATE TABLE IF NOT EXISTS sc_domains (
     client_id INT PRIMARY KEY,
     domain VARCHAR(255)
-)");
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
 $scDomainStmt = $pdo->prepare("SELECT domain FROM sc_domains WHERE client_id = ?");
 $scDomainStmt->execute([$client_id]);
