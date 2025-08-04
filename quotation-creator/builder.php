@@ -62,6 +62,19 @@ function fetch_packages() {
 $parsedData = fetch_packages();
 $packages = $parsedData['packages'] ?? [];
 $usdRate = $parsedData['usd_to_egp'] ?? 0;
+if(!$usdRate && $packages){
+    $rates = [];
+    foreach($packages as $svc){
+        foreach($svc['packages'] as $p){
+            if(!empty($p['usd_val']) && !empty($p['egp_val'])){
+                $rates[] = $p['egp_val'] / $p['usd_val'];
+            }
+        }
+    }
+    if($rates){
+        $usdRate = array_sum($rates) / count($rates);
+    }
+}
 ?>
 <style>
 .quote-table th, .quote-table td { vertical-align: middle; }
@@ -110,12 +123,13 @@ $usdRate = $parsedData['usd_to_egp'] ?? 0;
 .remove-row-btn{display:block;margin-top:4px;}
 </style>
 
-<div class="package-selector mb-3 d-flex flex-wrap gap-2">
+
+<template id="packageSelectorTemplate">
 <?php if(!$packages): ?>
   <div class="alert alert-warning">Unable to retrieve pricing packages.</div>
 <?php else: ?>
   <?php foreach($packages as $sIndex => $svc): ?>
-    <?php $svcName = trim(preg_replace('/\bPrices\b/i', '', $svc['name'])); ?>
+    <?php $svcName = trim(preg_replace('/\\bPrices\\b/i', '', $svc['name'])); ?>
     <div class="dropdown">
       <button class="btn btn-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
         <?= htmlspecialchars($svcName) ?>
@@ -130,8 +144,7 @@ $usdRate = $parsedData['usd_to_egp'] ?? 0;
     </div>
   <?php endforeach; ?>
 <?php endif; ?>
-</div>
-
+</template>
 <div id="client-input" class="mb-3" style="max-width:300px;">
   <div class="input-group input-group-sm">
     <input type="text" id="clientName" class="form-control" placeholder="Client Name" value="<?= htmlspecialchars($clientName) ?>">
@@ -207,21 +220,6 @@ let currentTable=null;
 const editingExisting = <?= $existingHtml ? 'true' : 'false' ?>;
 let clientSlug='<?= $existingSlug ?>';
 let usdToEgp = <?= json_encode($usdRate) ?>;
-
-function computeInitialRate(){
-  if(usdToEgp) return;
-  const rates=[];
-  document.querySelectorAll('.package-selector .add-btn').forEach(btn=>{
-    const u=parseFloat(btn.dataset.usd);
-    const e=parseFloat(btn.dataset.egp);
-    if(u>0 && e>0) rates.push(e/u);
-  });
-  if(rates.length){
-    usdToEgp=rates.reduce((a,b)=>a+b,0)/rates.length;
-  }
-}
-
-computeInitialRate();
 const defaultContent=`<b>Terms</b><br><ul>
 <li>Payment Terms: A 50% advance payment is required upon confirmation, with the remaining 50% due upon final delivery.</li>
 <li>Website Additional Costs: An annual server fee of $400 will be added to the total amount.</li>
@@ -261,7 +259,6 @@ function createTable(){
         </div>
         <button class="btn btn-sm btn-danger remove-table-btn">&minus;</button>
       </div>
-
     </th></tr>
     <tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center usd-header">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th></tr>
   </thead><tbody></tbody><tfoot></tfoot>`;
@@ -404,9 +401,9 @@ function showPackageSelector(button){
   if(!inlineSelector){
     inlineSelector=document.createElement('div');
     inlineSelector.id='inlinePackageSelector';
-    inlineSelector.className='position-absolute bg-white border p-2 shadow';
+    inlineSelector.className='package-selector position-absolute bg-white border p-2 shadow';
     inlineSelector.style.zIndex='1050';
-    inlineSelector.innerHTML=document.querySelector('.package-selector').innerHTML;
+    inlineSelector.innerHTML=document.getElementById('packageSelectorTemplate').innerHTML;
     document.body.appendChild(inlineSelector);
     bindAddButtons(inlineSelector);
   }
@@ -422,7 +419,6 @@ function showPackageSelector(button){
   };
   setTimeout(()=>document.addEventListener('click',hide),0);
 }
-bindAddButtons();
 document.getElementById('clientName').addEventListener('input', updateHeader);
 updateHeader();
 
