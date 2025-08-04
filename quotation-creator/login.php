@@ -4,7 +4,7 @@ $error='';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = trim($_POST['username'] ?? '');
     $pass = $_POST['password'] ?? '';
-    $hash = '$2y$10$wNWHqa0QBag5hEr2AlLLOOZMhRiKDqdowWgIunwXrfgvAeieJdNfa';
+    $hash = '$2y$10$DrSjBqdNtRRd9/r8JpIpse5Bgot9hLnKHsZrIGSTSUlkcL1RhXPSG';
     if ($user === 'greenmindagency' && password_verify($pass, $hash)) {
         $_SESSION['is_admin'] = true;
         header('Location: index.php');
