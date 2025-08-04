@@ -253,10 +253,15 @@ function createTable(){
   const table=document.createElement('table');
   table.className='table table-bordered quote-table mb-5';
   table.innerHTML=`${colgroupTemplate}<thead>
-    <tr class="bg-light"><th colspan="5" class="text-end">
-      <span class="table-handle me-2" style="cursor:move">&#9776;</span>
-      <button class="btn btn-sm btn-danger remove-table-btn me-1">&minus;</button>
-      <button class="btn btn-sm btn-success add-pack-btn">&#43;</button>
+    <tr class="bg-light"><th colspan="5">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <button class="btn btn-sm btn-success add-pack-btn me-1">&#43;</button>
+          <span class="table-handle" style="cursor:move">&#9776;</span>
+        </div>
+        <button class="btn btn-sm btn-danger remove-table-btn">&minus;</button>
+      </div>
+
     </th></tr>
     <tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center usd-header">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th></tr>
   </thead><tbody></tbody><tfoot></tfoot>`;
@@ -487,7 +492,7 @@ function restoreExisting(){
     const thead=table.querySelector('thead');
     const headRow=document.createElement('tr');
     headRow.className='bg-light';
-    headRow.innerHTML='<th colspan="5" class="text-end"><span class="table-handle me-2" style="cursor:move">&#9776;</span><button class="btn btn-sm btn-danger remove-table-btn me-1">&minus;</button><button class="btn btn-sm btn-success add-pack-btn">&#43;</button></th>';
+    headRow.innerHTML='<th colspan="5"><div class="d-flex justify-content-between align-items-center"><div><button class="btn btn-sm btn-success add-pack-btn me-1">&#43;</button><span class="table-handle" style="cursor:move">&#9776;</span></div><button class="btn btn-sm btn-danger remove-table-btn">&minus;</button></div></th>';
     thead.prepend(headRow);
     const headerCells=thead.querySelectorAll('tr:nth-child(2) th');
     if(headerCells[3]) headerCells[3].classList.add('usd-header');
