@@ -255,6 +255,7 @@ function createTable(){
   table.innerHTML=`${colgroupTemplate}<thead>
     <tr class="bg-light"><th colspan="5" class="text-end">
       <span class="table-handle me-2" style="cursor:move">&#9776;</span>
+      <button class="btn btn-sm btn-success add-pack-btn me-1">&#43;</button>
       <button class="btn btn-sm btn-danger remove-table-btn">&minus;</button>
     </th></tr>
     <tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center usd-header">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th></tr>
@@ -271,6 +272,11 @@ function createTable(){
   table.querySelector('.remove-table-btn').addEventListener('click',()=>{
     table.remove();
     currentTable=tablesContainer.querySelector('table.quote-table');
+  });
+  table.querySelector('.add-pack-btn').addEventListener('click',(e)=>{
+    e.stopPropagation();
+    currentTable=table;
+    showPackageSelector(e.currentTarget);
   });
   currentTable=table;
   return table;
@@ -316,8 +322,10 @@ function addRow(service, desc, usd, egp, table=currentTable){
 function updateTotals(table=currentTable){
   const totals={usd:0,egp:0};
   table.querySelectorAll('tbody tr').forEach(tr=>{
-    totals.usd+=parseFloat(tr.querySelector('.usd').dataset.usd);
-    totals.egp+=parseFloat(tr.querySelector('.egp').dataset.egp);
+    const usdCell=tr.querySelector('.usd');
+    const egpCell=tr.querySelector('.egp');
+    totals.usd+=parseFloat(usdCell?.dataset.usd)||0;
+    totals.egp+=parseFloat(egpCell?.dataset.egp)||0;
   });
   const tfoot=table.querySelector('tfoot');
   tfoot.innerHTML='';
@@ -371,12 +379,41 @@ function attachPriceListeners(tr){
   }
   formatUsd();
 }
-document.querySelectorAll('.add-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    const lastTable=tablesContainer.querySelector('table.quote-table:last-of-type')||createTable();
-    addRow(btn.dataset.service, btn.dataset.desc, parseFloat(btn.dataset.usd), parseFloat(btn.dataset.egp), lastTable);
+
+function bindAddButtons(scope=document){
+  scope.querySelectorAll('.add-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const target=currentTable||tablesContainer.querySelector('table.quote-table:last-of-type')||createTable();
+      addRow(btn.dataset.service, btn.dataset.desc, parseFloat(btn.dataset.usd), parseFloat(btn.dataset.egp), target);
+      if(scope!==document) scope.style.display='none';
+    });
   });
-});
+}
+
+let inlineSelector=null;
+function showPackageSelector(button){
+  if(!inlineSelector){
+    inlineSelector=document.createElement('div');
+    inlineSelector.id='inlinePackageSelector';
+    inlineSelector.className='position-absolute bg-white border p-2 shadow';
+    inlineSelector.style.zIndex='1050';
+    inlineSelector.innerHTML=document.querySelector('.package-selector').innerHTML;
+    document.body.appendChild(inlineSelector);
+    bindAddButtons(inlineSelector);
+  }
+  const rect=button.getBoundingClientRect();
+  inlineSelector.style.top=(rect.bottom+window.scrollY)+'px';
+  inlineSelector.style.left=(rect.left+window.scrollX)+'px';
+  inlineSelector.style.display='block';
+  const hide=(e)=>{
+    if(!inlineSelector.contains(e.target) && e.target!==button){
+      inlineSelector.style.display='none';
+      document.removeEventListener('click',hide);
+    }
+  };
+  setTimeout(()=>document.addEventListener('click',hide),0);
+}
+bindAddButtons();
 document.getElementById('clientName').addEventListener('input', updateHeader);
 updateHeader();
 
@@ -446,12 +483,13 @@ function restoreExisting(){
     const thead=table.querySelector('thead');
     const headRow=document.createElement('tr');
     headRow.className='bg-light';
-    headRow.innerHTML='<th colspan="5" class="text-end"><span class="table-handle me-2" style="cursor:move">&#9776;</span><button class="btn btn-sm btn-danger remove-table-btn">&minus;</button></th>';
+    headRow.innerHTML='<th colspan="5" class="text-end"><span class="table-handle me-2" style="cursor:move">&#9776;</span><button class="btn btn-sm btn-success add-pack-btn me-1">&#43;</button><button class="btn btn-sm btn-danger remove-table-btn">&minus;</button></th>';
     thead.prepend(headRow);
     const headerCells=thead.querySelectorAll('tr:nth-child(2) th');
     if(headerCells[3]) headerCells[3].classList.add('usd-header');
     if(headerCells[4]) headerCells[4].classList.add('egp-header');
     headRow.querySelector('.remove-table-btn').addEventListener('click',()=>{table.remove();currentTable=tablesContainer.querySelector("table.quote-table");});
+    headRow.querySelector('.add-pack-btn').addEventListener('click',(e)=>{e.stopPropagation();currentTable=table;showPackageSelector(e.currentTarget);});
     new Sortable(table.querySelector('tbody'),{
       animation:150,
       group:'rows',
