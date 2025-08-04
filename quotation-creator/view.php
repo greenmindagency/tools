@@ -46,7 +46,7 @@ $html = $data['html'];
 .quote-table th:nth-child(4),.quote-table td:nth-child(4){width:15%;text-align:center;}
 .quote-table th:nth-child(5),.quote-table td:nth-child(5){width:9%;text-align:center;}
 html,body{transition:font-size .2s;}
-.content-block{border:1px dashed #ccc;padding:10px;min-height:60px;margin-bottom:1rem;}
+.content-block{border:1px dashed #ccc;padding:10px;min-height:60px;margin-bottom:1rem;page-break-inside:avoid;break-inside:avoid;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
 </head>
@@ -75,7 +75,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2 }, // higher scale for clearer text
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['css', 'legacy'], avoid: ['.quote-table', 'table'] }
+    pagebreak: { mode: ['css', 'legacy'], avoid: ['.quote-table', '.content-block', 'table'] }
   };
   setTimeout(() => {
     html2pdf().set(opt).from(element).save().then(() => {
