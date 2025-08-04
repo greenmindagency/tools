@@ -255,8 +255,8 @@ function createTable(){
   table.innerHTML=`${colgroupTemplate}<thead>
     <tr class="bg-light"><th colspan="5" class="text-end">
       <span class="table-handle me-2" style="cursor:move">&#9776;</span>
-      <button class="btn btn-sm btn-success add-pack-btn me-1">&#43;</button>
-      <button class="btn btn-sm btn-danger remove-table-btn">&minus;</button>
+      <button class="btn btn-sm btn-danger remove-table-btn me-1">&minus;</button>
+      <button class="btn btn-sm btn-success add-pack-btn">&#43;</button>
     </th></tr>
     <tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center usd-header">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th></tr>
   </thead><tbody></tbody><tfoot></tfoot>`;
@@ -313,7 +313,11 @@ function addRow(service, desc, usd, egp, table=currentTable){
     '<td class="usd text-center" contenteditable="true" data-usd="'+usd+'">$'+formatNum(usd)+'</td>'+
     '<td class="egp text-center" data-egp="'+initEgp+'">EGP '+formatNum(initEgp)+'</td>';
   tr.querySelector('.term-select').value=term;
-  tr.querySelector('.remove-row-btn').addEventListener('click', ()=>{tr.remove();updateTotals(tr.closest('table'));});
+  tr.querySelector('.remove-row-btn').addEventListener('click', ()=>{
+    const tbl=tr.closest('table');
+    tr.remove();
+    updateTotals(tbl);
+  });
   tr.querySelector('.term-select').addEventListener('change',()=>updateTotals(tr.closest('table')));
   tbody.appendChild(tr);
   attachPriceListeners(tr);
@@ -483,7 +487,7 @@ function restoreExisting(){
     const thead=table.querySelector('thead');
     const headRow=document.createElement('tr');
     headRow.className='bg-light';
-    headRow.innerHTML='<th colspan="5" class="text-end"><span class="table-handle me-2" style="cursor:move">&#9776;</span><button class="btn btn-sm btn-success add-pack-btn me-1">&#43;</button><button class="btn btn-sm btn-danger remove-table-btn">&minus;</button></th>';
+    headRow.innerHTML='<th colspan="5" class="text-end"><span class="table-handle me-2" style="cursor:move">&#9776;</span><button class="btn btn-sm btn-danger remove-table-btn me-1">&minus;</button><button class="btn btn-sm btn-success add-pack-btn">&#43;</button></th>';
     thead.prepend(headRow);
     const headerCells=thead.querySelectorAll('tr:nth-child(2) th');
     if(headerCells[3]) headerCells[3].classList.add('usd-header');
@@ -505,7 +509,11 @@ function restoreExisting(){
       const removeBtn=document.createElement('button');
       removeBtn.className='btn btn-sm btn-danger mt-1 remove-row-btn';
       removeBtn.innerHTML='&times;';
-      removeBtn.addEventListener('click',()=>{tr.remove();updateTotals(tr.closest('table'));});
+      removeBtn.addEventListener('click',()=>{
+        const tbl=tr.closest('table');
+        tr.remove();
+        updateTotals(tbl);
+      });
       serviceCell.appendChild(removeBtn);
       const termCell=tr.cells[2];
       const termLower=termCell.textContent.trim().toLowerCase();
@@ -570,7 +578,8 @@ function saveQuote(publish){
         clientId=res.id;
         if(res.slug) clientSlug=res.slug;
         if(publish && res.link){
-          window.open(res.link,'_blank');
+          const link = res.link + (res.link.includes('?') ? '&' : '?') + 't=' + Date.now();
+          window.open(link,'_blank');
         }else{
           alert('Saved');
         }
