@@ -385,6 +385,7 @@ if (isset($_POST['update_keywords'])) {
             'page' => $_GET['page'] ?? null,
             'field' => $_GET['field'] ?? null,
             'q' => $_GET['q'] ?? null,
+            'mode' => $_GET['mode'] ?? null,
         ];
         $qs = http_build_query(array_filter($params, fn($v) => $v !== null && $v !== ''));
         header('Location: dashboard.php' . ($qs ? "?$qs" : ''));
@@ -484,6 +485,10 @@ $perPage = 100;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $q = trim($_GET['q'] ?? '');
 $field = $_GET['field'] ?? 'keyword';
+$mode = $_GET['mode'] ?? 'keyword';
+if (!in_array($mode, ['keyword', 'exact'], true)) {
+    $mode = 'keyword';
+}
 $allowedFields = ['keyword', 'cluster_name', 'content_link', 'keyword_empty_cluster'];
 if (!in_array($field, $allowedFields, true)) {
     $field = 'keyword';
@@ -507,6 +512,10 @@ if ($field === 'keyword_empty_cluster') {
     if ($field === 'cluster_name') {
         $placeholders = implode(',', array_fill(0, count($terms), '?'));
         $baseQuery .= " AND {$column} IN ($placeholders)";
+        array_push($params, ...$terms);
+    } elseif ($field === 'keyword' && $mode === 'exact') {
+        $placeholders = implode(',', array_fill(0, count($terms), '?'));
+        $baseQuery .= " AND keyword IN ($placeholders)";
         array_push($params, ...$terms);
     } else {
         $likeParts = [];
@@ -548,6 +557,7 @@ while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
   <form id="filterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
     <input type="hidden" name="slug" value="<?= $slug ?>">
+    <input type="hidden" name="mode" value="<?= htmlspecialchars($mode) ?>">
     <select name="field" id="filterField" class="form-select form-select-sm me-2" style="width:auto;">
       <option value="keyword"<?= $field==='keyword' ? ' selected' : '' ?>>Keyword</option>
       <option value="cluster_name"<?= $field==='cluster_name' ? ' selected' : '' ?>>Cluster</option>
@@ -654,7 +664,7 @@ foreach ($stmt as $row) {
 <?php if ($totalPages > 1): ?>
   <ul class="pagination pagination-sm">
   <?php for ($i = 1; $i <= $totalPages; $i++): $active = $i === $page ? ' active' : '';
-        $qs = http_build_query(['client_id'=>$client_id,'slug'=>$slug,'page'=>$i,'field'=>$field,'q'=>$q]); ?>
+        $qs = http_build_query(['client_id'=>$client_id,'slug'=>$slug,'page'=>$i,'field'=>$field,'q'=>$q,'mode'=>$mode]); ?>
     <li class="page-item<?= $active ?>"><a class="page-link" href="dashboard.php?<?= $qs ?>"><?= $i ?></a></li>
   <?php endfor; ?>
   </ul>

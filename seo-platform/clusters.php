@@ -651,9 +651,19 @@ function renderClusters(data) {
     const titleSpan = document.createElement('span');
     const firstTitle = cluster[0] || 'Unnamed';
     titleSpan.textContent = firstTitle;
+    const filterBtn = document.createElement('button');
+    filterBtn.type = 'button';
+    filterBtn.className = 'btn btn-sm btn-outline-primary ms-auto me-1';
+    filterBtn.textContent = 'Filter';
+    filterBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const kws = currentClusters[idx].slice();
+      const url = `dashboard.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>&field=keyword&mode=exact&q=${encodeURIComponent(kws.join('|'))}`;
+      window.location.href = url;
+    });
     const splitBtn = document.createElement('button');
     splitBtn.type = 'button';
-    splitBtn.className = 'btn btn-sm btn-secondary ms-auto me-1';
+    splitBtn.className = 'btn btn-sm btn-secondary me-1';
     splitBtn.textContent = 'Split';
     splitBtn.addEventListener('click', function(e) {
       e.preventDefault();
@@ -700,6 +710,7 @@ function renderClusters(data) {
     });
     header.appendChild(countSpan);
     header.appendChild(titleSpan);
+    header.appendChild(filterBtn);
     header.appendChild(splitBtn);
     header.appendChild(removeBtn);
     header.style.cursor = 'pointer';
