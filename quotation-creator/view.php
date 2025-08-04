@@ -38,15 +38,14 @@ $html = $data['html'];
 .table thead th{background:#000;color:#fff;font-weight:bold;}
 .table-bordered{border-color:#000;border-width:var(--tbl-border);}
 .table-bordered th,.table-bordered td{border-color:#000;border-width:var(--tbl-border);vertical-align:middle; border:1px}
-.quote-table{table-layout:fixed;width:100%;page-break-inside:avoid;break-inside:avoid;}
-.quote-table tr,.quote-table td,.quote-table th{page-break-inside:avoid;break-inside:avoid;}
+.quote-table{table-layout:fixed;width:100%;}
 .quote-table th:nth-child(1),.quote-table td:nth-child(1){width:25%;}
 .quote-table th:nth-child(2),.quote-table td:nth-child(2){width:36%;}
 .quote-table th:nth-child(3),.quote-table td:nth-child(3){width:15%;text-align:center;}
 .quote-table th:nth-child(4),.quote-table td:nth-child(4){width:15%;text-align:center;}
 .quote-table th:nth-child(5),.quote-table td:nth-child(5){width:9%;text-align:center;}
 html,body{transition:font-size .2s;}
-.content-block{border:1px dashed #ccc;padding:10px;min-height:60px;margin-bottom:1rem;page-break-inside:avoid;break-inside:avoid;}
+.content-block{border:1px dashed #ccc;padding:10px;min-height:60px;margin-bottom:1rem;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
 </head>
@@ -74,8 +73,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
     filename: `Table of Prices - ${clientName} - ${new Date().toISOString().slice(0,10)}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2 }, // higher scale for clearer text
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['css', 'legacy'], avoid: ['.quote-table', '.content-block', 'table'] }
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
   setTimeout(() => {
     html2pdf().set(opt).from(element).save().then(() => {
