@@ -260,7 +260,14 @@ function createTable(){
     <tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center usd-header">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th></tr>
   </thead><tbody></tbody><tfoot></tfoot>`;
   tablesContainer.appendChild(table);
-  new Sortable(table.querySelector('tbody'),{animation:150});
+  new Sortable(table.querySelector('tbody'),{
+    animation:150,
+    group:'rows',
+    onEnd:evt=>{
+      updateTotals(evt.item.closest('table'));
+      if(evt.from!==evt.to) updateTotals(evt.from.closest('table'));
+    }
+  });
   table.querySelector('.remove-table-btn').addEventListener('click',()=>{
     table.remove();
     currentTable=tablesContainer.querySelector('table.quote-table');
@@ -300,11 +307,11 @@ function addRow(service, desc, usd, egp, table=currentTable){
     '<td class="usd text-center" contenteditable="true" data-usd="'+usd+'">$'+formatNum(usd)+'</td>'+
     '<td class="egp text-center" data-egp="'+initEgp+'">EGP '+formatNum(initEgp)+'</td>';
   tr.querySelector('.term-select').value=term;
-  tr.querySelector('.remove-row-btn').addEventListener('click', ()=>{tr.remove();updateTotals(table);});
-  tr.querySelector('.term-select').addEventListener('change',()=>updateTotals(table));
+  tr.querySelector('.remove-row-btn').addEventListener('click', ()=>{tr.remove();updateTotals(tr.closest('table'));});
+  tr.querySelector('.term-select').addEventListener('change',()=>updateTotals(tr.closest('table')));
   tbody.appendChild(tr);
-  attachPriceListeners(tr, table);
-  updateTotals(table);
+  attachPriceListeners(tr);
+  updateTotals(tr.closest('table'));
 }
 function updateTotals(table=currentTable){
   const totals={usd:0,egp:0};
@@ -327,7 +334,7 @@ function updateTotals(table=currentTable){
   }
 }
 
-function attachPriceListeners(tr, table){
+function attachPriceListeners(tr){
   const usdCell=tr.querySelector('.usd');
   const egpCell=tr.querySelector('.egp');
   usdCell.setAttribute('contenteditable','true');
@@ -351,7 +358,7 @@ function attachPriceListeners(tr, table){
     const egpVal=usdToEgp?roundEgp(val*usdToEgp):0;
     egpCell.dataset.egp=egpVal;
     egpCell.textContent='EGP '+formatNum(egpVal);
-    updateTotals(table);
+    updateTotals(tr.closest('table'));
   });
   usdCell.addEventListener('blur',formatUsd);
 
@@ -445,7 +452,14 @@ function restoreExisting(){
     if(headerCells[3]) headerCells[3].classList.add('usd-header');
     if(headerCells[4]) headerCells[4].classList.add('egp-header');
     headRow.querySelector('.remove-table-btn').addEventListener('click',()=>{table.remove();currentTable=tablesContainer.querySelector("table.quote-table");});
-    new Sortable(table.querySelector('tbody'),{animation:150});
+    new Sortable(table.querySelector('tbody'),{
+      animation:150,
+      group:'rows',
+      onEnd:evt=>{
+        updateTotals(evt.item.closest('table'));
+        if(evt.from!==evt.to) updateTotals(evt.from.closest('table'));
+      }
+    });
     table.querySelectorAll('tbody tr').forEach(tr=>{
       tr.cells[1].setAttribute('contenteditable','true');
       const serviceCell=tr.cells[0];
@@ -453,16 +467,16 @@ function restoreExisting(){
       const removeBtn=document.createElement('button');
       removeBtn.className='btn btn-sm btn-danger mt-1 remove-row-btn';
       removeBtn.innerHTML='&times;';
-      removeBtn.addEventListener('click',()=>{tr.remove();updateTotals(table);});
+      removeBtn.addEventListener('click',()=>{tr.remove();updateTotals(tr.closest('table'));});
       serviceCell.appendChild(removeBtn);
       const termCell=tr.cells[2];
       const termText=termCell.textContent.trim().toLowerCase().includes('month')?'monthly':'one-time';
-    termCell.innerHTML='<select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select>';
-    termCell.querySelector('select').value=termText;
-    termCell.querySelector('select').addEventListener('change',()=>updateTotals(table));
-      attachPriceListeners(tr, table);
-  });
-  updateTotals(table);
+      termCell.innerHTML='<select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select>';
+      termCell.querySelector('select').value=termText;
+      termCell.querySelector('select').addEventListener('change',()=>updateTotals(tr.closest('table')));
+      attachPriceListeners(tr);
+    });
+    updateTotals(table);
   });
   currentTable=document.querySelector('table.quote-table');
 
