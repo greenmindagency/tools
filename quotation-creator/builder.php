@@ -303,7 +303,7 @@ function addRow(service, desc, usd, egp, table=currentTable){
   const initEgp = usdToEgp ? roundEgp(usd*usdToEgp) : egp;
   tr.innerHTML='<td><strong>'+cleanServiceName(service)+'</strong><br><button class="btn btn-sm btn-danger mt-1 remove-row-btn">&times;</button></td>'+
     '<td contenteditable="true">'+desc.replace(/\n/g,'<br>')+'</td>'+
-    '<td class="text-center"><select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select></td>'+
+    '<td class="text-center"><select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></td>'+
     '<td class="usd text-center" contenteditable="true" data-usd="'+usd+'">$'+formatNum(usd)+'</td>'+
     '<td class="egp text-center" data-egp="'+initEgp+'">EGP '+formatNum(initEgp)+'</td>';
   tr.querySelector('.term-select').value=term;
@@ -470,8 +470,9 @@ function restoreExisting(){
       removeBtn.addEventListener('click',()=>{tr.remove();updateTotals(tr.closest('table'));});
       serviceCell.appendChild(removeBtn);
       const termCell=tr.cells[2];
-      const termText=termCell.textContent.trim().toLowerCase().includes('month')?'monthly':'one-time';
-      termCell.innerHTML='<select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option></select>';
+      const termLower=termCell.textContent.trim().toLowerCase();
+      const termText=termLower.includes('month')?'monthly':termLower.includes('year')?'yearly':'one-time';
+      termCell.innerHTML='<select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>';
       termCell.querySelector('select').value=termText;
       termCell.querySelector('select').addEventListener('change',()=>updateTotals(tr.closest('table')));
       attachPriceListeners(tr);
