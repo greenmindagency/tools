@@ -38,12 +38,10 @@ $html = $data['html'];
 .table thead th{background:#000;color:#fff;font-weight:bold;}
 .table-bordered{border-color:#000;border-width:var(--tbl-border);}
 .table-bordered th,.table-bordered td{border-color:#000;border-width:var(--tbl-border);vertical-align:middle; border:1px}
-.quote-table{table-layout:fixed;width:100%;}
-.quote-table th:nth-child(1),.quote-table td:nth-child(1){width:25%;}
-.quote-table th:nth-child(2),.quote-table td:nth-child(2){width:36%;}
-.quote-table th:nth-child(3),.quote-table td:nth-child(3){width:15%;text-align:center;}
-.quote-table th:nth-child(4),.quote-table td:nth-child(4){width:15%;text-align:center;}
-.quote-table th:nth-child(5),.quote-table td:nth-child(5){width:9%;text-align:center;}
+.quote-table{width:100%;}
+.quote-table th:nth-child(3),.quote-table td:nth-child(3),
+.quote-table th:nth-child(4),.quote-table td:nth-child(4),
+.quote-table th:nth-child(5),.quote-table td:nth-child(5){text-align:center;}
 html,body{transition:font-size .2s;}
 .content-block{border:1px dashed #ccc;padding:10px;min-height:60px;margin-bottom:1rem;}
 </style>
@@ -55,8 +53,33 @@ html,body{transition:font-size .2s;}
   <?= $html ?>
 </div>
 <script>
+function syncColumnWidths(){
+  const tables=document.querySelectorAll('.quote-table');
+  if(!tables.length) return;
+  const cols=tables[0].rows[0]?.cells.length||0;
+  const widths=new Array(cols).fill(0);
+  tables.forEach(tbl=>{
+    tbl.querySelectorAll('th,td').forEach(cell=>cell.style.width='');
+    tbl.querySelectorAll('tr').forEach(row=>{
+      Array.from(row.cells).forEach((cell,i)=>{
+        widths[i]=Math.max(widths[i],cell.offsetWidth);
+      });
+    });
+  });
+  tables.forEach(tbl=>{
+    tbl.querySelectorAll('tr').forEach(row=>{
+      Array.from(row.cells).forEach((cell,i)=>{
+        cell.style.width=widths[i]+"px";
+      });
+    });
+  });
+}
+window.addEventListener('load',syncColumnWidths);
+window.addEventListener('resize',syncColumnWidths);
+
 const clientName = <?= json_encode($data['name']) ?>;
 document.getElementById('downloadBtn').addEventListener('click', () => {
+  syncColumnWidths();
   const element = document.getElementById('quote');
   const btn = document.getElementById('downloadBtn');
   btn.style.display = 'none';

@@ -87,12 +87,7 @@ if(!$usdRate && $packages){
 .term-select:focus{box-shadow:none;}
 .table-handle{cursor:move;}
 /* larger space between tables */
-.quote-table{margin-bottom:3rem;table-layout:fixed;width:100%;}
-.quote-table th:nth-child(1),.quote-table td:nth-child(1){width:25%;}
-.quote-table th:nth-child(2),.quote-table td:nth-child(2){width:26%;}
-.quote-table th:nth-child(3),.quote-table td:nth-child(3){width:15%;text-align:center;}
-.quote-table th:nth-child(4),.quote-table td:nth-child(4){width:15%;text-align:center;}
-.quote-table th:nth-child(5),.quote-table td:nth-child(5){width:9%;text-align:center;}
+.quote-table{margin-bottom:3rem;width:100%;}
 /* center the payment term and cost columns */
 .quote-table th:nth-child(3),
 .quote-table th:nth-child(4),
@@ -213,6 +208,28 @@ function cleanServiceName(name){
   return name.replace(/\bPrices\b/i,'').trim();
 }
 
+function syncColumnWidths(){
+  const tables=document.querySelectorAll('.quote-table');
+  if(!tables.length) return;
+  const cols=tables[0].rows[0]?.cells.length||0;
+  const widths=new Array(cols).fill(0);
+  tables.forEach(tbl=>{
+    tbl.querySelectorAll('th,td').forEach(cell=>cell.style.width='');
+    tbl.querySelectorAll('tr').forEach(row=>{
+      Array.from(row.cells).forEach((cell,i)=>{
+        widths[i]=Math.max(widths[i],cell.offsetWidth);
+      });
+    });
+  });
+  tables.forEach(tbl=>{
+    tbl.querySelectorAll('tr').forEach(row=>{
+      Array.from(row.cells).forEach((cell,i)=>{
+        cell.style.width=widths[i]+"px";
+      });
+    });
+  });
+}
+
 let tablesContainer=document.getElementById('tablesContainer');
 let contentContainer=document.getElementById('contentContainer');
 new Sortable(tablesContainer,{animation:150,handle:'.table-handle'});
@@ -240,11 +257,11 @@ Swift Code: CIBEEGCX119
   </p>`;
 
 const colgroupTemplate=`<colgroup>
-  <col style="width:25%">
-  <col style="width:36%">
-  <col style="width:15%">
-  <col style="width:15%">
-  <col style="width:9%">
+  <col>
+  <col>
+  <col>
+  <col>
+  <col>
 </colgroup>`;
 
 function createTable(){
@@ -281,6 +298,7 @@ function createTable(){
     showPackageSelector(e.currentTarget);
   });
   currentTable=table;
+  syncColumnWidths();
   return table;
 }
 
@@ -324,6 +342,7 @@ function addRow(service, desc, usd, egp, table=currentTable){
   tbody.appendChild(tr);
   attachPriceListeners(tr);
   updateTotals(tr.closest('table'));
+  syncColumnWidths();
 }
 function updateTotals(table=currentTable){
   const totals={usd:0,egp:0};
@@ -346,6 +365,7 @@ function updateTotals(table=currentTable){
     currentTable=tablesContainer.querySelector('table.quote-table');
 
   }
+  syncColumnWidths();
 }
 
 function attachPriceListeners(tr){
@@ -438,12 +458,15 @@ document.getElementById('toggleEGP').addEventListener('change',e=>{
 document.getElementById('toggleUSD').addEventListener('change',e=>{
   document.getElementById('quote-area').classList.toggle('hide-usd',e.target.checked);
 });
+window.addEventListener('load',syncColumnWidths);
+window.addEventListener('resize',syncColumnWidths);
 if(editingExisting) restoreExisting();
 if(editingExisting){
   const qa=document.getElementById('quote-area');
   document.getElementById('toggleEGP').checked=qa.classList.contains('hide-egp');
   document.getElementById('toggleUSD').checked=qa.classList.contains('hide-usd');
 }
+syncColumnWidths();
 
 function restoreExisting(){
   const qa=document.getElementById('quote-area');
@@ -547,6 +570,8 @@ function restoreExisting(){
     toolbar.querySelector('.remove-content-btn').addEventListener('click',()=>block.remove());
     toolbar.querySelectorAll('[data-cmd]').forEach(btn=>btn.addEventListener('click',()=>{document.execCommand(btn.dataset.cmd,false,null);}));
   });
+
+  syncColumnWidths();
 }
 
 let clientId = <?= isset($_GET['id']) ? (int)$_GET['id'] : 0 ?>;
