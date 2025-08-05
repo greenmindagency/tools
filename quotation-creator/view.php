@@ -77,10 +77,12 @@ html,body{transition:font-size .2s;}
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const clientName = <?= json_encode($data['name']) ?>;
+const copyBtn = document.getElementById('copyLinkBtn');
 document.getElementById('downloadBtn').addEventListener('click', () => {
   const element = document.getElementById('quote');
   const btn = document.getElementById('downloadBtn');
-  btn.style.display = 'none';
+  const controls = btn.parentElement;
+  controls.style.display = 'none';
   const root = document.documentElement;
   const prevRoot = root.style.fontSize;
   const prevBorder = root.style.getPropertyValue('--tbl-border');
@@ -98,20 +100,21 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   };
   setTimeout(() => {
     html2pdf().set(opt).from(element).save().then(() => {
-      btn.style.display = '';
+      controls.style.display = '';
       root.style.fontSize = prevRoot;
       body.style.fontSize = prevBody;
       root.style.setProperty('--tbl-border', prevBorder || '1px');
     });
   }, 100);
 });
-const copyBtn = document.getElementById('copyLinkBtn');
-copyBtn.addEventListener('click', () => {
-  navigator.clipboard.writeText(copyBtn.dataset.url).then(() => {
-    const toast = new bootstrap.Toast(document.getElementById('copyToast'));
-    toast.show();
+if (copyBtn) {
+  copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(copyBtn.dataset.url).then(() => {
+      const toast = new bootstrap.Toast(document.getElementById('copyToast'));
+      toast.show();
+    });
   });
-});
+}
 document.querySelectorAll('th').forEach(th=>{
   if(th.classList.contains('usd-header') || th.textContent.trim()==='Total Cost USD'){
     th.textContent='Cost USD';
