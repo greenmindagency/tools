@@ -6,10 +6,12 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS clients (
     name VARCHAR(255),
     html MEDIUMTEXT,
     slug VARCHAR(255) UNIQUE,
+    short_url VARCHAR(255),
     published TINYINT(1) DEFAULT 0,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )");
-$stmt = $pdo->prepare('SELECT name, html FROM clients WHERE slug=? AND published=1');
+$pdo->exec("ALTER TABLE clients ADD COLUMN IF NOT EXISTS short_url VARCHAR(255)");
+$stmt = $pdo->prepare('SELECT id, name, html, short_url FROM clients WHERE slug=? AND published=1');
 $stmt->execute([$slug]);
 $data = $stmt->fetch(PDO::FETCH_ASSOC);
 if(!$data){
@@ -18,6 +20,14 @@ if(!$data){
     exit;
 }
 $html = $data['html'];
+$shortUrl = $data['short_url'] ?? '';
+if(!$shortUrl){
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $currentUrl = $scheme.'://'.$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];
+    $shortUrl = file_get_contents('https://tinyurl.com/api-create.php?url='.urlencode($currentUrl));
+    $upd = $pdo->prepare('UPDATE clients SET short_url=? WHERE id=?');
+    $upd->execute([$shortUrl, $data['id']]);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -53,9 +63,18 @@ html,body{transition:font-size .2s;}
 </head>
 <body>
 <div id="quote" class="container mt-4">
-  <button id="downloadBtn" class="btn btn-primary mb-3">Download PDF</button>
+  <div class="d-flex gap-2 mb-3">
+    <button id="downloadBtn" class="btn btn-primary">Download PDF</button>
+    <button id="copyLinkBtn" class="btn btn-outline-secondary" data-url="<?= htmlspecialchars($shortUrl) ?>" title="Copy short link">&#128279;</button>
+  </div>
   <?= $html ?>
 </div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="copyToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-body">Link copied to clipboard</div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const clientName = <?= json_encode($data['name']) ?>;
 document.getElementById('downloadBtn').addEventListener('click', () => {
@@ -85,6 +104,19 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
       root.style.setProperty('--tbl-border', prevBorder || '1px');
     });
   }, 100);
+});
+const copyBtn = document.getElementById('copyLinkBtn');
+copyBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(copyBtn.dataset.url).then(() => {
+    const toast = new bootstrap.Toast(document.getElementById('copyToast'));
+    toast.show();
+  });
+});
+document.querySelectorAll('th').forEach(th=>{
+  if(th.classList.contains('usd-header') || th.textContent.trim()==='Total Cost USD'){
+    th.textContent='Cost USD';
+    th.classList.add('usd-header');
+  }
 });
 </script>
 </body>

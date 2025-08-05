@@ -262,7 +262,7 @@ function createTable(){
         <button class="btn btn-sm btn-danger remove-table-btn">&minus;</button>
       </div>
     </th></tr>
-    <tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center usd-header">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th></tr>
+    <tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center usd-header">Cost USD</th><th class="text-center egp-header">Cost EGP</th></tr>
   </thead><tbody></tbody><tfoot></tfoot>`;
   tablesContainer.appendChild(table);
   new Sortable(table.querySelector('tbody'),{
@@ -447,6 +447,13 @@ if(editingExisting){
   document.getElementById('toggleUSD').checked=qa.classList.contains('hide-usd');
 }
 
+document.querySelectorAll('th').forEach(th=>{
+  if(th.classList.contains('usd-header') || th.textContent.trim()==='Total Cost USD'){
+    th.textContent='Cost USD';
+    th.classList.add('usd-header');
+  }
+});
+
 function restoreExisting(){
   const qa=document.getElementById('quote-area');
   const wrapper=qa.querySelector('.saved-quote');
@@ -493,7 +500,10 @@ function restoreExisting(){
     headRow.innerHTML='<th colspan="5"><div class="d-flex justify-content-between align-items-center"><div><button class="btn btn-sm btn-success add-pack-btn me-1">&#43;</button><span class="table-handle" style="cursor:move">&#9776;</span></div><button class="btn btn-sm btn-danger remove-table-btn">&minus;</button></div></th>';
     thead.prepend(headRow);
     const headerCells=thead.querySelectorAll('tr:nth-child(2) th');
-    if(headerCells[3]) headerCells[3].classList.add('usd-header');
+    if(headerCells[3]) {
+      headerCells[3].classList.add('usd-header');
+      headerCells[3].textContent = 'Cost USD';
+    }
     if(headerCells[4]) headerCells[4].classList.add('egp-header');
     headRow.querySelector('.remove-table-btn').addEventListener('click',()=>{table.remove();currentTable=tablesContainer.querySelector("table.quote-table");});
     headRow.querySelector('.add-pack-btn').addEventListener('click',(e)=>{e.stopPropagation();currentTable=table;showPackageSelector(e.currentTarget);});

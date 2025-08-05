@@ -25,9 +25,11 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS clients (
     name VARCHAR(255),
     html MEDIUMTEXT,
     slug VARCHAR(255) UNIQUE,
+    short_url VARCHAR(255),
     published TINYINT(1) DEFAULT 0,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )");
+$pdo->exec("ALTER TABLE clients ADD COLUMN IF NOT EXISTS short_url VARCHAR(255)");
 if ($id) {
     $stmt = $pdo->prepare('UPDATE clients SET name=?, html=?, published=?, slug=? WHERE id=?');
     $stmt->execute([$name, $html, $publish?1:0, $slug, $id]);
