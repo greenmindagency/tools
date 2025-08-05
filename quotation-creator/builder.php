@@ -262,7 +262,7 @@ function createTable(){
         <button class="btn btn-sm btn-danger remove-table-btn">&minus;</button>
       </div>
     </th></tr>
-    <tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center usd-header">Total Cost USD</th><th class="text-center egp-header">Cost EGP</th></tr>
+    <tr><th>Service</th><th>Service Details</th><th class="text-center">Payment Term</th><th class="text-center usd-header">Cost USD</th><th class="text-center egp-header">Cost EGP</th></tr>
   </thead><tbody></tbody><tfoot></tfoot>`;
   tablesContainer.appendChild(table);
   new Sortable(table.querySelector('tbody'),{
