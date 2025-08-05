@@ -38,7 +38,6 @@ $html = $data['html'];
 .table thead th{background:#000;color:#fff;font-weight:bold;}
 .table-bordered{border-color:#000;border-width:var(--tbl-border);}
 .table-bordered th,.table-bordered td{border-color:#000;border-width:var(--tbl-border);vertical-align:middle; border:1px}
-.quote-table{width:100%;}
 .quote-table th:nth-child(3),.quote-table td:nth-child(3),
 .quote-table th:nth-child(4),.quote-table td:nth-child(4),
 .quote-table th:nth-child(5),.quote-table td:nth-child(5){text-align:center;}
@@ -59,10 +58,11 @@ function syncColumnWidths(){
   const cols=tables[0].rows[0]?.cells.length||0;
   const widths=new Array(cols).fill(0);
   tables.forEach(tbl=>{
+    tbl.style.width='auto';
     tbl.querySelectorAll('th,td').forEach(cell=>cell.style.width='');
     tbl.querySelectorAll('tr').forEach(row=>{
       Array.from(row.cells).forEach((cell,i)=>{
-        widths[i]=Math.max(widths[i],cell.offsetWidth);
+        widths[i]=Math.max(widths[i],cell.scrollWidth);
       });
     });
   });

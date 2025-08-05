@@ -87,7 +87,7 @@ if(!$usdRate && $packages){
 .term-select:focus{box-shadow:none;}
 .table-handle{cursor:move;}
 /* larger space between tables */
-.quote-table{margin-bottom:3rem;width:100%;}
+.quote-table{margin-bottom:3rem;}
 /* center the payment term and cost columns */
 .quote-table th:nth-child(3),
 .quote-table th:nth-child(4),
@@ -214,10 +214,11 @@ function syncColumnWidths(){
   const cols=tables[0].rows[0]?.cells.length||0;
   const widths=new Array(cols).fill(0);
   tables.forEach(tbl=>{
+    tbl.style.width='auto';
     tbl.querySelectorAll('th,td').forEach(cell=>cell.style.width='');
     tbl.querySelectorAll('tr').forEach(row=>{
       Array.from(row.cells).forEach((cell,i)=>{
-        widths[i]=Math.max(widths[i],cell.offsetWidth);
+        widths[i]=Math.max(widths[i],cell.scrollWidth);
       });
     });
   });
