@@ -91,8 +91,8 @@ if(!$usdRate && $packages){
 .quote-table th:nth-child(1),.quote-table td:nth-child(1){width:25%;}
 .quote-table th:nth-child(2),.quote-table td:nth-child(2){width:26%;}
 .quote-table th:nth-child(3),.quote-table td:nth-child(3){width:15%;text-align:center;}
-.quote-table th:nth-child(4),.quote-table td:nth-child(4){width:15%;text-align:center;}
-.quote-table th:nth-child(5),.quote-table td:nth-child(5){width:9%;text-align:center;}
+.quote-table th:nth-child(4),.quote-table td:nth-child(4){width:12%;text-align:center;}
+.quote-table th:nth-child(5),.quote-table td:nth-child(5){width:12%;text-align:center;}
 /* center the payment term and cost columns */
 .quote-table th:nth-child(3),
 .quote-table th:nth-child(4),
@@ -121,6 +121,8 @@ if(!$usdRate && $packages){
 .content-block{border:1px dashed #ccc;padding:10px;min-height:60px;margin-bottom:1rem;}
 .content-toolbar{display:flex;justify-content:flex-end;gap:2px;margin-bottom:4px;}
 .remove-row-btn{display:block;margin-top:4px;}
+.vat-row .egp{background:#eb8a94!important;color:#000!important;}
+.total-vat-row .egp{background:#23b06a!important;color:#000!important;}
 </style>
 
 
@@ -243,8 +245,8 @@ const colgroupTemplate=`<colgroup>
   <col style="width:25%">
   <col style="width:36%">
   <col style="width:15%">
-  <col style="width:15%">
-  <col style="width:9%">
+  <col style="width:12%">
+  <col style="width:12%">
 </colgroup>`;
 
 function createTable(){
@@ -338,8 +340,8 @@ function updateTotals(table=currentTable){
   if(totals.usd!==0 || totals.egp!==0){
     const vat=totals.egp*0.14;
     tfoot.innerHTML=`<tr class="table-secondary fw-bold"><th colspan="3" class="text-end">Total</th><th class="usd bg-warning text-black text-center">$${formatNum(totals.usd)}</th><th class="egp bg-warning text-black text-center">EGP ${formatNum(totals.egp)}</th></tr>`+
-      `<tr class="vat-row"><th colspan="3" class="text-end">VAT 14%</th><th></th><th class="egp text-center bg-danger text-white">EGP ${formatNum(vat)}</th></tr>`+
-      `<tr class="total-vat-row"><th colspan="3" class="text-end">Total + VAT</th><th></th><th class="egp text-center" style="background:#14633c;color:#fff;">EGP ${formatNum(totals.egp+vat)}</th></tr>`;
+      `<tr class="vat-row"><th colspan="3" class="text-end">VAT 14%</th><th></th><th class="egp text-center">EGP ${formatNum(vat)}</th></tr>`+
+      `<tr class="total-vat-row"><th colspan="3" class="text-end">Total + VAT</th><th></th><th class="egp text-center">EGP ${formatNum(totals.egp+vat)}</th></tr>`;
   }
   if(table.querySelectorAll('tbody tr').length===0){
     table.remove();

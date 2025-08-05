@@ -42,10 +42,12 @@ $html = $data['html'];
 .quote-table th:nth-child(1),.quote-table td:nth-child(1){width:25%;}
 .quote-table th:nth-child(2),.quote-table td:nth-child(2){width:36%;}
 .quote-table th:nth-child(3),.quote-table td:nth-child(3){width:15%;text-align:center;}
-.quote-table th:nth-child(4),.quote-table td:nth-child(4){width:15%;text-align:center;}
-.quote-table th:nth-child(5),.quote-table td:nth-child(5){width:9%;text-align:center;}
+.quote-table th:nth-child(4),.quote-table td:nth-child(4){width:12%;text-align:center;}
+.quote-table th:nth-child(5),.quote-table td:nth-child(5){width:12%;text-align:center;}
 html,body{transition:font-size .2s;}
 .content-block{border:1px dashed #ccc;padding:10px;min-height:60px;margin-bottom:1rem;}
+.vat-row .egp{background:#eb8a94!important;color:#000!important;}
+.total-vat-row .egp{background:#23b06a!important;color:#000!important;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
 </head>
