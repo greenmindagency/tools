@@ -162,7 +162,13 @@ function generatePrompt() {
 
 **Purpose:** ...
 
+**Creative Ideas:** Image - Video - Grid
+
 `;
+  prompt += 'For the **Creative Ideas** line, use the post\'s keyword to link to Pinterest searches:';
+  prompt += '\n- Image: https://www.pinterest.com/search/pins/?q=(keyword you used)%20social%20media%20post';
+  prompt += '\n- Video: https://www.pinterest.com/search/videos/?q=(keyword you used)%20social%20media%20post%20post';
+  prompt += '\n- Grid: https://www.pinterest.com/search/pins/?q=(keyword you used)%20social%20media%20post%20grid\n';
   prompt += 'Do not schedule posts on Fridays or Saturdays. ';
   prompt += 'When occasion posts or bank holidays are included, place them on their actual dates unless the date is a Friday or Saturday. ';
   prompt += 'If an occasion falls on Friday or Saturday, shift its greeting post to the preceding Thursday and do not mention the weekend date. ';
