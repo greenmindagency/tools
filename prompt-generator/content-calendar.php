@@ -2,6 +2,16 @@
 $title = "Content Calendar";
 include 'header.php';
 
+function getTinyUrl($url) {
+    $ch = curl_init('https://tinyurl.com/api-create.php?url=' . urlencode($url));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $tiny = curl_exec($ch);
+    curl_close($ch);
+    return $tiny ?: $url;
+}
+
+$creativeBase = 'https://www.pinterest.com/search/pins/?q=(keyword)%20social%20media%20post';
+$creativeTiny = getTinyUrl($creativeBase);
 ?>
 <style>
   #output { white-space: pre-wrap; background: #f8f9fa; border: 1px solid #ced4da; padding: 20px; margin-top: 10px; border-radius: 5px; min-height: 200px; }
@@ -72,8 +82,7 @@ include 'header.php';
 <textarea id="clipboardArea" style="position: absolute; left: -9999px; top: -9999px;"></textarea>
 
 <script>
-const pinterestBase = 'https://www.pinterest.com/search/pins/?q=';
-const pinterestSuffix = '%20social%20media%20post&rs=typed';
+const creativeLink = <?php echo json_encode($creativeTiny); ?>;
 function addCountry(button) {
   const container = document.getElementById('countries');
   const group = button.closest('.input-group');
@@ -87,7 +96,7 @@ function addCountry(button) {
 function removeCountry(button) {
   button.closest('.input-group').remove();
 }
-async function generatePrompt() {
+function generatePrompt() {
   const lang = document.getElementById('outputLanguage').value.trim();
   const keywords = document.getElementById('keywords').value.trim();
   const website = document.getElementById('website').value.trim();
@@ -98,14 +107,6 @@ async function generatePrompt() {
   const docFlag = document.getElementById('includeDoc').checked;
   const holidaysFlag = document.getElementById('includeHolidays').checked;
   const countries = Array.from(document.querySelectorAll('input[name="country[]"]')).map(c => c.value.trim()).filter(Boolean);
-  const keywordList = keywords.split('\n').map(k => k.trim()).filter(Boolean);
-
-  const creativeLinks = {};
-  await Promise.all(keywordList.map(async kw => {
-    const searchUrl = pinterestBase + encodeURIComponent(kw) + pinterestSuffix;
-    const tiny = await fetch('https://tinyurl.com/api-create.php?url=' + encodeURIComponent(searchUrl)).then(r => r.text());
-    creativeLinks[kw] = tiny;
-  }));
   let prompt = '';
   if (docFlag) prompt += '/doc Please open a doc for edit\n\n';
   prompt += `Generate a social media content calendar for ${company || 'the company'}.`;
@@ -119,11 +120,7 @@ async function generatePrompt() {
   if (website) prompt += ` Website: ${website}.`;
   prompt += ` Write in ${lang || 'English'}.\n\n`;
   if (keywords) {
-    prompt += 'Focus on these keywords:\n' + keywordList.map(k => `- ${k}`).join('\n') + '\n\n';
-    if (keywordList.length) {
-      prompt += 'Use these Pinterest links for creative inspiration:\n';
-      prompt += keywordList.map(k => `- ${k}: ${creativeLinks[k]}`).join('\n') + '\n\n';
-    }
+    prompt += 'Focus on these keywords:\n' + keywords.split('\n').map(k => `- ${k}`).join('\n') + '\n\n';
   }
   if (countries.length) {
     prompt += `Localize the calendar for ${countries.join(', ')}`;
@@ -177,11 +174,10 @@ async function generatePrompt() {
 
 **Purpose:** ...
 
-**Creative:** (use the corresponding link above)
-
+**Creative**: ${creativeLink}
 
 `;
-  prompt += 'Use the corresponding TinyURL for each keyword from the list above. ';
+  prompt += 'Replace (keyword) with the post\'s keyword in the link. ';
   prompt += 'Do not schedule posts on Fridays or Saturdays. ';
   prompt += 'When occasion posts or bank holidays are included, place them on their actual dates unless the date is a Friday or Saturday. ';
   prompt += 'If an occasion falls on Friday or Saturday, shift its greeting post to the preceding Thursday and do not mention the weekend date. ';
@@ -198,4 +194,3 @@ function copyPrompt() {
 }
 </script>
 <?php include 'footer.php'; ?>
-
