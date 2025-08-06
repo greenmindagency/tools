@@ -165,7 +165,7 @@ function generatePrompt() {
 
 **Purpose:** ...
 
-Creative: ${creativeLink}
+**Creative:** ${creativeLink}
 
 `;
   prompt += 'Replace (keyword) with the post\'s keyword in the link. ';
