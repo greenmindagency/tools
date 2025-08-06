@@ -1,7 +1,8 @@
 <?php
 // Auto-generate menu and cards from this directory
 $descriptionMap = [
-    'sign-in-converter.php' => 'Convert sign-in sheets to sorted tables with buffer tracking.'
+    'sign-in-converter.php' => 'Convert sign-in sheets to sorted tables with buffer tracking.',
+    'ad-units-creator.php' => 'Generate GAM ad units tables from URL mappings.'
 ];
 $files = glob('*.php');
 $exclude = ['index.php', 'header.php', 'footer.php'];

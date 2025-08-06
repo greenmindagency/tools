@@ -175,7 +175,7 @@ function copyPrompt() {
   ta.value = text;
   ta.select();
   document.execCommand("copy");
-  alert("Prompt copied to clipboard!");
+  showToast('Prompt copied to clipboard!');
 }
 </script>
 <?php include 'footer.php'; ?>

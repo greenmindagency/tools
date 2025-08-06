@@ -15,6 +15,14 @@ $title = $title ?? 'Green Mind Tools';
 </head>
 <body>
 <?php include __DIR__ . '/../nav.php'; ?>
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+  <div id="gm-toast" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true" style="background-color:#d1e7dd;color:#0f5132;">
+    <div class="d-flex">
+      <div class="toast-body"></div>
+      <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
 <div class="container">
   <nav aria-label="breadcrumb" class="border-bottom container-fluid bg-light p-3 my-4">
     <ol class="breadcrumb mb-0">

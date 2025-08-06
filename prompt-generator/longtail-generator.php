@@ -71,7 +71,7 @@ function copyLongtailPrompt() {
   hiddenTextarea.value = text;
   hiddenTextarea.select();
   document.execCommand("copy");
-  alert("Prompt copied to clipboard!");
+  showToast('Prompt copied to clipboard!');
 }
 </script>
 <?php include 'footer.php'; ?>
