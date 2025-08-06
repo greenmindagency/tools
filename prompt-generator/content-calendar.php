@@ -163,7 +163,10 @@ function generatePrompt() {
 **Purpose:** ...
 
 `;
-  prompt += 'Ensure regular content uses the provided keywords and aligns with the company\'s brand. When occasion posts are included, place them on the correct dates and make them simple greeting messages unrelated to the keywords.';
+  prompt += 'Do not schedule posts on Fridays or Saturdays. ';
+  prompt += 'When occasion posts or bank holidays are included, place them on their actual dates unless they fall on a Friday or Saturday. ';
+  prompt += 'If an occasion falls on the weekend, move its greeting post to the last working day before it. ';
+  prompt += 'Ensure regular content uses the provided keywords and aligns with the company\'s brand, keeping occasion posts as simple greetings unrelated to the keywords.';
   document.getElementById('output').textContent = prompt;
 }
 function copyPrompt() {
