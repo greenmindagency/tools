@@ -164,8 +164,8 @@ function generatePrompt() {
 
 `;
   prompt += 'Do not schedule posts on Fridays or Saturdays. ';
-  prompt += 'When occasion posts or bank holidays are included, place them on their actual dates unless they fall on a Friday or Saturday. ';
-  prompt += 'If an occasion falls on the weekend, move its greeting post to the last working day before it. ';
+  prompt += 'When occasion posts or bank holidays are included, place them on their actual dates unless the date is a Friday or Saturday. ';
+  prompt += 'If an occasion falls on Friday or Saturday, shift its greeting post to the preceding Thursday and do not mention the weekend date. ';
   prompt += 'Ensure regular content uses the provided keywords and aligns with the company\'s brand, keeping occasion posts as simple greetings unrelated to the keywords.';
   document.getElementById('output').textContent = prompt;
 }
