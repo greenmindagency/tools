@@ -27,6 +27,16 @@ include 'header.php';
 </div>
 
 <div class="mb-3">
+  <label class="form-label">Start Date:</label>
+  <input type="date" id="startDate" class="form-control">
+</div>
+
+<div class="mb-3">
+  <label class="form-label">End Date:</label>
+  <input type="date" id="endDate" class="form-control">
+</div>
+
+<div class="mb-3">
   <label class="form-label">Localize to Countries:</label>
   <div id="countries">
     <div class="input-group mb-2">
@@ -34,6 +44,11 @@ include 'header.php';
       <button class="btn btn-outline-success" type="button" onclick="addCountry(this)">+</button>
     </div>
   </div>
+</div>
+
+<div class="form-check form-switch mb-3">
+  <input class="form-check-input" type="checkbox" id="includeHolidays" checked>
+  <label class="form-check-label" for="includeHolidays">Include occasion posts and bank holidays</label>
 </div>
 
 <div class="form-check form-switch mb-4">
@@ -69,20 +84,38 @@ function generatePrompt() {
   const keywords = document.getElementById('keywords').value.trim();
   const website = document.getElementById('website').value.trim();
   const company = document.getElementById('companyName').value.trim();
+  const start = document.getElementById('startDate').value.trim();
+  const end = document.getElementById('endDate').value.trim();
   const docFlag = document.getElementById('includeDoc').checked;
+  const holidaysFlag = document.getElementById('includeHolidays').checked;
   const countries = Array.from(document.querySelectorAll('input[name="country[]"]')).map(c => c.value.trim()).filter(Boolean);
   let prompt = '';
   if (docFlag) prompt += '/doc Please open a doc for edit\n\n';
   prompt += `Generate a social media content calendar for ${company || 'the company'}.`;
+  if (start && end) {
+    prompt += ` Cover the period from ${start} to ${end}.`;
+  } else if (start) {
+    prompt += ` Starting from ${start}.`;
+  } else if (end) {
+    prompt += ` Up to ${end}.`;
+  }
   if (website) prompt += ` Website: ${website}.`;
   prompt += ` Write in ${lang || 'English'}.\n\n`;
   if (keywords) {
     prompt += 'Focus on these keywords:\n' + keywords.split('\n').map(k => `- ${k}`).join('\n') + '\n\n';
   }
   if (countries.length) {
-    prompt += `Localize the calendar for ${countries.join(', ')} and include local holidays and occasions for these countries.\n`;
+    prompt += `Localize the calendar for ${countries.join(', ')}`;
+    if (holidaysFlag) {
+      prompt += ' and include local holidays and occasions.';
+    }
+    prompt += '\n';
   } else {
-    prompt += 'Keep the calendar generic without country-specific occasions.\n';
+    if (holidaysFlag) {
+      prompt += 'Include occasion posts and relevant bank holidays.\n';
+    } else {
+      prompt += 'Keep the calendar generic without occasion posts or bank holidays.\n';
+    }
   }
   prompt += 'Provide at least 3 posts with the following structure:\n';
   prompt += '1. Post Title: ...\n   Description: ...\n   Purpose: ...\n';
