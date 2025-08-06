@@ -2,7 +2,7 @@
 $title = "Content Calendar";
 include 'header.php';
 
-$creativeLink = 'https://www.pinterest.com/search/pins/?q=(keyword)%20social%20media%20post&rs=typed';
+$creativeLink = 'https://www.pinterest.com/search/pins/?q=(keyword)%20social%20media%20post';
 ?>
 <style>
   #output { white-space: pre-wrap; background: #f8f9fa; border: 1px solid #ced4da; padding: 20px; margin-top: 10px; border-radius: 5px; min-height: 200px; }
