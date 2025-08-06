@@ -2,16 +2,7 @@
 $title = "Content Calendar";
 include 'header.php';
 
-function getTinyUrl($url) {
-    $ch = curl_init('https://tinyurl.com/api-create.php?url=' . urlencode($url));
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    $tiny = curl_exec($ch);
-    curl_close($ch);
-    return $tiny ?: $url;
-}
-
-$creativeBase = 'https://www.pinterest.com/search/pins/?q=(keyword)%20social%20media%20post';
-$creativeTiny = getTinyUrl($creativeBase);
+$creativeLink = 'pinterest.com/search/pins/?q=(keyword)';
 ?>
 <style>
   #output { white-space: pre-wrap; background: #f8f9fa; border: 1px solid #ced4da; padding: 20px; margin-top: 10px; border-radius: 5px; min-height: 200px; }
@@ -82,7 +73,7 @@ $creativeTiny = getTinyUrl($creativeBase);
 <textarea id="clipboardArea" style="position: absolute; left: -9999px; top: -9999px;"></textarea>
 
 <script>
-const creativeLink = <?php echo json_encode($creativeTiny); ?>;
+const creativeLink = <?php echo json_encode($creativeLink); ?>;
 function addCountry(button) {
   const container = document.getElementById('countries');
   const group = button.closest('.input-group');
@@ -177,7 +168,7 @@ function generatePrompt() {
 **Creative**: ${creativeLink}
 
 `;
-  prompt += 'Replace (keyword) with the post\'s keyword in the link. ';
+  prompt += 'Replace (keyword) in the link with a keyword related to each post, using a different related keyword every time to inspire varied design ideas. ';
   prompt += 'Do not schedule posts on Fridays or Saturdays. ';
   prompt += 'When occasion posts or bank holidays are included, place them on their actual dates unless the date is a Friday or Saturday. ';
   prompt += 'If an occasion falls on Friday or Saturday, shift its greeting post to the preceding Thursday and do not mention the weekend date. ';
