@@ -37,6 +37,11 @@ include 'header.php';
 </div>
 
 <div class="mb-3">
+  <label class="form-label">Posts per Week:</label>
+  <input type="number" id="postsPerWeek" class="form-control" placeholder="e.g. 2">
+</div>
+
+<div class="mb-3">
   <label class="form-label">Localize to Countries:</label>
   <div id="countries">
     <div class="input-group mb-2">
@@ -86,6 +91,7 @@ function generatePrompt() {
   const company = document.getElementById('companyName').value.trim();
   const start = document.getElementById('startDate').value.trim();
   const end = document.getElementById('endDate').value.trim();
+  const postsPerWeek = parseInt(document.getElementById('postsPerWeek').value, 10) || 0;
   const docFlag = document.getElementById('includeDoc').checked;
   const holidaysFlag = document.getElementById('includeHolidays').checked;
   const countries = Array.from(document.querySelectorAll('input[name="country[]"]')).map(c => c.value.trim()).filter(Boolean);
@@ -117,10 +123,25 @@ function generatePrompt() {
       prompt += 'Keep the calendar generic without occasion posts or bank holidays.\n';
     }
   }
-  prompt += 'Provide at least 3 posts with the following structure:\n';
-  prompt += '1. Post Title: ...\n   Description: ...\n   Purpose: ...\n';
-  prompt += '2. Post Title: ...\n   Description: ...\n   Purpose: ...\n';
-  prompt += '3. Post Title: ...\n   Description: ...\n   Purpose: ...\n\n';
+  let totalPosts = 0;
+  if (start && end && postsPerWeek) {
+    const diffTime = new Date(end) - new Date(start);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const weeks = Math.floor(diffDays / 7);
+    totalPosts = postsPerWeek * weeks;
+  }
+  if (totalPosts) {
+    prompt += `Provide ${totalPosts} posts, roughly ${postsPerWeek} per week, sorted by date.\n`;
+  } else if (postsPerWeek) {
+    prompt += `Provide posts at a rate of ${postsPerWeek} per week, sorted by date.\n`;
+  } else {
+    prompt += 'Provide posts sorted by date.\n';
+  }
+  prompt += 'Each post should be in this format:\n';
+  prompt += 'Date: ...\n';
+  prompt += 'Post Title: ...\n';
+  prompt += 'Description: ...\n';
+  prompt += 'Purpose: ...\n\n';
   prompt += 'Ensure the content uses the provided keywords and aligns with the company\'s brand.';
   document.getElementById('output').textContent = prompt;
 }
