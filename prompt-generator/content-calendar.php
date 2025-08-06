@@ -113,12 +113,12 @@ function generatePrompt() {
   if (countries.length) {
     prompt += `Localize the calendar for ${countries.join(', ')}`;
     if (holidaysFlag) {
-      prompt += ' and include local holidays and occasions.';
+      prompt += ' and include local holidays and occasions as simple greeting posts.';
     }
     prompt += '\n';
   } else {
     if (holidaysFlag) {
-      prompt += 'Include occasion posts and relevant bank holidays.\n';
+      prompt += 'Include occasion posts and relevant bank holidays as simple greeting posts.\n';
     } else {
       prompt += 'Keep the calendar generic without occasion posts or bank holidays.\n';
     }
@@ -132,17 +132,22 @@ function generatePrompt() {
   }
   if (totalPosts) {
     prompt += `Provide ${totalPosts} posts, roughly ${postsPerWeek} per week, sorted by date.\n`;
+    prompt += `Start with a brief recap of the period mentioning the ${totalPosts} total posts.\n`;
   } else if (postsPerWeek) {
     prompt += `Provide posts at a rate of ${postsPerWeek} per week, sorted by date.\n`;
+    prompt += 'Start with a brief recap of the period mentioning the total number of posts.\n';
   } else {
     prompt += 'Provide posts sorted by date.\n';
+    prompt += 'Start with a brief recap of the period mentioning the total number of posts.\n';
   }
-  prompt += 'Each post should be in this format:\n';
-  prompt += 'Date: ...\n';
-  prompt += 'Post Title: ...\n';
-  prompt += 'Description: ...\n';
-  prompt += 'Purpose: ...\n\n';
-  prompt += 'Ensure the content uses the provided keywords and aligns with the company\'s brand.';
+  prompt += `Each post should be in this format:
+Date: ...
+Post Title: ...
+Description: ...
+Purpose: ...
+
+`;
+  prompt += 'Ensure regular content uses the provided keywords and aligns with the company\'s brand. Occasion posts are simple greetings and may omit the keywords.';
   document.getElementById('output').textContent = prompt;
 }
 function copyPrompt() {
