@@ -116,7 +116,7 @@ function generatePrompt() {
   if (countries.length) {
     prompt += `Localize the calendar for ${countries.join(', ')}`;
     if (holidaysFlag) {
-      prompt += ' and include local holidays and occasions as simple greeting posts on their actual dates.';
+      prompt += ' and include local holidays and occasions as simple greeting posts on their actual dates. you have to search online to insure the occasions exact date based on each country to avoid wrong occasions dates';
     }
     prompt += '\n';
   } else {
