@@ -363,23 +363,13 @@ JOIN keywords k2 ON k1.keyword = k2.keyword AND k1.id > k2.id
 WHERE k1.client_id = $client_id AND k2.client_id = $client_id");
 updateKeywordStats($pdo, $client_id);
 ?>
-<div class="mb-3">
-  <button class="btn btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#instructionsBox" aria-expanded="false" aria-controls="instructionsBox">Cluster Instructions</button>
-  <div class="collapse" id="instructionsBox">
-    <textarea id="clusterInstructions" class="form-control" rows="6">If you are using one of the keywords in the cluster don’t repeat it on another cluster
-Try to split as possible the same meaning groups, and cluster only the same meaning, if not keep it in a standalone cluster
-Don’t ever make a one cluster for all keywords. I need them split for the same meaning or they can be merged in one cluster to be used in a one page for SEO content creation. Please minimum 2 keywords per cluster, don't make a cluster for 1 keyword
-Group commercial keywords (like company, agency, services) **together only when they are of the same intent**.</textarea>
-    <button id="updateBtn" class="btn btn-secondary btn-sm mt-2">Update Clusters</button>
-  </div>
-</div>
 
 <div class="mb-3 d-flex justify-content-between">
   <div>
+    <button id="saveBtn" class="btn btn-success btn-sm me-2" disabled>Update Clusters</button>
+    <button type="button" id="toggleAddForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
     <button id="addClusterBtn" class="btn btn-secondary btn-sm me-2">+ Add Cluster</button>
     <button id="generateBtn" class="btn btn-primary btn-sm me-2">Generate Clusters</button>
-    <button id="saveBtn" class="btn btn-success btn-sm me-2" disabled>Save Clusters</button>
-    <button type="button" id="toggleAddForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
     <button id="clearBtn" class="btn btn-danger btn-sm">Clear Clusters</button>
   </div>
   <form id="clusterFilterForm" method="GET" class="d-flex">
@@ -872,9 +862,6 @@ function runClustering(instructions, autoSave = false) {
 
 document.getElementById('generateBtn').addEventListener('click', function() {
   runClustering('', true);
-});
-document.getElementById('updateBtn').addEventListener('click', function() {
-  runClustering(document.getElementById('clusterInstructions').value, true);
 });
 document.getElementById('addClusterBtn').addEventListener('click', function() {
   currentClusters.push([]);
