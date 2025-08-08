@@ -31,6 +31,7 @@ $title = $title ?? 'Green Mind Tools';
         foreach ($segments as $index => $seg) {
           $link .= '/' . $seg;
           $name = ucwords(str_replace(['-', '.php'], [' ', ''], $seg));
+          $name = str_replace('Seo', 'SEO', $name);
           if ($index === count($segments) - 1) {
             echo "<li class='breadcrumb-item active' aria-current='page'>$name</li>";
           } else {

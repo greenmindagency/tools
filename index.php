@@ -3,11 +3,13 @@
 $descriptionMap = [
 'prompt-generator' => 'Collection of SEO prompt generation tools.',
 ];
-$dirs = array_filter(glob('*', GLOB_ONLYDIR));
+$excludeDirs = ['code-snippets'];
+$dirs = array_filter(glob('*', GLOB_ONLYDIR), fn($d) => !in_array($d, $excludeDirs));
 $tools = [];
 foreach ($dirs as $dir) {
     $title = ucwords(str_replace('-', ' ', $dir));
-    $description = $descriptionMap[$dir] ?? 'Tools for ' . strtolower($title);
+    $title = str_replace('Seo', 'SEO', $title);
+    $description = $descriptionMap[$dir] ?? 'Tools for ' . str_replace('seo', 'SEO', strtolower($title));
     $tools[] = ['dir' => $dir, 'title' => $title, 'description' => $description];
 }
 usort($tools, fn($a, $b) => strcmp($a['title'], $b['title']));

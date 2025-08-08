@@ -40,6 +40,7 @@ $title = $title ?? 'SEO Platform';
         foreach ($segments as $index => $seg) {
           $link .= '/' . $seg;
           $name = ucwords(str_replace(['-', '.php'], [' ', ''], $seg));
+          $name = str_replace('Seo', 'SEO', $name);
           $isLast = $index === $count - 1;
           if ($isLast && isset($breadcrumb_client)) {
             $cName = htmlspecialchars($breadcrumb_client['name']);

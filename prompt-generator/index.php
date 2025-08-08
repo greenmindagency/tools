@@ -13,7 +13,8 @@ $tools = [];
 foreach ($files as $file) {
     if (in_array(basename($file), $exclude)) continue;
     $title = ucwords(str_replace('-', ' ', pathinfo($file, PATHINFO_FILENAME)));
-    $description = $descriptionMap[$file] ?? 'Tool for ' . strtolower($title);
+    $title = str_replace('Seo', 'SEO', $title);
+    $description = $descriptionMap[$file] ?? 'Tool for ' . str_replace('seo', 'SEO', strtolower($title));
     $tools[] = ['file' => $file, 'title' => $title, 'description' => $description];
 }
 usort($tools, fn($a, $b) => strcmp($a['title'], $b['title']));

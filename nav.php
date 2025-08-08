@@ -7,12 +7,14 @@ foreach ($generator_files as $file) {
     $base = basename($file);
     if (in_array($base, ['index.php','header.php','footer.php'])) continue;
     $title = ucwords(str_replace('-', ' ', pathinfo($base, PATHINFO_FILENAME)));
+    $title = str_replace('Seo', 'SEO', $title);
     $generators[$base] = $title;
 }
 foreach ($converter_files as $file) {
     $base = basename($file);
     if (in_array($base, ['index.php','header.php','footer.php'])) continue;
     $title = ucwords(str_replace('-', ' ', pathinfo($base, PATHINFO_FILENAME)));
+    $title = str_replace('Seo', 'SEO', $title);
     $converters[$base] = $title;
 }
 $current = $_SERVER['REQUEST_URI'] ?? '';
@@ -56,9 +58,6 @@ $loggedIn = isset($_SESSION['is_admin']) || isset($_SESSION['client_id']) || !em
         <li class="nav-item">
           <?php $active = strpos($current, '/seo-platform/') !== false ? 'active' : ''; ?>
           <a class="nav-link <?= $active ?>" href="/tools/seo-platform/login.php">SEO Platform</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="https://github.com/greenmindagency/tools/tree/main/code-snippets" target="_blank" rel="noopener">Code Snippets</a>
         </li>
       </ul>
     </div>
