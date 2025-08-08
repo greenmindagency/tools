@@ -1,5 +1,6 @@
 <?php
 $title = "Content Creation";
+$presetKeywords = isset($_GET['keywords']) ? trim($_GET['keywords']) : '';
 include 'header.php';
 ?>
 <style>
@@ -39,7 +40,7 @@ include 'header.php';
 
 <div class="mb-2">
   <label class="form-label">Keywords (one per line):</label>
-  <textarea id="keywords" class="form-control" rows="5" placeholder="e.g. content marketing strategy\nseo blog writing"></textarea>
+  <textarea id="keywords" class="form-control" rows="5" placeholder="e.g. content marketing strategy\nseo blog writing"><?php echo htmlspecialchars($presetKeywords); ?></textarea>
   <div class="form-check mt-2">
     <input class="form-check-input" type="checkbox" id="autoSelectKeywords">
     <label class="form-check-label" for="autoSelectKeywords">

@@ -391,6 +391,20 @@ updateKeywordStats($pdo, $client_id);
 <div id="msgArea"></div>
 <div id="clustersContainer" class="row" data-masonry='{"percentPosition": true }'></div>
 
+<div class="modal fade" id="contentModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Content Creation</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <iframe id="contentFrame" src="" style="border:0;width:100%;height:80vh;"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/masonry-layout@4.2.2/dist/masonry.pkgd.min.js" integrity="sha384-GNFwBvfVxBkLMJpYMOABq3c+d3KnQxudP/mGPkzpZSTYykLBNsZEnG2D9G/X/+7D" crossorigin="anonymous" async onload="applyMasonry()"></script>
 <script>
 let currentClusters = [];
@@ -641,9 +655,23 @@ function renderClusters(data) {
     const titleSpan = document.createElement('span');
     const firstTitle = cluster[0] || 'Unnamed';
     titleSpan.textContent = firstTitle;
+    const contentBtn = document.createElement('button');
+    contentBtn.type = 'button';
+    contentBtn.className = 'btn btn-sm btn-outline-secondary ms-auto me-1';
+    contentBtn.innerHTML = '<i class="bi bi-pencil-square"></i>';
+    contentBtn.title = 'Create Content';
+    contentBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const kws = currentClusters[idx].join('\n');
+      const src = `../prompt-generator/content-creation.php?keywords=${encodeURIComponent(kws)}`;
+      document.getElementById('contentFrame').src = src;
+      const modalEl = document.getElementById('contentModal');
+      new bootstrap.Modal(modalEl).show();
+    });
     const filterBtn = document.createElement('button');
     filterBtn.type = 'button';
-    filterBtn.className = 'btn btn-sm btn-outline-primary ms-auto me-1';
+    filterBtn.className = 'btn btn-sm btn-outline-primary me-1';
     filterBtn.textContent = 'Filter';
     filterBtn.addEventListener('click', function(e) {
       e.preventDefault();
@@ -700,6 +728,7 @@ function renderClusters(data) {
     });
     header.appendChild(countSpan);
     header.appendChild(titleSpan);
+    header.appendChild(contentBtn);
     header.appendChild(filterBtn);
     header.appendChild(splitBtn);
     header.appendChild(removeBtn);
