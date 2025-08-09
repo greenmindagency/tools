@@ -157,6 +157,7 @@ function generatePrompt() {
     prompt += "– Please make a quick search for SERP and understand why these pages are ranking and give the best SEO content to compete with them\n";
     prompt += "– please don't bold the keywords that you are using within the content; only bold the text needing emphasis, and please in the doc don't add any data classes or classes for easy copy paste.\n";
     prompt += "– focused Keyphrase density is important to not to use it too mush YOAST SEO usually recommend to not repeate the focused keywords too much. \n";
+	prompt += "– please don't add <hr> between each section no need it i need the content seamlesly typed. \n";
 	prompt += "– I need to make a deep research online to give some new ideas or a numbers average related to content if needed i need the content to be like i really spent alot of time humen writing it, content that realy rank and give a better values to SEO \n\n";
 	
 	
