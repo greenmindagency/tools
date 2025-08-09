@@ -1,6 +1,7 @@
 <?php
 $title = "Content Creation";
 $presetKeywords = isset($_GET['keywords']) ? trim($_GET['keywords']) : '';
+$presetFocus = isset($_GET['focus']) ? trim($_GET['focus']) : '';
 $embed = isset($_GET['embed']);
 if ($embed) {
   $hideNav = $hideBreadcrumb = true;
@@ -32,7 +33,7 @@ if ($embed) {
 
 <div class="mb-3">
   <label class="form-label">Focused Keyword:</label>
-  <input type="text" id="keyword" class="form-control" placeholder="e.g. SEO Content Writing Service">
+  <input type="text" id="keyword" class="form-control" placeholder="e.g. SEO Content Writing Service" value="<?php echo htmlspecialchars($presetFocus); ?>">
 </div>
 
 <div class="mb-3">

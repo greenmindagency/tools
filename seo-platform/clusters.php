@@ -405,6 +405,23 @@ updateKeywordStats($pdo, $client_id);
   </div>
 </div>
 
+<div class="modal fade" id="focusModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Select Focus Keyword</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <select id="focusSelect" class="form-select"></select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="focusNext">Next</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/masonry-layout@4.2.2/dist/masonry.pkgd.min.js" integrity="sha384-GNFwBvfVxBkLMJpYMOABq3c+d3KnQxudP/mGPkzpZSTYykLBNsZEnG2D9G/X/+7D" crossorigin="anonymous" async onload="applyMasonry()"></script>
 <script>
 let currentClusters = [];
@@ -412,12 +429,25 @@ let orderMap = {};
 let loadedKeywords = [];
 let currentUnclustered = [];
 let keywordLinks = {};
+let pendingKeywords = [];
+let focusModalInstance;
 const singleFilterActive = <?= isset($_GET['single']) ? 'true' : 'false' ?>;
 const filterTerms = (document.getElementById('clusterFilter').value || '')
   .toLowerCase()
   .split('|')
   .map(s => s.trim())
   .filter(Boolean);
+
+document.getElementById('focusNext').addEventListener('click', function() {
+  const select = document.getElementById('focusSelect');
+  const focused = select.value;
+  const others = pendingKeywords.filter(k => k !== focused).join('\n');
+  const src = `../prompt-generator/content-creation.php?embed=1&focus=${encodeURIComponent(focused)}&keywords=${encodeURIComponent(others)}`;
+  document.getElementById('contentFrame').src = src;
+  if (focusModalInstance) focusModalInstance.hide();
+  const contentEl = document.getElementById('contentModal');
+  new bootstrap.Modal(contentEl).show();
+});
 const modeEl = document.getElementById('clusterFilterMode');
 const filterMode = modeEl ? modeEl.value : 'keyword';
 
@@ -663,11 +693,18 @@ function renderClusters(data) {
     contentBtn.addEventListener('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
-      const kws = currentClusters[idx].join('\n');
-        const src = `../prompt-generator/content-creation.php?embed=1&keywords=${encodeURIComponent(kws)}`;
-      document.getElementById('contentFrame').src = src;
-      const modalEl = document.getElementById('contentModal');
-      new bootstrap.Modal(modalEl).show();
+      pendingKeywords = currentClusters[idx].slice();
+      const select = document.getElementById('focusSelect');
+      select.innerHTML = '';
+      pendingKeywords.forEach(k => {
+        const opt = document.createElement('option');
+        opt.value = k;
+        opt.textContent = k;
+        select.appendChild(opt);
+      });
+      const modalEl = document.getElementById('focusModal');
+      focusModalInstance = new bootstrap.Modal(modalEl);
+      focusModalInstance.show();
     });
     const filterBtn = document.createElement('button');
     filterBtn.type = 'button';
