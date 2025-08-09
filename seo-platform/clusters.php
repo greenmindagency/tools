@@ -689,7 +689,8 @@ function renderClusters(data) {
     contentBtn.type = 'button';
     contentBtn.className = 'btn btn-sm btn-outline-secondary ms-auto me-1';
     contentBtn.innerHTML = '<i class="bi bi-pencil-square"></i>';
-    contentBtn.title = 'Create Content';
+    contentBtn.setAttribute('data-bs-toggle', 'tooltip');
+    contentBtn.setAttribute('title', 'Create Content');
     contentBtn.addEventListener('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
@@ -709,7 +710,9 @@ function renderClusters(data) {
     const filterBtn = document.createElement('button');
     filterBtn.type = 'button';
     filterBtn.className = 'btn btn-sm btn-outline-primary me-1';
-    filterBtn.textContent = 'Filter';
+    filterBtn.innerHTML = '<i class="bi bi-funnel"></i>';
+    filterBtn.setAttribute('data-bs-toggle', 'tooltip');
+    filterBtn.setAttribute('title', 'Filter Keywords');
     filterBtn.addEventListener('click', function(e) {
       e.preventDefault();
       const kws = currentClusters[idx].slice();
@@ -719,7 +722,9 @@ function renderClusters(data) {
     const splitBtn = document.createElement('button');
     splitBtn.type = 'button';
     splitBtn.className = 'btn btn-sm btn-secondary me-1';
-    splitBtn.textContent = 'Split';
+    splitBtn.innerHTML = '<i class="bi bi-scissors"></i>';
+    splitBtn.setAttribute('data-bs-toggle', 'tooltip');
+    splitBtn.setAttribute('title', 'Split Cluster');
     splitBtn.addEventListener('click', function(e) {
       e.preventDefault();
       const target = currentClusters[idx].slice();
@@ -750,7 +755,9 @@ function renderClusters(data) {
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.className = 'btn btn-sm btn-danger';
-    removeBtn.textContent = '-';
+    removeBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
+    removeBtn.setAttribute('data-bs-toggle', 'tooltip');
+    removeBtn.setAttribute('title', 'Remove Cluster');
     removeBtn.addEventListener('click', function(e) {
       e.preventDefault();
       const wrap = document.getElementById('clustersContainer');
@@ -859,6 +866,8 @@ function renderClusters(data) {
     wrap.appendChild(col);
   });
   document.getElementById('saveBtn').disabled = currentClusters.length === 0;
+  const tooltipTriggerList = [].slice.call(wrap.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
   applyMasonry();
 }
 
