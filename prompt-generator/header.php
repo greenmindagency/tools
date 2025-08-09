@@ -1,5 +1,7 @@
 <?php
 $title = $title ?? 'Green Mind Tools';
+$hideNav = $hideNav ?? false;
+$hideBreadcrumb = $hideBreadcrumb ?? false;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -14,7 +16,7 @@ $title = $title ?? 'Green Mind Tools';
   </style>
 </head>
 <body>
-<?php include __DIR__ . '/../nav.php'; ?>
+<?php if (!$hideNav) include __DIR__ . '/../nav.php'; ?>
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080;">
   <div id="gm-toast" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true" style="background-color:#d1e7dd;color:#0f5132;">
     <div class="d-flex">
@@ -24,6 +26,7 @@ $title = $title ?? 'Green Mind Tools';
   </div>
 </div>
 <div class="container">
+  <?php if (!$hideBreadcrumb): ?>
   <nav aria-label="breadcrumb" class="border-bottom container-fluid bg-light p-3 my-4">
     <ol class="breadcrumb mb-0">
       <?php
@@ -49,3 +52,4 @@ $title = $title ?? 'Green Mind Tools';
       ?>
     </ol>
   </nav>
+  <?php endif; ?>

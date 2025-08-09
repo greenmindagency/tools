@@ -1,7 +1,14 @@
 <?php
 $title = "Content Creation";
 $presetKeywords = isset($_GET['keywords']) ? trim($_GET['keywords']) : '';
+$embed = isset($_GET['embed']);
+if ($embed) {
+  $hideNav = $hideBreadcrumb = true;
+}
 include 'header.php';
+if ($embed) {
+  echo '<style>body{margin-top:0;padding:15px;}</style>';
+}
 ?>
 <style>
   #output { white-space: pre-wrap; background: #f8f9fa; border: 1px solid #ced4da; padding: 20px; margin-top: 10px; border-radius: 5px; min-height: 200px; }

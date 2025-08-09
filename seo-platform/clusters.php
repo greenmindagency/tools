@@ -664,7 +664,7 @@ function renderClusters(data) {
       e.preventDefault();
       e.stopPropagation();
       const kws = currentClusters[idx].join('\n');
-      const src = `../prompt-generator/content-creation.php?keywords=${encodeURIComponent(kws)}`;
+        const src = `../prompt-generator/content-creation.php?embed=1&keywords=${encodeURIComponent(kws)}`;
       document.getElementById('contentFrame').src = src;
       const modalEl = document.getElementById('contentModal');
       new bootstrap.Modal(modalEl).show();
