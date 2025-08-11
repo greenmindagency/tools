@@ -70,7 +70,7 @@ contact us have the contacts section and pagecontent6 for the map
 
 start with the sitemap then step by step we will work on each page content based on below each section requeriments only, please also when you send me a sitemap make what the type if it will be cat, single etc..
 
-the important thing try to don't chnage to mush in the structure of the default website since we spent alot of time to do, and also make the sections that cover the content only don't make things too long and repetative in 1 page, i don't mind to have 3/4 sections per page based on the content i provided in the instructions.
+the important thing try to don't follow the above structure please, this is for your info how things can be sorted not to copy past the same style sections for all pages.
 
 --- sections description and design:
 
@@ -86,7 +86,7 @@ Content Display: Accordion component with three collapsible panels.
 
 Panels: Each panel has a clickable heading bar with a background color and title text (recommended 2–4 words).
 
-Content Style: When a panel is expanded, it displays a short paragraph (recommended 25–40 words) or bullet list (3–5 bullet points, 4–7 words each) beneath the heading.
+Content Style: When a panel is expanded, it displays a short paragraph (recommended 25–40 words) beneath the heading.
 
 Number of Panels: Three total, can be up to 5.
 
@@ -452,9 +452,8 @@ function generatePrompt() {
   prompt += `Output language: ${language}.\n\n`;
   if (!tree) {
     prompt += "Create a website tree for a WordprSEO site. List each item and note whether it is a page, category, tag, or single. Existing pages: Home, About, Careers, Contact Us.\n\n";
-    prompt += "Return the tree in a bullet list and stop after providing the sitemap.";
+    prompt += "give me  the website tree in a bullet points list don't extend it too mush please, if i give you the website tree stuck on it, you can give recommendation if you would like, and stop after providing the sitemap.";
   } else {
-    prompt += "/doc Please open a doc for edit\n\n";
     prompt += `Website tree:\n${tree}\n\n`;
     prompt += "We will create the content page by page. Ask me which page to work on first and follow the section guidelines provided.";
   }
