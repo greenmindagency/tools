@@ -44,16 +44,6 @@ $monthlyCounts = array_map(fn($m) => (int)$m['cnt'], $monthly);
           <button id="copyQuoteStats" class="btn btn-sm btn-secondary">Copy</button>
         </div>
         <canvas id="quoteChart" height="100"></canvas>
-        <table id="quoteStatsTable" class="table table-sm mt-3">
-          <thead>
-            <tr><th>Month</th><th>Quotes</th></tr>
-          </thead>
-          <tbody>
-            <?php foreach ($monthly as $m): ?>
-            <tr><td><?= date('M Y', strtotime($m['ym'].'-01')) ?></td><td><?= $m['cnt'] ?></td></tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
       </div>
     </div>
   </div>
@@ -82,6 +72,8 @@ $monthlyCounts = array_map(fn($m) => (int)$m['cnt'], $monthly);
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+const monthlyLabels = <?= json_encode($monthlyLabels) ?>;
+const monthlyCounts = <?= json_encode($monthlyCounts) ?>;
 let quoteChart;
 document.getElementById('quoteStatsCollapse').addEventListener('shown.bs.collapse', function () {
   if (quoteChart) return;
@@ -89,9 +81,9 @@ document.getElementById('quoteStatsCollapse').addEventListener('shown.bs.collaps
   quoteChart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: <?= json_encode($monthlyLabels) ?>,
+      labels: monthlyLabels,
       datasets: [{
-        data: <?= json_encode($monthlyCounts) ?>,
+        data: monthlyCounts,
         backgroundColor: '#0d6efd'
       }]
     },
@@ -107,11 +99,7 @@ function showCopiedToast(msg) {
   bootstrap.Toast.getOrCreateInstance(el).show();
 }
 document.getElementById('copyQuoteStats').addEventListener('click', function () {
-  const rows = document.querySelectorAll('#quoteStatsTable tbody tr');
-  const lines = Array.from(rows).map(r => {
-    const cols = r.querySelectorAll('td');
-    return `${cols[0].innerText}\t${cols[1].innerText}`;
-  });
+  const lines = monthlyLabels.map((label, i) => `${label}\t${monthlyCounts[i]}`);
   navigator.clipboard.writeText(lines.join('\n')).then(() => {
     showCopiedToast('Monthly stats copied');
   });
