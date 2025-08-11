@@ -5,7 +5,8 @@ $descriptionMap = [
     'content-prompt-generator.php' => 'Quickly build content prompts optimized for search engines.',
     'keyword-structuring-tool.php' => 'Break keyword groups into useful variations.',
     'longtail-generator.php' => 'Expand your list with relevant longtail phrases.',
-    'content-calendar.php' => 'Generate social media content calendar prompts.'
+    'content-calendar.php' => 'Generate social media content calendar prompts.',
+    'wordprseo-content-generator.php' => 'Build WordprSEO website content prompts.'
 ];
 $files = glob('*.php');
 $exclude = ['index.php', 'header.php', 'footer.php'];
