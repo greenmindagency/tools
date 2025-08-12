@@ -2,7 +2,6 @@
 // Auto-generate menu and cards from directories
 $descriptionMap = [
 'prompt-generator' => 'Collection of SEO prompt generation tools.',
-'wordprseo-website-builder' => 'Build WordprSEO sites from uploaded content.',
 ];
 $excludeDirs = ['code-snippets'];
 $dirs = array_filter(glob('*', GLOB_ONLYDIR), fn($d) => !in_array($d, $excludeDirs));
