@@ -70,7 +70,7 @@ contact us have the contacts section and pagecontent6 for the map
 
 start with the sitemap then step by step we will work on each page content based on below each section requeriments only, please also when you send me a sitemap make what the type if it will be cat, single etc..
 
-the important thing try to don't follow the above structure please, this is for your info how things can be sorted not to copy past the same style sections for all pages.
+the important thing try to don't follow the above structure please, this is for your info how things can be sorted not to copy past the same style sections for all pages, if the content can accept the pages lenght and please try to avoide long pages we did the above structure just for showing how the website is nice in real websites it's not the case.
 
 --- sections description and design:
 
@@ -92,7 +92,7 @@ Number of Panels: Three total, can be up to 5.
 
 Interaction: Only one panel is expanded at a time (likely configured via accordion behavior).
 
-
+--
 
 Section Name: article description
 
@@ -104,7 +104,7 @@ Paragraphs: 1–2 short paragraphs (each 20–35 words) describing the article o
 
 Additional Element: May include a subheading above the paragraphs (optional, 3–6 words).
 
-
+--
 
 Section Name: article images
 
@@ -116,7 +116,7 @@ Text: No text overlay, images only.
 
 Recommended Size: Consistent image dimensions for uniform alignment.
 
-
+--
 
 Section Name: article title
 
@@ -126,7 +126,7 @@ Heading: One main section title (recommended 2–5 words).
 
 Subtitle: One subtitle directly under the title (recommended 5–8 words).
 
-
+--
 
 Section Name: article video
 
@@ -138,7 +138,7 @@ Heading: Optional heading above the video (2–4 words).
 
 Video Dimensions: Full-width or responsive container.
 
-
+--
 
 Section Name: article video gallery
 
@@ -150,7 +150,7 @@ Number of Videos: 2–4 per section.
 
 Video Dimensions: Equal height and width for consistent display.
 
-
+--
 
 Section Name: catconnection
 
@@ -160,7 +160,7 @@ Left Column: Full-height background image.
 
 loaded from the category page that i'll select need only title (3–5 words), and  subtitle (4–8 words) 
 
-
+--
 
 Section Name: postconnection
 
@@ -170,7 +170,7 @@ Left Column: Full-height background image.
 
 loaded from the post  page that i'll select need only title (3–5 words), and  subtitle (4–8 words) 
 
-
+--
 
 Section Name: tagconnection
 
@@ -180,7 +180,7 @@ Left Column: Full-height background image.
 
 loaded from the tag  page that i'll select need only title (3–5 words), and  subtitle (4–8 words) 
 
-
+--
 
 Section Name: contacts
 
@@ -194,7 +194,7 @@ Heading: 2–5 words.
 
 Intro Text: One short paragraph (15–25 words).
 
-
+--
 
 Section Name: herovideo
 
@@ -202,7 +202,7 @@ Layout Structure: Full-width background video.
 
 Text Overlay: Large title (4–8 words), short subtitle (6–10 words), and 1–2 call-to-action buttons.
 
-
+--
 
 Section Name: image slider
 
@@ -212,7 +212,7 @@ Images: 4–6 logos or images per view.
 
 Navigation: Left/right arrows.
 
-
+--
 
 Section Name: image carousel
 
@@ -222,7 +222,7 @@ Images: 1 large image visible at a time.
 
 Navigation: Dots or arrows for switching.
 
-
+--
 
 Section Name: pagecontent1
 
@@ -234,7 +234,7 @@ Paragraphs: 2–3 paragraphs (each 25–35 words).
 
 Optional List: Bulleted list (3–5 items, 4–7 words each).
 
-
+--
 
 Section Name: pagecontent2
 
@@ -242,24 +242,21 @@ Layout Structure: Three equal-width columns.
 
 Each Column: Icon (awesome font icon), heading (2–4 words), and short text (10–20 words).
 
-
+--
 
 Section Name: pagecontent3
-
 
 Layout Structure: Full-width background color with centered statistics.
 
 Stats: 3–5 numerical highlights, each with an icon (awesome font icon), number, and label (2–4 words).
 
-
+--
 
 Section Name: pagecontent4
 
 it can work for the team members or images left with content beside it 
 
-
 strating with title 5 words and subtitle from 15 to 20 words
-
 
 Layout Structure: Two-column layout, loop content.
 
@@ -269,15 +266,7 @@ Right Column: related to each image has 1–2 short paragraphs (20–35 words ea
 
 at the end a content ending the section can have a bullet list.
 
-
-
-Section Name: pagecontent5
-
-Layout Structure: 1-column
-
-a content form section for ending pages can be transfered to a title/ subtitle and a call to action 1 or 2 buttons
-
-
+--
 
 Section Name: pagecontent5
 
@@ -285,7 +274,7 @@ Layout Structure: 1-column
 
 a content form section for ending pages can be transfered to a title/ subtitle and a call to action 1 or 2 buttons
 
-
+--
 
 Section Name: pagecontent6
 
@@ -293,7 +282,7 @@ Layout Structure: 1-column
 
 a map location at the end above it title (5/6 words) and description 15 to 20 words.
 
-
+--
 
 Section Name: pagecontent7
 
@@ -305,7 +294,7 @@ title (5/6 words) and content under it 15 to 20 words.
 
 at the right a title and % this title showing a service or important figuer with % beside it
 
-
+--
 
 Section Name: pagecontent8
 
@@ -323,7 +312,7 @@ Additional Text Block: Short paragraph (20–30 words) below accordion to highli
 
 Call-to-Action: One button (2–4 words) below text block.
 
-
+--
 
 Section Name: pagecontent9
 
@@ -349,7 +338,7 @@ Number of Cards: 3 visible per row.
 
 a hidden content will show up under the Short paragraph the lenght is 
 
-
+--
 
 Section Name: postsrelatedcat
 
@@ -363,7 +352,7 @@ Content Display: Three-column grid, posts related from the category i'll select,
 
 Number of Cards: 3 visible per row.
 
-
+--
 
 Section Name: postsrelatedcatslider
 
@@ -377,7 +366,7 @@ Content Display: 1 grid carousel, posts related from the category i'll select, n
 
 Number of Cards: 1 visible per row.
 
-
+--
 
 Section Name: postsrelatedwithfilter
 
@@ -389,7 +378,7 @@ Subtitle: Short descriptive line (8–12 words).
 
 Filters: Tag buttons above grid, please tell me the tags i should select that will filter the posts
 
-
+--
 
 Section Name: slider
 
@@ -405,7 +394,7 @@ Subtitle (6–10 words).
 
 from 3 to 5 slides make sure to suggest image keyword for search on images stocks websites
 
-
+--
 
 Section Name: tagslist
 
@@ -417,7 +406,7 @@ Subtitle: Short descriptive line (6–10 words).
 
 Each Service Item: will be selected tags from admin, just mention the tags.
 
-
+--
 
 Section Name: testimonial
 
@@ -429,7 +418,7 @@ Subtitle: Short descriptive line (8–12 words).
 
 Content Display: a testemenials number i'll select and it will show up form the single pages.
 
-
+--
 
 Section Name: verticaltabs
 
