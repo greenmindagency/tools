@@ -6,7 +6,7 @@ $descriptionMap = [
     'keyword-structuring-tool.php' => 'Break keyword groups into useful variations.',
     'longtail-generator.php' => 'Expand your list with relevant longtail phrases.',
     'content-calendar.php' => 'Generate social media content calendar prompts.',
-    'wordprseo-content-generator.php' => 'Build WordprSEO website content prompts.'
+    // WordprSEO generator removed; standalone tool available instead.
 ];
 $files = glob('*.php');
 $exclude = ['index.php', 'header.php', 'footer.php'];
