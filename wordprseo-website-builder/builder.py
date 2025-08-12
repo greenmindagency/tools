@@ -1,21 +1,12 @@
-import sys
 import os
 import json
 
+
 def main():
-    sitemap = os.environ.get('SITEMAP', '')
-    files = sys.argv[1:]
-    details = []
-    for path in files:
-        info = {'file': os.path.basename(path)}
-        try:
-            with open(path, 'r', errors='ignore') as f:
-                info['preview'] = f.read(500)
-        except Exception as e:
-            info['error'] = str(e)
-        details.append(info)
-    output = {'sitemap': sitemap, 'files': details}
-    print(json.dumps(output))
+    raw = os.environ.get('SITEMAP', '')
+    lines = [line.strip() for line in raw.splitlines() if line.strip()]
+    print(json.dumps({'sitemap': lines}))
+
 
 if __name__ == '__main__':
     main()

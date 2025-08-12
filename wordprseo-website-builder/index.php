@@ -5,24 +5,7 @@ $result = null;
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sitemap = $_POST['sitemap'] ?? '';
-    $uploads = [];
-    if (!empty($_FILES['files'])) {
-        $uploadDir = __DIR__ . '/uploads';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0777, true);
-        }
-        foreach ($_FILES['files']['name'] as $i => $name) {
-            if ($_FILES['files']['error'][$i] === UPLOAD_ERR_OK) {
-                $tmp = $_FILES['files']['tmp_name'][$i];
-                $dest = $uploadDir . '/' . basename($name);
-                if (move_uploaded_file($tmp, $dest)) {
-                    $uploads[] = $dest;
-                }
-            }
-        }
-    }
-    $escaped = array_map('escapeshellarg', $uploads);
-    $cmd = 'python3 ' . escapeshellarg(__DIR__ . '/builder.py') . ' ' . implode(' ', $escaped);
+    $cmd = 'python3 ' . escapeshellarg(__DIR__ . '/builder.py');
     $env = ['SITEMAP' => $sitemap];
     $process = proc_open($cmd, [1=>['pipe','w'], 2=>['pipe','w']], $pipes, __DIR__, $env);
     if (is_resource($process)) {
@@ -42,14 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <h1>WordprSEO Website Builder</h1>
-<form method="post" enctype="multipart/form-data" class="mb-4">
-  <div class="mb-3">
-    <label class="form-label">Upload Content Files</label>
-    <input type="file" name="files[]" multiple class="form-control" accept=".doc,.docx,.pdf,.ppt,.pptx,.txt"/>
-  </div>
+<form method="post" class="mb-4">
   <div class="mb-3">
     <label class="form-label">Sitemap</label>
-    <textarea name="sitemap" class="form-control" rows="5" placeholder="Home|page\nBlog|cat\nCase Study|single"></textarea>
+    <textarea name="sitemap" class="form-control" rows="10" placeholder="Home\nBlog\nCase Study"></textarea>
   </div>
   <button type="submit" class="btn btn-primary">Build</button>
 </form>
@@ -59,18 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php if ($result): ?>
 <div class="mb-3">
   <h2>Sitemap</h2>
-  <pre><?= htmlspecialchars($result['sitemap']) ?></pre>
-  <h2>Files</h2>
   <ul>
-  <?php foreach ($result['files'] as $file): ?>
-    <li>
-      <strong><?= htmlspecialchars($file['file']) ?></strong>
-      <?php if (isset($file['preview'])): ?>
-        <pre><?= htmlspecialchars($file['preview']) ?></pre>
-      <?php else: ?>
-        <span class="text-danger">Error: <?= htmlspecialchars($file['error']) ?></span>
-      <?php endif; ?>
-    </li>
+  <?php foreach ($result['sitemap'] as $item): ?>
+    <li><?= htmlspecialchars($item) ?></li>
   <?php endforeach; ?>
   </ul>
 </div>
