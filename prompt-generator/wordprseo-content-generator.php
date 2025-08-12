@@ -444,7 +444,7 @@ function generatePrompt() {
     prompt += "give me  the website tree in a bullet points list don't extend it too mush please, if i give you the website tree stuck on it, you can give recommendation if you would like, and stop after providing the sitemap.";
   } else {
     prompt += `Website tree:\n${tree}\n\n`;
-    prompt += "We will create the content page by page. Ask me which page to work on first and follow the section guidelines provided.";
+    prompt += "Please stuck on above tree only, since this is approved from the client.We will create the content page by page. Ask me which page to work on first and follow the section guidelines provided.";
   }
   document.getElementById('output').textContent = prompt;
 }
