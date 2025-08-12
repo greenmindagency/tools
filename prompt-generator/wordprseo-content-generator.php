@@ -6,6 +6,18 @@ include 'header.php';
   #output { white-space: pre-wrap; background: #f8f9fa; border: 1px solid #ced4da; padding: 20px; margin-top: 10px; border-radius: 5px; min-height: 200px; }
 </style>
 <div class="mb-3">
+  <label class="form-label">Client Name</label>
+  <input type="text" id="client" class="form-control" placeholder="e.g. Green Mind Agency">
+</div>
+<div class="mb-3">
+  <label class="form-label">Number of Pages</label>
+  <input type="number" id="pageLimit" class="form-control" min="1" placeholder="e.g. 10">
+</div>
+<div class="mb-3">
+  <label class="form-label">Content Notes</label>
+  <textarea id="contentNotes" class="form-control" rows="4" placeholder="Optional. If you uploaded files in the client's folder, no need to add notes here."></textarea>
+</div>
+<div class="mb-3">
   <label class="form-label">Website Tree (optional)</label>
   <textarea id="tree" class="form-control" rows="4" placeholder="- Home\n- About\n- Services\n  - ..."></textarea>
 </div>
@@ -434,20 +446,36 @@ Title (3–5 words).
 
 1–2 short paragraphs (20–30 words each).
 `;
+
 function generatePrompt() {
+  const client = document.getElementById('client').value.trim();
+  const pageLimit = document.getElementById('pageLimit').value.trim();
+  const contentNotes = document.getElementById('contentNotes').value.trim();
   const tree = document.getElementById('tree').value.trim();
   const language = document.getElementById('language').value.trim() || 'English';
   let prompt = instructions + "\n\n";
+  if (client) {
+    prompt += `Client name: ${client}.\n\n`;
+  }
+  if (contentNotes) {
+    prompt += `Content notes:\n${contentNotes}\n\n`;
+  } else {
+    prompt += "If content files are uploaded in the client's folder, refer to them. No additional content provided here.\n\n";
+  }
   prompt += `Output language: ${language}.\n\n`;
   if (!tree) {
-    prompt += "Create a website tree for a WordprSEO site. List each item and note whether it is a page, category, tag, or single. Existing pages: Home, About, Careers, Contact Us.\n\n";
+    prompt += `Create a website tree for a WordprSEO site${pageLimit ? ` with no more than ${pageLimit} pages` : ''}. List each item and note whether it is a page, category, tag, or single. Existing pages: Home, About, Careers, Contact Us.\n\n`;
     prompt += "give me  the website tree in a bullet points list don't extend it too mush please, if i give you the website tree stuck on it, you can give recommendation if you would like, and stop after providing the sitemap.";
   } else {
     prompt += `Website tree:\n${tree}\n\n`;
-    prompt += "Please stuck on above tree only, since this is approved from the client.We will create the content page by page. Ask me which page to work on first and follow the section guidelines provided.";
+    if (pageLimit) {
+      prompt += `Ensure the sitemap and overall site do not exceed ${pageLimit} pages.\n`;
+    }
+    prompt += "Please stuck on above tree only, since this is approved from the client.We will create the content page by page.Ask me which page to work on first and follow the section guidelines provided.";
   }
   document.getElementById('output').textContent = prompt;
 }
+
 function copyPrompt() {
   const output = document.getElementById('output').textContent;
   const textarea = document.getElementById('clipboardArea');
