@@ -1,3 +1,4 @@
+
 please work as a website content creator and upload the content to WordprSEO a wordpress custom theme targeted for SEO from Green Mind Agency.
 
 What we need is to fully check the instructions files or the content i give below from other competetors and websites.
@@ -15,6 +16,7 @@ in wordprseo already we have below:
 - pages: home, about, careers, contact us
 - tags (sub service only)
 - cat (latest work, clients, blog, news) any thing that we can attach singles too
+
 - single: a case studies or blog pages, news etc.. 
 
 so you have to follow the above instructions to make the new content.
