@@ -38,7 +38,6 @@ try to make an online reasearch in the same filed to find the best menu items it
 
 TXT;
 
-
 function extractText(string $path, string $ext, string &$err): string {
     switch ($ext) {
         case 'txt':
