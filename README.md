@@ -17,4 +17,5 @@ Backups are created manually from the dashboard using the **Backup Now**
 button. The seven most recent backup files are kept for each client.
 
 ## Wordprseo Website Builder
-A simple prototype that uploads source documents and uses a Python script to generate basic website content. Start the tool by opening `wordprseo-website-builder/index.php` in your browser.
+A simple prototype that uploads Word, PDF, PowerPoint, or text files and uses a Python script to generate full home page content with section titles and subtitles. Install dependencies with `pip install -r wordprseo-website-builder/requirements.txt` and start the tool by opening `wordprseo-website-builder/index.php` in your browser.
+

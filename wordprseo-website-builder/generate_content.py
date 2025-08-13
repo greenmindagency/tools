@@ -1,34 +1,80 @@
-import sys
 import os
+import re
+import sys
 
 
 def read_file(path: str) -> str:
-    """Return text extracted from the uploaded file.
-
-    Currently only plain text files are parsed. Other file types
-    return a placeholder message. This is a starting point that can
-    be extended to handle PDFs, Word documents, PowerPoint files, etc.
-    """
+    """Extract text from various document types."""
     _, ext = os.path.splitext(path)
     ext = ext.lower()
     if ext == ".txt":
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
             return f.read()
-    return f"Unsupported file type: {ext}"
+    if ext in {".docx", ".doc"}:
+        try:
+            from docx import Document
+
+            doc = Document(path)
+            return "\n".join(p.text for p in doc.paragraphs)
+        except Exception:
+            return ""
+    if ext == ".pdf":
+        try:
+            import PyPDF2
+
+            with open(path, "rb") as f:
+                reader = PyPDF2.PdfReader(f)
+                return "\n".join(page.extract_text() or "" for page in reader.pages)
+        except Exception:
+            return ""
+    if ext in {".ppt", ".pptx"}:
+        try:
+            from pptx import Presentation
+
+            prs = Presentation(path)
+            texts = []
+            for slide in prs.slides:
+                for shape in slide.shapes:
+                    if hasattr(shape, "text"):
+                        texts.append(shape.text)
+            return "\n".join(texts)
+        except Exception:
+            return ""
+    return ""
+
+
+def _sentences(text: str) -> list[str]:
+    parts = re.split(r"(?<=[.!?])\s+", text.strip())
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _chunk(sentences: list[str], start: int, size: int = 3) -> str:
+    chunk = sentences[start : start + size]
+    if len(chunk) < size:
+        chunk += ["Placeholder content."] * (size - len(chunk))
+    return " ".join(chunk)
 
 
 def generate_homepage(text: str) -> str:
-    """Generate simple homepage sections from the source text."""
-    snippet = text.strip().splitlines()[0] if text.strip() else "Your content"
+    """Generate homepage sections with titles and subtitles."""
+    sents = _sentences(text)
+    hero = _chunk(sents, 0)
+    about = _chunk(sents, 3)
+    services = _chunk(sents, 6)
+    contact = _chunk(sents, 9)
     return (
         "# Hero\n"
-        f"Welcome to our site! {snippet}\n\n"
+        "## Welcome to Our Site\n"
+        f"{hero}\n\n"
         "# About Us\n"
-        "We turn your documents into compelling web pages.\n\n"
+        "## Who We Are\n"
+        f"{about}\n\n"
         "# Services\n"
-        "Our services are tailored to your needs.\n\n"
+        "## What We Do\n"
+        f"{services}\n\n"
         "# Contact\n"
-        "Get in touch for more information."
+        "## Get in Touch\n"
+        f"{contact}"
     )
 
 
