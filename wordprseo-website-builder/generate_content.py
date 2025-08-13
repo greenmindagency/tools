@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+from typing import List
 
 
 def read_file(path: str) -> str:
@@ -43,13 +44,12 @@ def read_file(path: str) -> str:
     raise RuntimeError(f"Unsupported file type: {ext}")
 
 
-
-def _sentences(text: str) -> list[str]:
+def _sentences(text: str) -> List[str]:
     parts = re.split(r"(?<=[.!?])\s+", text.strip())
     return [p.strip() for p in parts if p.strip()]
 
 
-def _chunk(sentences: list[str], start: int, size: int = 3) -> str:
+def _chunk(sentences: List[str], start: int, size: int = 3) -> str:
     chunk = sentences[start : start + size]
     if len(chunk) < size:
         chunk += ["Placeholder content."] * (size - len(chunk))
@@ -95,7 +95,6 @@ def main() -> None:
     else:
         print(f"Page type '{page}' not supported.", file=sys.stderr)
         sys.exit(1)
-
 
 
 if __name__ == "__main__":
