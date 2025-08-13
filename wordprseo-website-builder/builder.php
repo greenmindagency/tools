@@ -148,7 +148,7 @@ function renderList(array $items) {
             $sel = $type === $val ? 'selected' : '';
             echo "<option value='{$val}' {$sel}>{$label}</option>";
         }
-        echo "</select><span><button type='button' class='btn btn-sm btn-link add-child'>+</button><button type='button' class='btn btn-sm btn-link text-danger remove'>x</button></span></div><ul class='list-group ms-3 children mb-3'>";
+        echo "</select><span><button type='button' class='btn btn-sm btn-link add-child'>+</button><button type='button' class='btn btn-sm btn-link text-danger remove'>x</button></span></div><ul class='list-group ms-3 children'>";
         if (!empty($item['children'])) {
             renderList($item['children']);
         }
