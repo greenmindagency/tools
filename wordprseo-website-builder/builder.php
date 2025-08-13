@@ -1,10 +1,21 @@
 <?php
 session_start();
 require __DIR__ . '/config.php';
+require __DIR__ . '/file_utils.php';
 if (!isset($_SESSION['user'])) {
     header('Location: login.php');
     exit;
 }
+// ensure table for page contents exists
+$pdo->exec("CREATE TABLE IF NOT EXISTS client_pages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    client_id INT NOT NULL,
+    page VARCHAR(255) NOT NULL,
+    content LONGTEXT,
+    instructions TEXT,
+    UNIQUE KEY client_page (client_id, page)
+)");
+
 $client_id = (int)($_GET['client_id'] ?? 0);
 $stmt = $pdo->prepare('SELECT * FROM clients WHERE id = ?');
 $stmt->execute([$client_id]);
@@ -13,10 +24,16 @@ if (!$client) {
     header('Location: index.php');
     exit;
 }
-$output = '';
+$stmt = $pdo->prepare('SELECT page, content, instructions FROM client_pages WHERE client_id = ?');
+$stmt->execute([$client_id]);
+$pageData = [];
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $pageData[$row['page']] = ['content' => $row['content'], 'instructions' => $row['instructions']];
+}
 $error = '';
 $saved = '';
 $generated = '';
+$activeTab = 'source';
 $instructions = $client['instructions'] ?? '';
 $sitemap = $client['sitemap'] ? json_decode($client['sitemap'], true) : [];
 if ($sitemap) {
@@ -51,11 +68,31 @@ function buildTree(array $items, int &$count, int $max, array &$seen): array {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['save_sitemap'])) {
+    if (isset($_POST['save_core'])) {
+        $text = $_POST['core_text'] ?? '';
+        if (!empty($_FILES['source']['name'][0])) {
+            $files = $_FILES['source'];
+            $count = is_array($files['name']) ? count($files['name']) : 0;
+            $errors = [];
+            for ($i=0; $i<$count; $i++) {
+                if ($files['error'][$i] !== UPLOAD_ERR_OK) continue;
+                $part = extractUploaded($files['tmp_name'][$i], $files['name'][$i], $errors);
+                if ($part !== '') {
+                    $text .= ($text ? "\n" : '') . $part;
+                }
+            }
+            if ($errors) $error = implode(' ', $errors);
+        }
+        $pdo->prepare('UPDATE clients SET core_text = ? WHERE id = ?')->execute([$text, $client_id]);
+        $client['core_text'] = $text;
+        $saved = 'Source text saved.';
+        $activeTab = 'source';
+    } elseif (isset($_POST['save_sitemap'])) {
         $json = $_POST['sitemap_json'] ?? '[]';
         $pdo->prepare('UPDATE clients SET sitemap = ? WHERE id = ?')->execute([$json, $client_id]);
         $sitemap = json_decode($json, true);
         $saved = 'Sitemap saved.';
+        $activeTab = 'sitemap';
     } elseif (isset($_POST['regenerate'])) {
         $num = (int)($_POST['num_pages'] ?? 4);
         $instr = $instructions;
@@ -103,10 +140,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         curl_close($ch);
-    } elseif (isset($_POST['generate_content'])) {
+        $activeTab = 'sitemap';
+    } elseif (isset($_POST['generate_page'])) {
         $page = $_POST['page'] ?? '';
+        $pageInstr = $_POST['page_instructions'] ?? '';
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-        $prompt = "Write a full {$page} page with Hero, About Us, Services, and Contact sections. Each section should have a title and subtitle. Base the content on the following source text:\n\n" . $client['core_text'];
+        $prompt = "Using the following source text:\n{$client['core_text']}\n\nInstructions:\n{$instructions}\n{$pageInstr}\nWrite content for the {$page} page.";
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -128,12 +167,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = $json['error']['message'] ?? $response;
                 $error = 'API error: ' . $msg;
             } elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
-                $output = $json['candidates'][0]['content']['parts'][0]['text'];
+                $pageData[$page]['content'] = $json['candidates'][0]['content']['parts'][0]['text'];
+                $pageData[$page]['instructions'] = $pageInstr;
             } else {
                 $error = 'Unexpected API response.';
             }
         }
         curl_close($ch);
+        $activeTab = 'content';
+    } elseif (isset($_POST['save_page'])) {
+        $page = $_POST['page'] ?? '';
+        $content = $_POST['page_content'] ?? '';
+        $pageInstr = $_POST['page_instructions'] ?? '';
+        $stmt = $pdo->prepare('INSERT INTO client_pages (client_id, page, content, instructions) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE content=VALUES(content), instructions=VALUES(instructions)');
+        $stmt->execute([$client_id, $page, $content, $pageInstr]);
+        $pageData[$page] = ['content' => $content, 'instructions' => $pageInstr];
+        $saved = 'Page content saved.';
+        $activeTab = 'content';
     }
 }
 
@@ -175,14 +225,30 @@ require __DIR__ . '/../header.php';
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 <ul class="nav nav-tabs" id="builderTabs" role="tablist">
   <li class="nav-item" role="presentation">
-    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#sitemapTab" type="button" role="tab">Site Map</button>
+    <button class="nav-link <?= $activeTab==='source'?'active':'' ?>" data-bs-toggle="tab" data-bs-target="#sourceTab" type="button" role="tab">Source</button>
   </li>
   <li class="nav-item" role="presentation">
-    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#contentTab" type="button" role="tab">Content</button>
+    <button class="nav-link <?= $activeTab==='sitemap'?'active':'' ?>" data-bs-toggle="tab" data-bs-target="#sitemapTab" type="button" role="tab">Site Map</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link <?= $activeTab==='content'?'active':'' ?>" data-bs-toggle="tab" data-bs-target="#contentTab" type="button" role="tab">Content</button>
   </li>
 </ul>
 <div class="tab-content border border-top-0 p-3">
-  <div class="tab-pane fade show active" id="sitemapTab" role="tabpanel">
+  <div class="tab-pane fade <?= $activeTab==='source'?'show active':'' ?>" id="sourceTab" role="tabpanel">
+    <form method="post" enctype="multipart/form-data">
+      <div class="mb-3">
+        <label class="form-label">Upload Source Files</label>
+        <input type="file" name="source[]" multiple class="form-control">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Core Text</label>
+        <textarea name="core_text" class="form-control" rows="10"><?= htmlspecialchars($client['core_text']) ?></textarea>
+      </div>
+      <button type="submit" name="save_core" class="btn btn-primary">Save</button>
+    </form>
+  </div>
+  <div class="tab-pane fade <?= $activeTab==='sitemap'?'show active':'' ?>" id="sitemapTab" role="tabpanel">
     <form method="post" id="sitemapForm">
       <div class="mb-3">
         <label class="form-label">Number of pages</label>
@@ -205,36 +271,74 @@ require __DIR__ . '/../header.php';
       <button type="submit" name="regenerate" class="btn btn-outline-secondary">Regenerate</button>
     </form>
   </div>
-  <div class="tab-pane fade" id="contentTab" role="tabpanel">
-    <form method="post" id="generatorForm" class="mt-3">
-      <div class="mb-3">
-        <label class="form-label">Page:</label>
-        <select name="page" class="form-select">
-<?php
-function flattenPages(array $items, array &$list) {
-    foreach ($items as $item) {
-        $list[] = $item['title'];
-        if (!empty($item['children'])) flattenPages($item['children'], $list);
+  <div class="tab-pane fade <?= $activeTab==='content'?'show active':'' ?>" id="contentTab" role="tabpanel">
+    <?php
+    function renderNavItems(array $items, bool $dropdown=false) {
+        foreach ($items as $it) {
+            $title = htmlspecialchars($it['title']);
+            $children = $it['children'] ?? [];
+            if ($children) {
+                if ($dropdown) {
+                    echo "<li class='dropdown-submenu dropend'><a class='dropdown-item dropdown-toggle' href='#' data-bs-toggle='dropdown'>{$title}</a><ul class='dropdown-menu'>";
+                    renderNavItems($children, true);
+                    echo "</ul></li>";
+                } else {
+                    echo "<li class='nav-item dropdown'><a class='nav-link dropdown-toggle' href='#' role='button' data-bs-toggle='dropdown'>{$title}</a><ul class='dropdown-menu'>";
+                    renderNavItems($children, true);
+                    echo "</ul></li>";
+                }
+            } else {
+                if ($dropdown) {
+                    echo "<li><a class='dropdown-item' href='#'>{$title}</a></li>";
+                } else {
+                    echo "<li class='nav-item'><a class='nav-link' href='#'>{$title}</a></li>";
+                }
+            }
+        }
     }
-}
-$pages = [];
-flattenPages($sitemap, $pages);
-foreach ($pages as $p) {
-    $esc = htmlspecialchars($p);
-    echo "<option value='{$esc}'>{$esc}</option>";
-}
-?>
-        </select>
+    ?>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#"><?= htmlspecialchars($client['name']) ?></a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navMenu">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <?php renderNavItems($sitemap); ?>
+          </ul>
+        </div>
       </div>
-      <button type="submit" name="generate_content" class="btn btn-primary">Generate</button>
-      <div id="progress" class="progress mt-3 d-none">
-        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
+    </nav>
+    <?php
+    function flattenPages(array $items, array &$list) {
+        foreach ($items as $item) {
+            $list[] = $item['title'];
+            if (!empty($item['children'])) flattenPages($item['children'], $list);
+        }
+    }
+    $pages = [];
+    flattenPages($sitemap, $pages);
+    foreach ($pages as $p) {
+        $esc = htmlspecialchars($p);
+        $content = $pageData[$p]['content'] ?? '';
+        $instr = $pageData[$p]['instructions'] ?? '';
+    ?>
+    <form method="post" class="mb-4">
+      <h5><?= $esc ?></h5>
+      <input type="hidden" name="page" value="<?= $esc ?>">
+      <div class="mb-2">
+        <label class="form-label">Instructions</label>
+        <textarea name="page_instructions" class="form-control" rows="2"><?= htmlspecialchars($instr) ?></textarea>
       </div>
+      <div class="mb-2">
+        <label class="form-label">Content</label>
+        <textarea name="page_content" class="form-control" rows="6"><?= htmlspecialchars($content) ?></textarea>
+      </div>
+      <button type="submit" name="generate_page" class="btn btn-secondary btn-sm">Generate</button>
+      <button type="submit" name="save_page" class="btn btn-primary btn-sm">Save</button>
     </form>
-    <?php if ($output): ?>
-      <h2 class="mt-3">Generated Content</h2>
-      <div class="mt-3"><?= $output ?></div>
-    <?php endif; ?>
+    <?php } ?>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -295,11 +399,5 @@ document.getElementById('sitemapForm').addEventListener('submit',function(){
   }
   document.getElementById('sitemapData').value=JSON.stringify(serialize(root));
 });
-const generatorForm=document.getElementById('generatorForm');
-if(generatorForm){
-  generatorForm.addEventListener('submit',function(){
-    document.getElementById('progress').classList.remove('d-none');
-  });
-}
 </script>
 <?php include __DIR__ . '/../footer.php'; ?>
