@@ -5,12 +5,12 @@ if (!isset($_SESSION['user'])) {
     header('Location: login.php');
     exit;
 }
-// ensure table for page contents exists
-$pdo->exec("CREATE TABLE IF NOT EXISTS client_pages (
+// ensure table for page structures exists
+$pdo->exec("CREATE TABLE IF NOT EXISTS client_structures (
     id INT AUTO_INCREMENT PRIMARY KEY,
     client_id INT NOT NULL,
     page VARCHAR(255) NOT NULL,
-    content LONGTEXT,
+    structure LONGTEXT,
     UNIQUE KEY client_page (client_id, page)
 )");
 
@@ -22,11 +22,11 @@ if (!$client) {
     header('Location: index.php');
     exit;
 }
-$stmt = $pdo->prepare('SELECT page, content FROM client_pages WHERE client_id = ?');
+$stmt = $pdo->prepare('SELECT page, structure FROM client_structures WHERE client_id = ?');
 $stmt->execute([$client_id]);
 $pageData = [];
 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-    $pageData[$row['page']] = $row['content'];
+    $pageData[$row['page']] = $row['structure'];
 }
 $error = '';
 $saved = '';
@@ -40,16 +40,9 @@ I need to create an SEO content for the page please start with Meta title (60 ch
 
 what i need from you is to follow below sections you have to make pages appeal and have varities of sections, usually make a variations to make things looks nice 
 
-Some guidlines:
+the default template have the below structure that you can follow:
 
-- there's some sort of things you have to understand Article title has to have a section than didn't have title like the image carousel or the image gallery so please focus on this 
-- try to end the page with contentpage5 sicne it will show the form to contact before the footer
-- when you generate content please keep each section seperated with horizontal line and please mention the section name above each section to understand which section you are used to generate this content
-
-
-examples of good structure (don't copy just for your knowledge)
-
-homepage:
+home page:
 slider, tagslist, pagecontent2, pagecontent1, catconnection, slider, pagecontent3, articletitle, articleimages, postconnection, hero-video, articletitle, pagecontent7, postsrelatedcat, accordion, pagecontent5
 
 
@@ -57,8 +50,9 @@ about page:
 slider, articletitle, pagecontent2, pagecontent1, catconnection, pagecontent4, tagconnection, postsrelatedcat, articletitle, articleslideshow, pagecontent5
 
 service category which has all services 
-hero-video, tagslist, articletitle, articlevideogallery, postsrelatedtagslider, pagecontent1, pagecontent3, verticaltabs, pagecontent7, pagecontent4, pagecontent2, pagecontent5, catconnection, articletitle, articleimages, tagconnection, postsrelatedcat, articletitle, articlevideogallery, postconnection, pagecontent5
+hero-video|pagecontent5, tagslist, articletitle, articlevideogallery, postsrelatedtagslider, pagecontent1, pagecontent3, verticaltabs, pagecontent7, pagecontent4, pagecontent2, pagecontent5, catconnection, articletitle, articleimages, tagconnection, postsrelatedcat, articletitle, articlevideogallery, postconnection, pagecontent5
 
+when you see | between 2 tabs means this is a 2 columns of tabs beside each other it can work only in hero video and pagecontent5
 
 for other categories like blog or news it has only 1 section postsrelatedcat and select the infinite checkbox
 
@@ -71,15 +65,9 @@ careers page have the pagecontent5 only which is the form
 
 contact us have the contacts section and pagecontent6 for the map
 
-
-careers page have the pagecontent5 only which is the form
-
-contact us have the contacts section and pagecontent6 for the map
-
 the important thing try to don't chnage to mush in the structure of the default website since we spent alot of time to do, and also make the sections that cover the content only don't make things too long and repetative in 1 page, i don't mind to have 3/4 sections per page based on the content i provided in the instructions.
 
 
-please reduce the space of the output don't add alot of enters keep the content under each other flowlesly.
 
 --- sections description and design:
 
@@ -246,9 +234,8 @@ Section Name: pagecontent2
 
 Layout Structure: Three equal-width columns.
 
-Each Column: Icon (awesome font icon), number , and (2–3 words) reflecting the icon.
+Each Column: Icon (awesome font icon), heading (2–4 words), and short text (10–20 words).
 
-this section is show statstics number achivements, etc..
 
 
 
@@ -309,7 +296,7 @@ a section present % of success
 
 title (5/6 words) and content under it 15 to 20 words.
 
-at the right a title and % this title showing a service or important figuer with % beside it, please make sure to have 3 items with 3 of % and titles
+at the right a title and % this title showing a service or important figuer with % beside it
 
 
 Section Name: pagecontent8
@@ -465,12 +452,12 @@ if ($sitemap) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['generate_page'])) {
+    if (isset($_POST['generate_structure'])) {
         $page = $_POST['page'] ?? '';
         $openPage = $page;
         $pageInstr = $defaultPageInstr;
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-        $prompt = "Using the following source text:\n{$client['core_text']}\n\nInstructions:\n{$pageInstr}\nWrite HTML-formatted content for the {$page} page only. Include a main <h3> heading and paragraphs using <p> tags. Return HTML only.";
+        $prompt = "Using the following source text:\n{$client['core_text']}\n\nInstructions:\n{$pageInstr}\nOutline the structure for the {$page} page only. Provide a numbered list of section names and no page content.";
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -498,20 +485,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $raw = preg_replace('/!\[[^\]]*\]\([^\)]*\)/', '', $raw);
                 $raw = preg_replace("/\n{2,}/", "\n", $raw);
                 $pageData[$page] = trim($raw);
-                $generated = 'Content generated. Review before saving.';
+                $generated = 'Structure generated. Review before saving.';
             } else {
                 $error = 'Unexpected API response.';
             }
         }
         curl_close($ch);
-    } elseif (isset($_POST['save_page'])) {
+    } elseif (isset($_POST['save_structure'])) {
         $page = $_POST['page'] ?? '';
         $openPage = $page;
-        $content = $_POST['page_content'] ?? '';
-        $stmt = $pdo->prepare('INSERT INTO client_pages (client_id, page, content) VALUES (?,?,?) ON DUPLICATE KEY UPDATE content=VALUES(content)');
-        $stmt->execute([$client_id, $page, $content]);
-        $pageData[$page] = $content;
-        $saved = 'Page content saved.';
+        $structure = $_POST['page_structure'] ?? '';
+        $stmt = $pdo->prepare('INSERT INTO client_structures (client_id, page, structure) VALUES (?,?,?) ON DUPLICATE KEY UPDATE structure=VALUES(structure)');
+        $stmt->execute([$client_id, $page, $structure]);
+        $pageData[$page] = $structure;
+        $saved = 'Page structure saved.';
     }
 }
 
@@ -527,10 +514,10 @@ require __DIR__ . '/../header.php';
     <a class="nav-link" href="sitemap.php?client_id=<?= $client_id ?>&tab=sitemap">Site Map</a>
   </li>
   <li class="nav-item">
-    <a class="nav-link" href="structure.php?client_id=<?= $client_id ?>">Structure</a>
+    <a class="nav-link active" href="#">Structure</a>
   </li>
   <li class="nav-item">
-    <a class="nav-link active" href="#">Content</a>
+    <a class="nav-link" href="builder.php?client_id=<?= $client_id ?>">Content</a>
   </li>
 </ul>
 <?php if ($saved): ?><div class="alert alert-success"><?= htmlspecialchars($saved) ?></div><?php endif; ?>
@@ -546,14 +533,14 @@ function flattenPages(array $items, array &$list) {
 $pages = [];
 flattenPages($sitemap, $pages);
 ?>
-<div class="accordion" id="contentAccordion">
+<div class="accordion" id="structureAccordion">
 <?php foreach ($pages as $p) {
     $esc = htmlspecialchars($p);
-    $content = $pageData[$p] ?? '';
+    $structure = $pageData[$p] ?? '';
     $slug = strtolower(preg_replace('/[^a-z0-9]+/i','-', $p));
     $show = ($openPage === $p) ? ' show' : '';
     $collapsed = ($openPage === $p) ? '' : ' collapsed';
-    $hasContent = trim($content) !== '';
+    $hasContent = trim($structure) !== '';
 ?>
   <div class="accordion-item">
     <h2 class="accordion-header" id="heading-<?= $slug ?>">
@@ -561,18 +548,18 @@ flattenPages($sitemap, $pages);
         <?= $esc ?>
       </button>
     </h2>
-    <div id="collapse-<?= $slug ?>" class="accordion-collapse collapse<?= $show ?>" aria-labelledby="heading-<?= $slug ?>" data-bs-parent="#contentAccordion">
+    <div id="collapse-<?= $slug ?>" class="accordion-collapse collapse<?= $show ?>" aria-labelledby="heading-<?= $slug ?>" data-bs-parent="#structureAccordion">
       <div class="accordion-body">
         <form method="post" class="page-form" id="form-<?= $slug ?>">
           <input type="hidden" name="page" value="<?= $esc ?>">
-          <input type="hidden" name="page_content" id="input-<?= $slug ?>">
+          <input type="hidden" name="page_structure" id="input-<?= $slug ?>">
           <div class="mb-2<?= $hasContent ? '' : ' d-none' ?>">
             <div class="border p-2" id="display-<?= $slug ?>" contenteditable="true" style="white-space: pre-wrap;">
-              <?= trim($content) ?>
+              <?= trim($structure) ?>
             </div>
           </div>
-          <button type="submit" name="generate_page" class="btn btn-secondary btn-sm me-2">Generate</button>
-          <button type="submit" name="save_page" class="btn btn-primary btn-sm<?= $hasContent ? '' : ' d-none' ?>">Save</button>
+          <button type="submit" name="generate_structure" class="btn btn-secondary btn-sm me-2">Generate</button>
+          <button type="submit" name="save_structure" class="btn btn-primary btn-sm<?= $hasContent ? '' : ' d-none' ?>">Save</button>
         </form>
       </div>
     </div>
@@ -584,7 +571,7 @@ document.querySelectorAll('.page-form').forEach(function(f){
   f.addEventListener('submit', function(){
     const id = this.id.replace('form-','');
     const display = document.getElementById('display-'+id);
-    document.getElementById('input-'+id).value = display.innerHTML;
+    document.getElementById('input-'+id).value = display.innerText;
   });
 });
 </script>

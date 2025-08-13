@@ -171,13 +171,12 @@ require __DIR__ . '/../header.php';
     <button class="nav-link <?= $activeTab==='sitemap'?'active':'' ?>" data-bs-toggle="tab" data-bs-target="#sitemapTab" type="button" role="tab">Site Map</button>
   </li>
   <li class="nav-item" role="presentation">
+    <a class="nav-link" href="structure.php?client_id=<?= $client_id ?>">Structure</a>
+  </li>
+  <li class="nav-item" role="presentation">
     <a class="nav-link" href="builder.php?client_id=<?= $client_id ?>">Content</a>
   </li>
 </ul>
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="mb-0">Wordprseo Content Builder</h1>
-  <a href="index.php">&laquo; Back to all clients</a>
-</div>
 <?php if ($saved): ?><div class="alert alert-success"><?= htmlspecialchars($saved) ?></div><?php endif; ?>
 <?php if ($generated): ?><div class="alert alert-info"><?= htmlspecialchars($generated) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
