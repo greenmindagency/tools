@@ -24,7 +24,7 @@ in wordprseo already we have below:
 
 so you have to follow the above instructions to make the new sitemap, no need to copy past but to have the instructions.
 
-try to keep 3 pages alwayes in the menu which is Home, about us, contact us and end the menu with contact us and start with home and about us 
+try to keep 3 pages alwayes in the menu which is Home, about us, contact us and start with home and about us, and please end the menu with contact us, we have to end the menu with contact us.
 
 try to make an online reasearch in the same filed to find the best menu items it should be, with ofcourse checking the materials we uploaded.
 
