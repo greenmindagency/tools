@@ -27,7 +27,7 @@ so you have to follow the above instructions to make the new sitemapmap, no need
 important notes:
 
 - sitemapmap starting with Home and About us
-- sitemapmap ended with Contact us
+- sitemapmap last item will be Contact us
 
 you can't merge to categories in one menu items, like News & Blog, it has to be seperated we can have something like insights and under it blog and highlights for example but not to merge both 
 
