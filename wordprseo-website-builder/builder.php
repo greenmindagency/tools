@@ -18,6 +18,15 @@ $error = '';
 $saved = '';
 $instructions = $client['instructions'] ?? '';
 $sitemap = $client['sitemap'] ? json_decode($client['sitemap'], true) : [];
+if ($sitemap) {
+    $convert = function (&$items) use (&$convert) {
+        foreach ($items as &$item) {
+            if (($item['type'] ?? '') === 'cat') $item['type'] = 'category';
+            if (!empty($item['children'])) $convert($item['children']);
+        }
+    };
+    $convert($sitemap);
+}
 
 function buildTree(array $items, int &$count, int $max, array &$seen): array {
     $result = [];
@@ -29,7 +38,7 @@ function buildTree(array $items, int &$count, int $max, array &$seen): array {
         if (isset($seen[$key])) continue;
         $seen[$key] = true;
         $type = $item['type'] ?? 'page';
-        if (!in_array($type, ['page','single','cat','tag'])) $type = 'page';
+        if (!in_array($type, ['page','single','category','tag'])) $type = 'page';
         $node = ['title' => $title, 'type' => $type, 'children' => []];
         $count++;
         if (!empty($item['children']) && is_array($item['children'])) {
@@ -41,21 +50,17 @@ function buildTree(array $items, int &$count, int $max, array &$seen): array {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['save_instructions'])) {
-        $instructions = $_POST['instructions'] ?? '';
-        $pdo->prepare('UPDATE clients SET instructions = ? WHERE id = ?')->execute([$instructions, $client_id]);
-        $saved = 'Instructions saved.';
-    } elseif (isset($_POST['save_sitemap'])) {
+    if (isset($_POST['save_sitemap'])) {
         $json = $_POST['sitemap_json'] ?? '[]';
         $pdo->prepare('UPDATE clients SET sitemap = ? WHERE id = ?')->execute([$json, $client_id]);
         $sitemap = json_decode($json, true);
         $saved = 'Sitemap saved.';
     } elseif (isset($_POST['regenerate'])) {
         $num = (int)($_POST['num_pages'] ?? 4);
-        $instr = $_POST['instructions'] ?? $instructions;
+        $instr = $instructions;
         $source = $client['core_text'] ?? '';
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-        $prompt = "Using the following source text:\n{$source}\n\nAnd the instructions:\n{$instr}\nGenerate a website sitemap as a JSON array. Each item must contain 'title', 'type' (page, single, cat, or tag) and optional 'children'. Ensure titles are unique and the total number of items including subpages does not exceed {$num}. Return only JSON without any explanations.";
+        $prompt = "Using the following source text:\n{$source}\n\nAnd the instructions:\n{$instr}\nGenerate a website sitemap as a JSON array. Each item must contain 'title', 'type' (page, single, category, or tag) and optional 'children'. Ensure titles are unique and the total number of items including subpages does not exceed {$num}. Return only JSON without any explanations.";
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -136,10 +141,10 @@ function renderList(array $items) {
     foreach ($items as $item) {
         $title = htmlspecialchars($item['title']);
         $type = htmlspecialchars($item['type'] ?? 'page');
-        echo "<li class='list-group-item'><div class='d-flex align-items-center mb-2'>";
+        echo "<li class='list-group-item py-1'><div class='d-flex align-items-center mb-1'>";
         echo "<input type='text' class='form-control form-control-sm item-title-input me-2' value='{$title}'>";
         echo "<select class='form-select form-select-sm item-type me-2'>";
-        foreach (['page'=>'Page','single'=>'Single','cat'=>'Cat','tag'=>'Tag'] as $val => $label) {
+        foreach (['page'=>'Page','single'=>'Single','category'=>'Category','tag'=>'Tag'] as $val => $label) {
             $sel = $type === $val ? 'selected' : '';
             echo "<option value='{$val}' {$sel}>{$label}</option>";
         }
@@ -167,13 +172,6 @@ require __DIR__ . '/../header.php';
 <p><a href="index.php">&laquo; Back to clients</a></p>
 <?php if ($saved): ?><div class="alert alert-success"><?= htmlspecialchars($saved) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
-<form method="post" class="mb-3">
-  <label class="form-label">Instructions</label>
-  <textarea name="instructions" class="form-control" rows="6"><?= htmlspecialchars($instructions) ?></textarea>
-  <div class="mt-2">
-    <button type="submit" name="save_instructions" class="btn btn-secondary">Save Instructions</button>
-  </div>
-</form>
 <ul class="nav nav-tabs" id="builderTabs" role="tablist">
   <li class="nav-item" role="presentation">
     <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#sitemapTab" type="button" role="tab">Site Map</button>
@@ -242,13 +240,13 @@ function initSortables() {
 }
 function createItem(name){
   const li=document.createElement('li');
-  li.className='list-group-item';
-  li.innerHTML="<div class='d-flex align-items-center mb-2'>"+
+  li.className='list-group-item py-1';
+  li.innerHTML="<div class='d-flex align-items-center mb-1'>"+
     "<input type='text' class='form-control form-control-sm item-title-input me-2'>"+
     "<select class='form-select form-select-sm item-type me-2'>"+
       "<option value='page'>Page</option>"+
       "<option value='single'>Single</option>"+
-      "<option value='cat'>Cat</option>"+
+      "<option value='category'>Category</option>"+
       "<option value='tag'>Tag</option>"+
     "</select><span><button type='button' class='btn btn-sm btn-link add-child'>+</button><button type='button' class='btn btn-sm btn-link text-danger remove'>x</button></span></div><ul class='list-group ms-3 children'></ul>";
   li.querySelector('.item-title-input').value=name;
