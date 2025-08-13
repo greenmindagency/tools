@@ -19,7 +19,10 @@ if (!$client) {
 $error = '';
 $saved = '';
 $generated = '';
-$activeTab = in_array($_GET['tab'] ?? 'source', ['source','sitemap']) ? $_GET['tab'] : 'source';
+$activeTab = $_GET['tab'] ?? 'source';
+if (!in_array($activeTab, ['source','sitemap'])) {
+    $activeTab = 'source';
+}
 $instructions = $client['instructions'] ?? '';
 $sitemap = $client['sitemap'] ? json_decode($client['sitemap'], true) : [];
 
@@ -157,15 +160,10 @@ function countPages(array $items): int {
     return $c;
 }
 
-$title = 'Wordprseo Sitemap Builder';
+$title = 'Wordprseo Content Builder';
 require __DIR__ . '/../header.php';
 ?>
-<h1>Wordprseo Sitemap Builder</h1>
-<p><a href="index.php">&laquo; Back to clients</a></p>
-<?php if ($saved): ?><div class="alert alert-success"><?= htmlspecialchars($saved) ?></div><?php endif; ?>
-<?php if ($generated): ?><div class="alert alert-info"><?= htmlspecialchars($generated) ?></div><?php endif; ?>
-<?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
-<ul class="nav nav-tabs" role="tablist">
+<ul class="nav nav-tabs mb-3" role="tablist">
   <li class="nav-item" role="presentation">
     <button class="nav-link <?= $activeTab==='source'?'active':'' ?>" data-bs-toggle="tab" data-bs-target="#sourceTab" type="button" role="tab">Source</button>
   </li>
@@ -176,6 +174,13 @@ require __DIR__ . '/../header.php';
     <a class="nav-link" href="builder.php?client_id=<?= $client_id ?>">Content</a>
   </li>
 </ul>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="mb-0">Wordprseo Content Builder</h1>
+  <a href="index.php">&laquo; Back to all clients</a>
+</div>
+<?php if ($saved): ?><div class="alert alert-success"><?= htmlspecialchars($saved) ?></div><?php endif; ?>
+<?php if ($generated): ?><div class="alert alert-info"><?= htmlspecialchars($generated) ?></div><?php endif; ?>
+<?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 <div class="tab-content border border-top-0 p-3">
   <div class="tab-pane fade <?= $activeTab==='source'?'show active':'' ?>" id="sourceTab" role="tabpanel">
     <form method="post" enctype="multipart/form-data">

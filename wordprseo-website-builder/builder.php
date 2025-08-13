@@ -490,7 +490,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 
-$title = 'Wordprseo Website Builder';
+$title = 'Wordprseo Content Builder';
 require __DIR__ . '/../header.php';
 ?>
 <ul class="nav nav-tabs mb-3">
@@ -504,8 +504,10 @@ require __DIR__ . '/../header.php';
     <a class="nav-link active" href="#">Content</a>
   </li>
 </ul>
-<h1>Wordprseo Content Builder</h1>
-<p><a href="index.php">&laquo; Back to clients</a></p>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="mb-0">Wordprseo Content Builder</h1>
+  <a href="index.php">&laquo; Back to all clients</a>
+</div>
 <?php if ($saved): ?><div class="alert alert-success"><?= htmlspecialchars($saved) ?></div><?php endif; ?>
 <?php if ($generated): ?><div class="alert alert-info"><?= htmlspecialchars($generated) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
