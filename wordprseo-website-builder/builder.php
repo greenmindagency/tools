@@ -19,6 +19,27 @@ $saved = '';
 $instructions = $client['instructions'] ?? '';
 $sitemap = $client['sitemap'] ? json_decode($client['sitemap'], true) : [];
 
+function buildTree(array $items, int &$count, int $max, array &$seen): array {
+    $result = [];
+    foreach ($items as $item) {
+        if ($count >= $max) break;
+        $title = trim($item['title'] ?? '');
+        if ($title === '') continue;
+        $key = strtolower($title);
+        if (isset($seen[$key])) continue;
+        $seen[$key] = true;
+        $type = $item['type'] ?? 'page';
+        if (!in_array($type, ['page','single','cat','tag'])) $type = 'page';
+        $node = ['title' => $title, 'type' => $type, 'children' => []];
+        $count++;
+        if (!empty($item['children']) && is_array($item['children'])) {
+            $node['children'] = buildTree($item['children'], $count, $max, $seen);
+        }
+        $result[] = $node;
+    }
+    return $result;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['save_instructions'])) {
         $instructions = $_POST['instructions'] ?? '';
@@ -34,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $instr = $_POST['instructions'] ?? $instructions;
         $source = $client['core_text'] ?? '';
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-        $prompt = "Using the following source text:\n{$source}\n\nAnd the instructions:\n{$instr}\nGenerate only a website sitemap with at most {$num} pages and one optional level of subpages. Output each entry on a separate line as 'Page' or 'Parent > Child'. Do not include numbering or any other commentary.";
+        $prompt = "Using the following source text:\n{$source}\n\nAnd the instructions:\n{$instr}\nGenerate a website sitemap as a JSON array. Each item must contain 'title', 'type' (page, single, cat, or tag) and optional 'children'. Ensure titles are unique and the total number of items including subpages does not exceed {$num}. Return only JSON without any explanations.";
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -56,33 +77,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = $json['error']['message'] ?? $response;
                 $error = 'API error: ' . $msg;
             } elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
-                $lines = preg_split('/\r?\n/', $json['candidates'][0]['content']['parts'][0]['text']);
-                $tree = [];
-                foreach ($lines as $line) {
-                    $line = trim($line);
-                    if ($line === '') continue;
-                    $line = preg_replace('/^[\d\-\.\)]+\s*/', '', $line);
-                    if (strpos($line, '>') !== false) {
-                        list($parent, $child) = array_map('trim', explode('>', $line, 2));
-                        $found = false;
-                        foreach ($tree as &$node) {
-                            if (strcasecmp($node['title'], $parent) === 0) {
-                                $node['children'][] = ['title' => $child, 'children' => []];
-                                $found = true;
-                                break;
-                            }
-                        }
-                        if (!$found) {
-                            $tree[] = ['title' => $parent, 'children' => [['title' => $child, 'children' => []]]];
-                        }
-                    } else {
-                        $tree[] = ['title' => $line, 'children' => []];
-                    }
-                    if (count($tree) >= $num) break;
+                $text = trim($json['candidates'][0]['content']['parts'][0]['text']);
+                $start = strpos($text, '[');
+                $end = strrpos($text, ']');
+                if ($start !== false && $end !== false) {
+                    $text = substr($text, $start, $end - $start + 1);
                 }
-                $sitemap = $tree;
-                $pdo->prepare('UPDATE clients SET sitemap = ? WHERE id = ?')->execute([json_encode($sitemap), $client_id]);
-                $saved = 'Sitemap regenerated.';
+                $items = json_decode($text, true);
+                if (is_array($items)) {
+                    $seen = [];
+                    $count = 0;
+                    $sitemap = buildTree($items, $count, $num, $seen);
+                    $pdo->prepare('UPDATE clients SET sitemap = ? WHERE id = ?')->execute([json_encode($sitemap), $client_id]);
+                    $saved = 'Sitemap regenerated.';
+                } else {
+                    $error = 'Failed to parse sitemap JSON.';
+                }
             } else {
                 $error = 'Unexpected API response.';
             }
@@ -125,12 +135,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 function renderList(array $items) {
     foreach ($items as $item) {
         $title = htmlspecialchars($item['title']);
-        echo "<li class='list-group-item'><div class='d-flex justify-content-between'><span class='item-title'>{$title}</span><span><button type='button' class='btn btn-sm btn-link add-child'>+</button><button type='button' class='btn btn-sm btn-link text-danger remove'>x</button></span></div><ul class='list-group ms-3 children'>";
+        $type = htmlspecialchars($item['type'] ?? 'page');
+        echo "<li class='list-group-item'><div class='d-flex align-items-center mb-2'>";
+        echo "<input type='text' class='form-control form-control-sm item-title-input me-2' value='{$title}'>";
+        echo "<select class='form-select form-select-sm item-type me-2'>";
+        foreach (['page'=>'Page','single'=>'Single','cat'=>'Cat','tag'=>'Tag'] as $val => $label) {
+            $sel = $type === $val ? 'selected' : '';
+            echo "<option value='{$val}' {$sel}>{$label}</option>";
+        }
+        echo "</select><span><button type='button' class='btn btn-sm btn-link add-child'>+</button><button type='button' class='btn btn-sm btn-link text-danger remove'>x</button></span></div><ul class='list-group ms-3 children'>";
         if (!empty($item['children'])) {
             renderList($item['children']);
         }
         echo "</ul></li>";
     }
+}
+
+function countPages(array $items): int {
+    $c = 0;
+    foreach ($items as $item) {
+        $c++;
+        if (!empty($item['children'])) $c += countPages($item['children']);
+    }
+    return $c;
 }
 
 $title = 'Wordprseo Website Builder';
@@ -160,7 +187,7 @@ require __DIR__ . '/../header.php';
     <form method="post" id="sitemapForm">
       <div class="mb-3">
         <label class="form-label">Number of pages</label>
-        <input type="number" name="num_pages" class="form-control" value="<?= count($sitemap) ?: 4 ?>">
+        <input type="number" name="num_pages" class="form-control" value="<?= countPages($sitemap) ?: 4 ?>">
       </div>
       <ul id="sitemapRoot" class="list-group mb-3">
         <?php renderList($sitemap); ?>
@@ -216,8 +243,15 @@ function initSortables() {
 function createItem(name){
   const li=document.createElement('li');
   li.className='list-group-item';
-  li.innerHTML="<div class='d-flex justify-content-between'><span class='item-title'></span><span><button type='button' class='btn btn-sm btn-link add-child'>+</button><button type='button' class='btn btn-sm btn-link text-danger remove'>x</button></span></div><ul class='list-group ms-3 children'></ul>";
-  li.querySelector('.item-title').textContent=name;
+  li.innerHTML="<div class='d-flex align-items-center mb-2'>"+
+    "<input type='text' class='form-control form-control-sm item-title-input me-2'>"+
+    "<select class='form-select form-select-sm item-type me-2'>"+
+      "<option value='page'>Page</option>"+
+      "<option value='single'>Single</option>"+
+      "<option value='cat'>Cat</option>"+
+      "<option value='tag'>Tag</option>"+
+    "</select><span><button type='button' class='btn btn-sm btn-link add-child'>+</button><button type='button' class='btn btn-sm btn-link text-danger remove'>x</button></span></div><ul class='list-group ms-3 children'></ul>";
+  li.querySelector('.item-title-input').value=name;
   return li;
 }
 const root=document.getElementById('sitemapRoot');
@@ -245,7 +279,8 @@ document.getElementById('addPage').addEventListener('click',function(){
 document.getElementById('sitemapForm').addEventListener('submit',function(){
   function serialize(ul){
     return Array.from(ul.children).map(li=>({
-      title: li.querySelector('.item-title').textContent.trim(),
+      title: li.querySelector('.item-title-input').value.trim(),
+      type: li.querySelector('.item-type').value,
       children: serialize(li.querySelector('.children'))
     }));
   }
