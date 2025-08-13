@@ -43,6 +43,32 @@ what i need from you is to follow below sections you have to make pages appeal a
 Some guidlines:
 
 - there's some sort of things you have to understand Article title has to have a section than didn't have title like the image carousel or the image gallery so please focus on this 
+- try to end the page with contentpage5 sicne it will show the form to contact before the footer
+
+examples of good structure (don't copy just for your knowledge)
+
+homepage:
+slider, tagslist, pagecontent2, pagecontent1, catconnection, slider, pagecontent3, articletitle, articleimages, postconnection, hero-video, articletitle, pagecontent7, postsrelatedcat, accordion, pagecontent5
+
+
+about page:
+slider, articletitle, pagecontent2, pagecontent1, catconnection, pagecontent4, tagconnection, postsrelatedcat, articletitle, articleslideshow, pagecontent5
+
+service category which has all services 
+hero-video|pagecontent5, tagslist, articletitle, articlevideogallery, postsrelatedtagslider, pagecontent1, pagecontent3, verticaltabs, pagecontent7, pagecontent4, pagecontent2, pagecontent5, catconnection, articletitle, articleimages, tagconnection, postsrelatedcat, articletitle, articlevideogallery, postconnection, pagecontent5
+
+when you see | between 2 tabs means this is a 2 columns of tabs beside each other it can work only in hero video and pagecontent5
+
+for other categories like blog or news it has only 1 section postsrelatedcat and select the infinite checkbox
+
+
+service tags (sub services) under the service category working as a subservices (tag)
+slider, pagecontent1, tagconnection, articletitle, pagecontent1, pagecontent3, pagecontent1, articletitle, articlevideogallery, accordion, articletitle, imgcarousel, pagecontent5
+
+
+careers page have the pagecontent5 only which is the form
+
+contact us have the contacts section and pagecontent6 for the map
 
 
 careers page have the pagecontent5 only which is the form
