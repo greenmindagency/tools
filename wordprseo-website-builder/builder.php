@@ -188,7 +188,7 @@ require __DIR__ . '/../header.php';
         <label class="form-label">Number of pages</label>
         <input type="number" name="num_pages" class="form-control" value="<?= countPages($sitemap) ?: 4 ?>">
       </div>
-      <div class="bg-light p-3 rounded mb-3">
+      <div class="p-3 rounded mb-3">
         <ul id="sitemapRoot" class="list-group mb-0">
           <?php renderList($sitemap); ?>
         </ul>
