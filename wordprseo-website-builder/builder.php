@@ -578,7 +578,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = $json['error']['message'] ?? $response;
                 $error = 'API error: ' . $msg;
             } elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
-                $pageData[$page] = $json['candidates'][0]['content']['parts'][0]['text'];
+                // API may return HTML entities; decode to render actual HTML tags
+                $pageData[$page] = trim(html_entity_decode($json['candidates'][0]['content']['parts'][0]['text']));
             } else {
                 $error = 'Unexpected API response.';
             }
@@ -713,7 +714,9 @@ require __DIR__ . '/../header.php';
               <input type="hidden" name="page" value="<?= $esc ?>">
               <input type="hidden" name="page_content" id="input-<?= $slug ?>">
               <div class="mb-2<?= $hasContent ? '' : ' d-none' ?>">
-                <div class="border p-2" id="display-<?= $slug ?>" contenteditable="true"><?= $content ?></div>
+                <div class="border p-2" id="display-<?= $slug ?>" contenteditable="true" style="white-space: pre-wrap;">
+                  <?= trim($content) ?>
+                </div>
               </div>
               <button type="submit" name="generate_page" class="btn btn-secondary btn-sm me-2">Generate</button>
               <button type="submit" name="save_page" class="btn btn-primary btn-sm<?= $hasContent ? '' : ' d-none' ?>">Save</button>
