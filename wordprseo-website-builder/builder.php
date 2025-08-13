@@ -33,6 +33,7 @@ $error = '';
 $saved = '';
 $generated = '';
 $activeTab = 'source';
+$openPage = '';
 $instructions = $client['instructions'] ?? '';
 $sitemap = $client['sitemap'] ? json_decode($client['sitemap'], true) : [];
 // Page-specific generation instructions.
@@ -146,6 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $activeTab = 'sitemap';
     } elseif (isset($_POST['generate_page'])) {
         $page = $_POST['page'] ?? '';
+        $openPage = $page;
         $pageInstr = $pageInstructions[$page] ?? '';
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $prompt = "Using the following source text:\n{$client['core_text']}\n\nInstructions:\n{$instructions}\n{$pageInstr}\nWrite content for the {$page} page.";
@@ -179,6 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $activeTab = 'content';
     } elseif (isset($_POST['save_page'])) {
         $page = $_POST['page'] ?? '';
+        $openPage = $page;
         $content = $_POST['page_content'] ?? '';
         $stmt = $pdo->prepare('INSERT INTO client_pages (client_id, page, content) VALUES (?,?,?) ON DUPLICATE KEY UPDATE content=VALUES(content)');
         $stmt->execute([$client_id, $page, $content]);
@@ -274,44 +277,6 @@ require __DIR__ . '/../header.php';
   </div>
   <div class="tab-pane fade <?= $activeTab==='content'?'show active':'' ?>" id="contentTab" role="tabpanel">
     <?php
-    function renderNavItems(array $items, bool $dropdown=false) {
-        foreach ($items as $it) {
-            $title = htmlspecialchars($it['title']);
-            $children = $it['children'] ?? [];
-            if ($children) {
-                if ($dropdown) {
-                    echo "<li class='dropdown-submenu dropend'><a class='dropdown-item dropdown-toggle' href='#' data-bs-toggle='dropdown'>{$title}</a><ul class='dropdown-menu'>";
-                    renderNavItems($children, true);
-                    echo "</ul></li>";
-                } else {
-                    echo "<li class='nav-item dropdown'><a class='nav-link dropdown-toggle' href='#' role='button' data-bs-toggle='dropdown'>{$title}</a><ul class='dropdown-menu'>";
-                    renderNavItems($children, true);
-                    echo "</ul></li>";
-                }
-            } else {
-                if ($dropdown) {
-                    echo "<li><a class='dropdown-item page-link' href='#' data-page='{$title}'>{$title}</a></li>";
-                } else {
-                    echo "<li class='nav-item'><a class='nav-link page-link' href='#' data-page='{$title}'>{$title}</a></li>";
-                }
-            }
-        }
-    }
-    ?>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
-      <div class="container-fluid">
-        <a class="navbar-brand" href="#"><?= htmlspecialchars($client['name']) ?></a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navMenu">
-          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-            <?php renderNavItems($sitemap); ?>
-          </ul>
-        </div>
-      </div>
-    </nav>
-    <?php
     function flattenPages(array $items, array &$list) {
         foreach ($items as $item) {
             $list[] = $item['title'];
@@ -320,21 +285,37 @@ require __DIR__ . '/../header.php';
     }
     $pages = [];
     flattenPages($sitemap, $pages);
-    foreach ($pages as $p) {
+    ?>
+    <div class="accordion" id="contentAccordion">
+    <?php foreach ($pages as $p) {
         $esc = htmlspecialchars($p);
         $content = $pageData[$p] ?? '';
         $slug = strtolower(preg_replace('/[^a-z0-9]+/i','-', $p));
+        $show = ($openPage === $p) ? ' show' : '';
+        $collapsed = ($openPage === $p) ? '' : ' collapsed';
     ?>
-    <form method="post" class="mb-4 page-form d-none" id="form-<?= $slug ?>">
-      <input type="hidden" name="page" value="<?= $esc ?>">
-      <input type="hidden" name="page_content" id="input-<?= $slug ?>">
-      <div class="mb-2">
-        <div class="border p-2" id="display-<?= $slug ?>" contenteditable="true"><?= htmlspecialchars($content) ?></div>
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="heading-<?= $slug ?>">
+          <button class="accordion-button<?= $collapsed ?>" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-<?= $slug ?>" aria-expanded="<?= $openPage === $p ? 'true' : 'false' ?>" aria-controls="collapse-<?= $slug ?>">
+            <?= $esc ?>
+          </button>
+        </h2>
+        <div id="collapse-<?= $slug ?>" class="accordion-collapse collapse<?= $show ?>" aria-labelledby="heading-<?= $slug ?>" data-bs-parent="#contentAccordion">
+          <div class="accordion-body">
+            <form method="post" class="page-form" id="form-<?= $slug ?>">
+              <input type="hidden" name="page" value="<?= $esc ?>">
+              <input type="hidden" name="page_content" id="input-<?= $slug ?>">
+              <div class="mb-2">
+                <div class="border p-2" id="display-<?= $slug ?>" contenteditable="true"><?= $content ?></div>
+              </div>
+              <button type="submit" name="generate_page" class="btn btn-secondary btn-sm me-2">Generate</button>
+              <button type="submit" name="save_page" class="btn btn-primary btn-sm">Save</button>
+            </form>
+          </div>
+        </div>
       </div>
-      <button type="submit" name="generate_page" class="btn btn-secondary btn-sm">Generate</button>
-      <button type="submit" name="save_page" class="btn btn-primary btn-sm">Save</button>
-    </form>
     <?php } ?>
+    </div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -396,19 +377,6 @@ document.getElementById('sitemapForm').addEventListener('submit',function(){
   document.getElementById('sitemapData').value=JSON.stringify(serialize(root));
 });
 
-document.querySelectorAll('.page-link').forEach(function(link){
-  link.addEventListener('click', function(e){
-    e.preventDefault();
-    document.querySelectorAll('.page-form').forEach(f=>f.classList.add('d-none'));
-    document.querySelectorAll('.page-link').forEach(l=>l.classList.remove('active'));
-    const page = this.dataset.page.toLowerCase().replace(/[^a-z0-9]+/g,'-');
-    const form = document.getElementById('form-'+page);
-    if(form){
-      form.classList.remove('d-none');
-      this.classList.add('active');
-    }
-  });
-});
 document.querySelectorAll('.page-form').forEach(function(f){
   f.addEventListener('submit', function(){
     const id = this.id.replace('form-','');
@@ -416,7 +384,5 @@ document.querySelectorAll('.page-form').forEach(function(f){
     document.getElementById('input-'+id).value = display.innerHTML;
   });
 });
-const first = document.querySelector('.page-link');
-if(first) first.click();
 </script>
 <?php include __DIR__ . '/../footer.php'; ?>
