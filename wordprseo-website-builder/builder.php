@@ -479,7 +479,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = $json['error']['message'] ?? $response;
                 $error = 'API error: ' . $msg;
             } elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
-                $pageData[$page] = trim(html_entity_decode($json['candidates'][0]['content']['parts'][0]['text']));
+                $raw = html_entity_decode($json['candidates'][0]['content']['parts'][0]['text']);
+                $raw = preg_replace('/^```\w*\n?|```$/m', '', $raw);
+                $raw = preg_replace('/<img[^>]*>/i', '', $raw);
+                $raw = preg_replace('/!\[[^\]]*\]\([^\)]*\)/', '', $raw);
+                $raw = preg_replace("/\n{2,}/", "\n", $raw);
+                $pageData[$page] = trim($raw);
                 $generated = 'Content generated. Review before saving.';
             } else {
                 $error = 'Unexpected API response.';
@@ -501,8 +506,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $title = 'Wordprseo Website Builder';
 require __DIR__ . '/../header.php';
 ?>
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item">
+    <a class="nav-link" href="sitemap.php?client_id=<?= $client_id ?>&tab=source">Source</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="sitemap.php?client_id=<?= $client_id ?>&tab=sitemap">Site Map</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link active" href="#">Content</a>
+  </li>
+</ul>
 <h1>Wordprseo Content Builder</h1>
-<p><a href="index.php">&laquo; Back to clients</a> | <a href="sitemap.php?client_id=<?= $client_id ?>">Edit Site Map</a></p>
+<p><a href="index.php">&laquo; Back to clients</a></p>
 <?php if ($saved): ?><div class="alert alert-success"><?= htmlspecialchars($saved) ?></div><?php endif; ?>
 <?php if ($generated): ?><div class="alert alert-info"><?= htmlspecialchars($generated) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>

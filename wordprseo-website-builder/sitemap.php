@@ -19,7 +19,7 @@ if (!$client) {
 $error = '';
 $saved = '';
 $generated = '';
-$activeTab = 'source';
+$activeTab = in_array($_GET['tab'] ?? 'source', ['source','sitemap']) ? $_GET['tab'] : 'source';
 $instructions = $client['instructions'] ?? '';
 $sitemap = $client['sitemap'] ? json_decode($client['sitemap'], true) : [];
 
@@ -161,7 +161,7 @@ $title = 'Wordprseo Sitemap Builder';
 require __DIR__ . '/../header.php';
 ?>
 <h1>Wordprseo Sitemap Builder</h1>
-<p><a href="index.php">&laquo; Back to clients</a> | <a href="builder.php?client_id=<?= $client_id ?>">Edit Content</a></p>
+<p><a href="index.php">&laquo; Back to clients</a></p>
 <?php if ($saved): ?><div class="alert alert-success"><?= htmlspecialchars($saved) ?></div><?php endif; ?>
 <?php if ($generated): ?><div class="alert alert-info"><?= htmlspecialchars($generated) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
@@ -171,6 +171,9 @@ require __DIR__ . '/../header.php';
   </li>
   <li class="nav-item" role="presentation">
     <button class="nav-link <?= $activeTab==='sitemap'?'active':'' ?>" data-bs-toggle="tab" data-bs-target="#sitemapTab" type="button" role="tab">Site Map</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <a class="nav-link" href="builder.php?client_id=<?= $client_id ?>">Content</a>
   </li>
 </ul>
 <div class="tab-content border border-top-0 p-3">
