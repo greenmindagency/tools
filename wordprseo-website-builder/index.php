@@ -18,16 +18,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $destination = $uploadDir . basename($_FILES['source']['name']);
             move_uploaded_file($_FILES['source']['tmp_name'], $destination);
 
-            $page = $_POST['page'] ?? 'home';
-            $cmd = escapeshellcmd("python3 generate_content.py " . escapeshellarg($page) . ' ' . escapeshellarg($destination));
-            $cmd .= ' 2>&1';
-            $lines = [];
-            $status = 0;
-            exec($cmd, $lines, $status);
-            if ($status !== 0) {
-                $error = implode("\n", $lines);
+            $text = extractText($destination, $ext, $error);
+            if ($text === '') {
+                if (!$error) {
+                    $error = 'Could not extract text from file.';
+                }
             } else {
-                $output = implode("\n", $lines);
+                $page = $_POST['page'] ?? 'home';
+                $apiKey = getenv('GEMINI_API_KEY') ?: 'YOUR_API_KEY';
+                $prompt = "Write a full {$page} page with Hero, About Us, Services, and Contact sections. Each section should have a title and subtitle. Base the content on the following source text:\n\n" . $text;
+                $payload = json_encode([
+                    'contents' => [
+                        [
+                            'parts' => [
+                                ['text' => $prompt]
+                            ]
+                        ]
+                    ]
+                ]);
+                $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent');
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Content-Type: application/json',
+                    'X-goog-api-key: ' . $apiKey,
+                ]);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                $response = curl_exec($ch);
+                if ($response === false) {
+                    $error = 'API request failed: ' . curl_error($ch);
+                } else {
+                    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    if ($code >= 400) {
+                        $error = 'API error: ' . $response;
+                    } else {
+                        $json = json_decode($response, true);
+                        $output = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
+                        if (!$output) {
+                            $error = 'No content returned by API.';
+                        }
+                    }
+                }
+                curl_close($ch);
             }
         }
     }
@@ -42,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
 <h1>Wordprseo Website Builder</h1>
 <?php if ($error): ?>
-    <p style="color:red;"><?= htmlspecialchars($error) ?></p>
+    <p style="color:red;"> <?= htmlspecialchars($error) ?> </p>
 <?php endif; ?>
 <form method="post" enctype="multipart/form-data">
     <label>Source file:</label>

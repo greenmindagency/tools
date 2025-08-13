@@ -17,4 +17,5 @@ Backups are created manually from the dashboard using the **Backup Now**
 button. The seven most recent backup files are kept for each client.
 
 ## Wordprseo Website Builder
-A simple prototype that uploads Word, PDF, PowerPoint, or text files and uses a Python script to generate full home page content with section titles and subtitles. The script reports clear errors when optional Python libraries for document parsing are missing, making it usable on shared hosting. Install dependencies with `pip install -r wordprseo-website-builder/requirements.txt` and start the tool by opening `wordprseo-website-builder/index.php` in your browser.
+A simple prototype that uploads Word, PDF, PowerPoint, or text files, extracts their text with PHP, and sends it to Google Gemini to generate a full home page with titled sections. Set your API key in the `GEMINI_API_KEY` environment variable and open `wordprseo-website-builder/index.php` in your browser.
+
