@@ -26,6 +26,10 @@ so you have to follow the above instructions to make the new sitemap, no need to
 
 try to keep 3 pages alwayes in the menu which is Home, about us, contact us and start with home and about us, and please end the menu with contact us, we have to end the menu with contact us.
 
+you can't merge to categories  in one menu items, like News & Blog, it has to be seperated we can have something like insights and under it blog and highlights for example but not to merge both 
+
+make the menu items from 1 to 3 words max not more than that.
+
 try to make an online reasearch in the same filed to find the best menu items it should be, with ofcourse checking the materials we uploaded.
 
 
