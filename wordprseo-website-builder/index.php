@@ -20,7 +20,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $page = $_POST['page'] ?? 'home';
             $cmd = escapeshellcmd("python3 generate_content.py " . escapeshellarg($page) . ' ' . escapeshellarg($destination));
-            $output = shell_exec($cmd);
+            $cmd .= ' 2>&1';
+            $lines = [];
+            $status = 0;
+            exec($cmd, $lines, $status);
+            if ($status !== 0) {
+                $error = implode("\n", $lines);
+            } else {
+                $output = implode("\n", $lines);
+            }
         }
     }
 }

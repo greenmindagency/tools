@@ -13,34 +13,35 @@ def read_file(path: str) -> str:
     if ext in {".docx", ".doc"}:
         try:
             from docx import Document
+        except ImportError as e:
+            raise RuntimeError("python-docx is required to read Word files") from e
 
-            doc = Document(path)
-            return "\n".join(p.text for p in doc.paragraphs)
-        except Exception:
-            return ""
+        doc = Document(path)
+        return "\n".join(p.text for p in doc.paragraphs)
     if ext == ".pdf":
         try:
             import PyPDF2
+        except ImportError as e:
+            raise RuntimeError("PyPDF2 is required to read PDF files") from e
 
-            with open(path, "rb") as f:
-                reader = PyPDF2.PdfReader(f)
-                return "\n".join(page.extract_text() or "" for page in reader.pages)
-        except Exception:
-            return ""
+        with open(path, "rb") as f:
+            reader = PyPDF2.PdfReader(f)
+            return "\n".join(page.extract_text() or "" for page in reader.pages)
     if ext in {".ppt", ".pptx"}:
         try:
             from pptx import Presentation
+        except ImportError as e:
+            raise RuntimeError("python-pptx is required to read PowerPoint files") from e
 
-            prs = Presentation(path)
-            texts = []
-            for slide in prs.slides:
-                for shape in slide.shapes:
-                    if hasattr(shape, "text"):
-                        texts.append(shape.text)
-            return "\n".join(texts)
-        except Exception:
-            return ""
-    return ""
+        prs = Presentation(path)
+        texts = []
+        for slide in prs.slides:
+            for shape in slide.shapes:
+                if hasattr(shape, "text"):
+                    texts.append(shape.text)
+        return "\n".join(texts)
+    raise RuntimeError(f"Unsupported file type: {ext}")
+
 
 
 def _sentences(text: str) -> list[str]:
@@ -83,11 +84,18 @@ def main() -> None:
         print("Usage: generate_content.py <page> <file>", file=sys.stderr)
         sys.exit(1)
     page, file_path = sys.argv[1], sys.argv[2]
-    text = read_file(file_path)
+    try:
+        text = read_file(file_path)
+    except Exception as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
+
     if page == "home":
         print(generate_homepage(text))
     else:
-        print(f"Page type '{page}' not supported.")
+        print(f"Page type '{page}' not supported.", file=sys.stderr)
+        sys.exit(1)
+
 
 
 if __name__ == "__main__":
