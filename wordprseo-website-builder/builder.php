@@ -39,7 +39,7 @@ $sitemap = $client['sitemap'] ? json_decode($client['sitemap'], true) : [];
 // Default page generation instructions.
 $defaultPageInstr = <<<TXT
 
-for each page please start with Meta title (60 characters max don't add the client name), Meta description (from 110 to 140 characters max) 
+I need to create an SEO content for the page please start with Meta title (60 characters max don't add the client name), Meta description (from 110 to 140 characters max) 
 
 what i need from you is to follow below sections you have to make pages appeal and have varities of sections, usually make a variations to make things looks nice 
 
