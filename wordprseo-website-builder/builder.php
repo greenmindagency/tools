@@ -12,7 +12,6 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS client_pages (
     client_id INT NOT NULL,
     page VARCHAR(255) NOT NULL,
     content LONGTEXT,
-    instructions TEXT,
     UNIQUE KEY client_page (client_id, page)
 )");
 
@@ -24,11 +23,11 @@ if (!$client) {
     header('Location: index.php');
     exit;
 }
-$stmt = $pdo->prepare('SELECT page, content, instructions FROM client_pages WHERE client_id = ?');
+$stmt = $pdo->prepare('SELECT page, content FROM client_pages WHERE client_id = ?');
 $stmt->execute([$client_id]);
 $pageData = [];
 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-    $pageData[$row['page']] = ['content' => $row['content'], 'instructions' => $row['instructions']];
+    $pageData[$row['page']] = $row['content'];
 }
 $error = '';
 $saved = '';
@@ -36,6 +35,10 @@ $generated = '';
 $activeTab = 'source';
 $instructions = $client['instructions'] ?? '';
 $sitemap = $client['sitemap'] ? json_decode($client['sitemap'], true) : [];
+// Page-specific generation instructions.
+$pageInstructions = [
+    // 'Home' => 'INSTRUCTIONS HERE',
+];
 if ($sitemap) {
     $convert = function (&$items) use (&$convert) {
         foreach ($items as &$item) {
@@ -143,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $activeTab = 'sitemap';
     } elseif (isset($_POST['generate_page'])) {
         $page = $_POST['page'] ?? '';
-        $pageInstr = $_POST['page_instructions'] ?? '';
+        $pageInstr = $pageInstructions[$page] ?? '';
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $prompt = "Using the following source text:\n{$client['core_text']}\n\nInstructions:\n{$instructions}\n{$pageInstr}\nWrite content for the {$page} page.";
         $payload = json_encode([
@@ -167,8 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = $json['error']['message'] ?? $response;
                 $error = 'API error: ' . $msg;
             } elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
-                $pageData[$page]['content'] = $json['candidates'][0]['content']['parts'][0]['text'];
-                $pageData[$page]['instructions'] = $pageInstr;
+                $pageData[$page] = $json['candidates'][0]['content']['parts'][0]['text'];
             } else {
                 $error = 'Unexpected API response.';
             }
@@ -178,10 +180,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (isset($_POST['save_page'])) {
         $page = $_POST['page'] ?? '';
         $content = $_POST['page_content'] ?? '';
-        $pageInstr = $_POST['page_instructions'] ?? '';
-        $stmt = $pdo->prepare('INSERT INTO client_pages (client_id, page, content, instructions) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE content=VALUES(content), instructions=VALUES(instructions)');
-        $stmt->execute([$client_id, $page, $content, $pageInstr]);
-        $pageData[$page] = ['content' => $content, 'instructions' => $pageInstr];
+        $stmt = $pdo->prepare('INSERT INTO client_pages (client_id, page, content) VALUES (?,?,?) ON DUPLICATE KEY UPDATE content=VALUES(content)');
+        $stmt->execute([$client_id, $page, $content]);
+        $pageData[$page] = $content;
         $saved = 'Page content saved.';
         $activeTab = 'content';
     }
@@ -289,9 +290,9 @@ require __DIR__ . '/../header.php';
                 }
             } else {
                 if ($dropdown) {
-                    echo "<li><a class='dropdown-item' href='#'>{$title}</a></li>";
+                    echo "<li><a class='dropdown-item page-link' href='#' data-page='{$title}'>{$title}</a></li>";
                 } else {
-                    echo "<li class='nav-item'><a class='nav-link' href='#'>{$title}</a></li>";
+                    echo "<li class='nav-item'><a class='nav-link page-link' href='#' data-page='{$title}'>{$title}</a></li>";
                 }
             }
         }
@@ -321,19 +322,14 @@ require __DIR__ . '/../header.php';
     flattenPages($sitemap, $pages);
     foreach ($pages as $p) {
         $esc = htmlspecialchars($p);
-        $content = $pageData[$p]['content'] ?? '';
-        $instr = $pageData[$p]['instructions'] ?? '';
+        $content = $pageData[$p] ?? '';
+        $slug = strtolower(preg_replace('/[^a-z0-9]+/i','-', $p));
     ?>
-    <form method="post" class="mb-4">
-      <h5><?= $esc ?></h5>
+    <form method="post" class="mb-4 page-form d-none" id="form-<?= $slug ?>">
       <input type="hidden" name="page" value="<?= $esc ?>">
+      <input type="hidden" name="page_content" id="input-<?= $slug ?>">
       <div class="mb-2">
-        <label class="form-label">Instructions</label>
-        <textarea name="page_instructions" class="form-control" rows="2"><?= htmlspecialchars($instr) ?></textarea>
-      </div>
-      <div class="mb-2">
-        <label class="form-label">Content</label>
-        <textarea name="page_content" class="form-control" rows="6"><?= htmlspecialchars($content) ?></textarea>
+        <div class="border p-2" id="display-<?= $slug ?>" contenteditable="true"><?= htmlspecialchars($content) ?></div>
       </div>
       <button type="submit" name="generate_page" class="btn btn-secondary btn-sm">Generate</button>
       <button type="submit" name="save_page" class="btn btn-primary btn-sm">Save</button>
@@ -399,5 +395,28 @@ document.getElementById('sitemapForm').addEventListener('submit',function(){
   }
   document.getElementById('sitemapData').value=JSON.stringify(serialize(root));
 });
+
+document.querySelectorAll('.page-link').forEach(function(link){
+  link.addEventListener('click', function(e){
+    e.preventDefault();
+    document.querySelectorAll('.page-form').forEach(f=>f.classList.add('d-none'));
+    document.querySelectorAll('.page-link').forEach(l=>l.classList.remove('active'));
+    const page = this.dataset.page.toLowerCase().replace(/[^a-z0-9]+/g,'-');
+    const form = document.getElementById('form-'+page);
+    if(form){
+      form.classList.remove('d-none');
+      this.classList.add('active');
+    }
+  });
+});
+document.querySelectorAll('.page-form').forEach(function(f){
+  f.addEventListener('submit', function(){
+    const id = this.id.replace('form-','');
+    const display = document.getElementById('display-'+id);
+    document.getElementById('input-'+id).value = display.innerHTML;
+  });
+});
+const first = document.querySelector('.page-link');
+if(first) first.click();
 </script>
 <?php include __DIR__ . '/../footer.php'; ?>
