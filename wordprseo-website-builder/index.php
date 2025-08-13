@@ -14,7 +14,17 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS clients (
     sitemap TEXT
 )");
 
-$defaultInstr = file_get_contents(__DIR__ . '/INSTRUCTIONS.txt');
+$defaultInstr = <<<TXT
+in wordprseo already we have below:
+
+- pages: home, about, careers, contact us
+- tags (sub service only)
+- category (latest work, clients, blog, news) any thing that we can attach singles too
+- single: a case studies or blog pages, news etc..
+
+so you have to follow the above instructions to make the new content.
+TXT;
+
 
 function extractText(string $path, string $ext, string &$err): string {
     switch ($ext) {

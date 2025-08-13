@@ -16,6 +16,7 @@ if (!$client) {
 $output = '';
 $error = '';
 $saved = '';
+$generated = '';
 $instructions = $client['instructions'] ?? '';
 $sitemap = $client['sitemap'] ? json_decode($client['sitemap'], true) : [];
 if ($sitemap) {
@@ -93,8 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $seen = [];
                     $count = 0;
                     $sitemap = buildTree($items, $count, $num, $seen);
-                    $pdo->prepare('UPDATE clients SET sitemap = ? WHERE id = ?')->execute([json_encode($sitemap), $client_id]);
-                    $saved = 'Sitemap regenerated.';
+                    $generated = 'Sitemap regenerated. Save to apply changes.';
                 } else {
                     $error = 'Failed to parse sitemap JSON.';
                 }
@@ -171,6 +171,7 @@ require __DIR__ . '/../header.php';
 <h1>Wordprseo Website Builder</h1>
 <p><a href="index.php">&laquo; Back to clients</a></p>
 <?php if ($saved): ?><div class="alert alert-success"><?= htmlspecialchars($saved) ?></div><?php endif; ?>
+<?php if ($generated): ?><div class="alert alert-info"><?= htmlspecialchars($generated) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 <ul class="nav nav-tabs" id="builderTabs" role="tablist">
   <li class="nav-item" role="presentation">
@@ -187,12 +188,17 @@ require __DIR__ . '/../header.php';
         <label class="form-label">Number of pages</label>
         <input type="number" name="num_pages" class="form-control" value="<?= countPages($sitemap) ?: 4 ?>">
       </div>
-      <ul id="sitemapRoot" class="list-group mb-3">
-        <?php renderList($sitemap); ?>
-      </ul>
-      <div class="input-group mb-3">
-        <input type="text" id="newPage" class="form-control" placeholder="New page name">
-        <button class="btn btn-secondary" type="button" id="addPage">Add Page</button>
+      <div class="bg-light p-3 rounded mb-3">
+        <ul id="sitemapRoot" class="list-group mb-0">
+          <?php renderList($sitemap); ?>
+        </ul>
+      </div>
+      <div id="addPageContainer" class="mb-3">
+        <button type="button" class="btn btn-secondary" id="showAddPage">Add Page</button>
+        <div id="addPageForm" class="input-group mt-2 d-none">
+          <input type="text" id="newPage" class="form-control" placeholder="New page name">
+          <button class="btn btn-success" type="button" id="addPage">Add</button>
+        </div>
       </div>
       <input type="hidden" name="sitemap_json" id="sitemapData">
       <button type="submit" name="save_sitemap" class="btn btn-primary">Save Site Map</button>
@@ -266,11 +272,16 @@ root.addEventListener('click',function(e){
     e.target.closest('li').remove();
   }
 });
+document.getElementById('showAddPage').addEventListener('click',function(){
+  document.getElementById('addPageForm').classList.toggle('d-none');
+  document.getElementById('newPage').focus();
+});
 document.getElementById('addPage').addEventListener('click',function(){
   const name=document.getElementById('newPage').value.trim();
   if(name){
     root.appendChild(createItem(name));
     document.getElementById('newPage').value='';
+    document.getElementById('addPageForm').classList.add('d-none');
     initSortables();
   }
 });
