@@ -22,7 +22,13 @@ in wordprseo already we have below:
 - category (latest work, clients, blog, news) any thing that we can attach singles too
 - single: a case studies or blog pages, news etc..
 
-so you have to follow the above instructions to make the new content.
+so you have to follow the above instructions to make the new sitemap, no need to copy past but to have the instructions.
+
+try to keep 3 pages alwayes in the menu which is Home, about us, contact us and end the menu with contact us and start with home and about us 
+
+try to make an online reasearch in the same filed to find the best menu items it should be, with ofcourse checking the materials we uploaded.
+
+
 TXT;
 
 
