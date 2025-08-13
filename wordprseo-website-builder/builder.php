@@ -254,7 +254,7 @@ function createItem(name){
       "<option value='single'>Single</option>"+
       "<option value='category'>Category</option>"+
       "<option value='tag'>Tag</option>"+
-    "</select><span><button type='button' class='btn btn-sm btn-link add-child'>+</button><button type='button' class='btn btn-sm btn-link text-danger remove'>x</button></span></div><ul class='list-group ms-3 children mb-3'></ul>";
+    "</select><span><button type='button' class='btn btn-sm btn-link add-child'>+</button><button type='button' class='btn btn-sm btn-link text-danger remove'>x</button></span></div><ul class='list-group ms-3 children'></ul>";
   li.querySelector('.item-title-input').value=name;
   return li;
 }
