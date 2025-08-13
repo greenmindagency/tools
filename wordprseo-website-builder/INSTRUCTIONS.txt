@@ -1,7 +1,6 @@
-
 please work as a website content creator and upload the content to WordprSEO a wordpress custom theme targeted for SEO from Green Mind Agency.
 
-What we need is to fully check the instructions files or the content i give below from other competetors and websites.
+Wat we need is to fully check the instructions files or the content i give below from other competetors and websites.
 
 what i need first is to show a website tree first if i'm not providing it chekc below if i add it:
 
@@ -16,7 +15,6 @@ in wordprseo already we have below:
 - pages: home, about, careers, contact us
 - tags (sub service only)
 - cat (latest work, clients, blog, news) any thing that we can attach singles too
-
 - single: a case studies or blog pages, news etc.. 
 
 so you have to follow the above instructions to make the new content.
@@ -54,7 +52,7 @@ start with the sitemap then step by step we will work on each page content based
 
 the important thing try to don't chnage to mush in the structure of the default website since we spent alot of time to do, and also make the sections that cover the content only don't make things too long and repetative in 1 page, i don't mind to have 3/4 sections per page based on the content i provided in the instructions.
 
-every page must have a meta title (60 characters max) and meta description (from 110 characters to 140 characters max) and slug url
+
 
 --- sections description and design:
 

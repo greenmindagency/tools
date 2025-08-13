@@ -17,5 +17,4 @@ Backups are created manually from the dashboard using the **Backup Now**
 button. The seven most recent backup files are kept for each client.
 
 ## Wordprseo Website Builder
-Log in with the admin credentials to manage clients. When adding a client, upload DOCX, PDF, PPTX or TXT files; their text is stored in the database as the core source. Each client has editable instructions, a two-layer drag-and-drop site map with an option to regenerate via Google Gemini, and a Content tab that generates page sections using the saved source text. The API key lives in `wordprseo-website-builder/builder.php`; see `wordprseo-website-builder/INSTRUCTIONS.txt` for the default guidance.
-
+Log in with the admin credentials to manage clients. When adding a client, upload DOCX, PDF, PPTX or TXT files; their text is stored in the database as the core source. Each client has editable instructions, a two-layer drag-and-drop site map with an option to regenerate via Google Gemini using the uploaded source text, and a Content tab that generates page sections from that same source. The API key lives in `wordprseo-website-builder/builder.php`; see `wordprseo-website-builder/INSTRUCTIONS.txt` for the default guidance.

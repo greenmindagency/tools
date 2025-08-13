@@ -32,8 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (isset($_POST['regenerate'])) {
         $num = (int)($_POST['num_pages'] ?? 4);
         $instr = $_POST['instructions'] ?? $instructions;
+        $source = $client['core_text'] ?? '';
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-        $prompt = "Generate a website sitemap with at most {$num} pages. Allow one level of subpages. Use the instructions:\n{$instr}\nReturn each page on its own line as 'Page' or 'Parent > Child'.";
+        $prompt = "Using the following source text:\n{$source}\n\nAnd the instructions:\n{$instr}\nGenerate only a website sitemap with at most {$num} pages and one optional level of subpages. Output each entry on a separate line as 'Page' or 'Parent > Child'. Do not include numbering or any other commentary.";
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -60,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 foreach ($lines as $line) {
                     $line = trim($line);
                     if ($line === '') continue;
+                    $line = preg_replace('/^[\d\-\.\)]+\s*/', '', $line);
                     if (strpos($line, '>') !== false) {
                         list($parent, $child) = array_map('trim', explode('>', $line, 2));
                         $found = false;
