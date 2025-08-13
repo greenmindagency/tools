@@ -44,6 +44,8 @@ Some guidlines:
 
 - there's some sort of things you have to understand Article title has to have a section than didn't have title like the image carousel or the image gallery so please focus on this 
 - try to end the page with contentpage5 sicne it will show the form to contact before the footer
+- when you generate content please keep each section seperated with horizontal line and please mention the section name above each section to understand which section you are used to generate this content
+
 
 examples of good structure (don't copy just for your knowledge)
 
@@ -55,9 +57,8 @@ about page:
 slider, articletitle, pagecontent2, pagecontent1, catconnection, pagecontent4, tagconnection, postsrelatedcat, articletitle, articleslideshow, pagecontent5
 
 service category which has all services 
-hero-video|pagecontent5, tagslist, articletitle, articlevideogallery, postsrelatedtagslider, pagecontent1, pagecontent3, verticaltabs, pagecontent7, pagecontent4, pagecontent2, pagecontent5, catconnection, articletitle, articleimages, tagconnection, postsrelatedcat, articletitle, articlevideogallery, postconnection, pagecontent5
+hero-video, tagslist, articletitle, articlevideogallery, postsrelatedtagslider, pagecontent1, pagecontent3, verticaltabs, pagecontent7, pagecontent4, pagecontent2, pagecontent5, catconnection, articletitle, articleimages, tagconnection, postsrelatedcat, articletitle, articlevideogallery, postconnection, pagecontent5
 
-when you see | between 2 tabs means this is a 2 columns of tabs beside each other it can work only in hero video and pagecontent5
 
 for other categories like blog or news it has only 1 section postsrelatedcat and select the infinite checkbox
 
@@ -77,7 +78,6 @@ contact us have the contacts section and pagecontent6 for the map
 
 the important thing try to don't chnage to mush in the structure of the default website since we spent alot of time to do, and also make the sections that cover the content only don't make things too long and repetative in 1 page, i don't mind to have 3/4 sections per page based on the content i provided in the instructions.
 
-when you generate content please keep each section seperated with horizontal line and please mention the section name above each section to understand which section you are used to generate this content
 
 please reduce the space of the output don't add alot of enters keep the content under each other flowlesly.
 
