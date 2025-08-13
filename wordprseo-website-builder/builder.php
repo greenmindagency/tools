@@ -141,7 +141,7 @@ function renderList(array $items) {
     foreach ($items as $item) {
         $title = htmlspecialchars($item['title']);
         $type = htmlspecialchars($item['type'] ?? 'page');
-        echo "<li class='list-group-item py-1'><div class='d-flex align-items-center mb-1 bg-light'>";
+        echo "<li class='list-group-item py-1 bg-light'><div class='d-flex align-items-center mb-1 bg-light'>";
         echo "<input type='text' class='form-control form-control-sm item-title-input me-2' value='{$title}'>";
         echo "<select class='form-select form-select-sm item-type me-2'>";
         foreach (['page'=>'Page','single'=>'Single','category'=>'Category','tag'=>'Tag'] as $val => $label) {
@@ -246,7 +246,7 @@ function initSortables() {
 }
 function createItem(name){
   const li=document.createElement('li');
-  li.className='list-group-item py-1';
+  li.className='list-group-item py-1 bg-light';
   li.innerHTML="<div class='d-flex align-items-center mb-1 bg-light'>"+
     "<input type='text' class='form-control form-control-sm item-title-input me-2'>"+
     "<select class='form-select form-select-sm item-type me-2'>"+
