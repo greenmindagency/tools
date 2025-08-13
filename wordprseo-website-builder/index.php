@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } else {
                 $page = $_POST['page'] ?? 'home';
-                $apiKey = getenv('GEMINI_API_KEY');
+                $apiKey = getenv('AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0');
                 if (!$apiKey) {
                     $error = 'Set the GEMINI_API_KEY environment variable with your Google Gemini key.';
                 } else {
