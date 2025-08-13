@@ -17,5 +17,5 @@ Backups are created manually from the dashboard using the **Backup Now**
 button. The seven most recent backup files are kept for each client.
 
 ## Wordprseo Website Builder
-A simple prototype that uploads Word, PDF, PowerPoint, or text files, extracts their text with PHP, and sends it to Google Gemini to generate a full home page with titled sections. Set your API key in the `GEMINI_API_KEY` environment variable before opening `wordprseo-website-builder/index.php`; if the key is missing or invalid the page will show a descriptive error.
+A simple prototype that uploads Word, PDF, PowerPoint, or text files, extracts their text with PHP, and sends it to Google Gemini to generate a full home page with titled sections. The API key is defined directly in `wordprseo-website-builder/index.php`; see `wordprseo-website-builder/INSTRUCTIONS.txt` for usage details.
 
