@@ -464,7 +464,7 @@ function generatePrompt() {
   }
   prompt += `Output language: ${language}.\n\n`;
   if (!tree) {
-    prompt += `Create a website tree for a WordprSEO site${pageLimit ? ` with no more than ${pageLimit} pages` : ''}. List each item and note whether it is a page, category, tag, or single. Existing pages: Home, About, Careers, Contact Us.\n\n`;
+    prompt += `Create a website tree for a WordprSEO site${pageLimit ? ` with no more than ${pageLimit} pages, the sub menu items also count, so if you will add tags for example as a sub services under category it will be counted.` : ''}. List each item and note whether it is a page, category, tag, or single. Existing pages: Home, About, Careers, Contact Us.\n\n`;
     prompt += "give me  the website tree in a bullet points list don't extend it too mush please, if i give you the website tree stuck on it, you can give recommendation if you would like, and stop after providing the sitemap.";
   } else {
     prompt += `Website tree:\n${tree}\n\n`;
