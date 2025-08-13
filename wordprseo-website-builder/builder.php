@@ -65,8 +65,6 @@ careers page have the pagecontent5 only which is the form
 
 contact us have the contacts section and pagecontent6 for the map
 
-start with the sitemap then step by step we will work on each page content based on below each section requeriments only, please also when you send me a sitemap make what the type if it will be cat, single etc..
-
 the important thing try to don't chnage to mush in the structure of the default website since we spent alot of time to do, and also make the sections that cover the content only don't make things too long and repetative in 1 page, i don't mind to have 3/4 sections per page based on the content i provided in the instructions.
 
 
