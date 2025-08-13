@@ -67,7 +67,9 @@ contact us have the contacts section and pagecontent6 for the map
 
 the important thing try to don't chnage to mush in the structure of the default website since we spent alot of time to do, and also make the sections that cover the content only don't make things too long and repetative in 1 page, i don't mind to have 3/4 sections per page based on the content i provided in the instructions.
 
+when you generate content please keep each section seperated with horizontal line and please mention the section name above each section to understand which section you are used to generate this content
 
+please reduce the space of the output don't add alot of enters keep the content under each other flowlesly.
 
 --- sections description and design:
 
@@ -296,7 +298,7 @@ a section present % of success
 
 title (5/6 words) and content under it 15 to 20 words.
 
-at the right a title and % this title showing a service or important figuer with % beside it
+at the right a title and % this title showing a service or important figuer with % beside it, please make sure to have 3 items with 3 of % and titles
 
 
 Section Name: pagecontent8
