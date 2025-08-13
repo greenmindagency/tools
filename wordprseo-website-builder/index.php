@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } else {
                 $page = $_POST['page'] ?? 'home';
-                $apiKey = getenv('GEMINI_API_KEY') ?: 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
+                $apiKey = getenv('AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0') ?: 'YOUR_API_KEY';
                 $prompt = "Write a full {$page} page with Hero, About Us, Services, and Contact sections. Each section should have a title and subtitle. Base the content on the following source text:\n\n" . $text;
                 $payload = json_encode([
                     'contents' => [
