@@ -15,3 +15,6 @@ https://greenmindagency.com/tools/
 ### SEO Platform Backups
 Backups are created manually from the dashboard using the **Backup Now**
 button. The seven most recent backup files are kept for each client.
+
+## Wordprseo Website Builder
+A simple prototype that uploads source documents and uses a Python script to generate basic website content. Start the tool by opening `wordprseo-website-builder/index.php` in your browser.
