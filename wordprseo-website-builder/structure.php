@@ -142,10 +142,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-function flattenPages(array $items, array &$list) {
+function flattenPages(array $items, array &$list, int $level = 0) {
     foreach ($items as $it) {
-        $list[] = $it['title'];
-        if (!empty($it['children'])) flattenPages($it['children'], $list);
+        $list[] = [
+            'title' => $it['title'],
+            'type' => $it['type'] ?? 'page',
+            'level' => $level
+        ];
+        if (!empty($it['children'])) flattenPages($it['children'], $list, $level + 1);
     }
 }
 $pages = [];
@@ -176,13 +180,16 @@ require __DIR__ . '/../header.php';
 
 <div class="row">
   <div class="col-md-5">
-    <ul class="list-group position-sticky" style="top: 0;">
+    <ul class="list-group position-sticky" style="top: 70px;">
       <?php foreach ($pages as $p): ?>
-      <li class="list-group-item d-flex justify-content-between align-items-center page-item<?= ($openPage === $p) ? ' active' : '' ?>" data-page="<?= htmlspecialchars($p) ?>">
-        <span><?= htmlspecialchars($p) ?></span>
-        <span class="btn-group btn-group-sm">
+      <li class="list-group-item d-flex justify-content-between align-items-center page-item<?= ($openPage === $p['title']) ? ' active' : '' ?>" data-page="<?= htmlspecialchars($p['title']) ?>" style="padding-left: <?= $p['level'] * 15 ?>px;">
+        <span>
+          <?= htmlspecialchars($p['title']) ?>
+          <span class="badge bg-secondary ms-1"><?= htmlspecialchars($p['type']) ?></span>
+        </span>
+        <span class="btn-group btn-group-sm d-none">
           <button type="button" class="btn btn-secondary generate-btn">Generate</button>
-          <button type="button" class="btn btn-primary save-btn">Save</button>
+          <button type="button" class="btn btn-success save-btn">Save</button>
         </span>
       </li>
       <?php endforeach; ?>
@@ -232,9 +239,14 @@ function showAddMenu(refDiv){
   }
   document.querySelectorAll('.add-menu').forEach(m => m.remove());
   const menu = document.createElement('div');
-  menu.className = 'add-menu mb-2 p-2 border bg-white';
+  menu.className = 'add-menu mb-2 p-2 border bg-white position-relative';
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'btn btn-sm btn-danger position-absolute top-0 end-0';
+  close.textContent = '\u00d7';
+  close.addEventListener('click', () => menu.remove());
   const grid = document.createElement('div');
-  grid.className = 'row row-cols-4 g-1';
+  grid.className = 'row row-cols-4 g-1 mt-2';
   sectionOptions.forEach(opt => {
     const col = document.createElement('div');
     col.className = 'col border';
@@ -249,13 +261,18 @@ function showAddMenu(refDiv){
     col.appendChild(img);
     grid.appendChild(col);
   });
-  menu.appendChild(grid);
+  menu.append(close, grid);
   refDiv.parentNode.insertBefore(menu, refDiv);
 }
 
 function loadPage(page){
   currentPage = page;
-  document.querySelectorAll('.page-item').forEach(li => li.classList.toggle('active', li.dataset.page === page));
+  document.querySelectorAll('.page-item').forEach(li => {
+    const isActive = li.dataset.page === page;
+    li.classList.toggle('active', isActive);
+    const btns = li.querySelector('.btn-group');
+    if (btns) btns.classList.toggle('d-none', !isActive);
+  });
   const container = document.getElementById('sectionsContainer');
   container.innerHTML = '';
   (pageData[page] || []).forEach(sec => container.appendChild(createSectionElement(sec)));
