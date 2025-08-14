@@ -77,8 +77,7 @@ careers page have the pagecontent5 only which is the form
 
 contact us or any forms included like book appointment,  have the contacts section and pagecontent6 for the map
 
-the important thing try to don't chnage to mush in the structure of the default website since we spent alot of time to do, and also make the sections that cover the content only don't make things too long and repetative in 1 page, i don't mind to have 3/4 sections per page based on the content i provided in the instructions, i made the sections long in the above example because i have content source i can build from.
-
+the important thing try to be creative in the structure of page don't copy paste from default template try to produce something creative.
 
 
 TXT;
