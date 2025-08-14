@@ -52,7 +52,7 @@ accordion,articleimages,articletitle,articlevideo,articlevideogallery,catconnect
 Some instructions:
 
 - If i have tags in the site map you can include if i haven't you should elemnate adding tags
-- articletitle can be added only for sections didn't have titles which are (articleimages, articlevideogallery,imagesslider,imgcarousel) please focue on this it's really important
+- articletitle can be added only for sections didn't have titles and it will be added before these sections (articleimages, articlevideogallery,imagesslider,imgcarousel) please focue on this it's really important
 - postsrelatedcat,postsrelatedcatslider,postsrelatedwithfilter can only be added if i have single pages under categories if not you have not to include them
 
 the default template have the below structure just for your info (don't copy paste):
