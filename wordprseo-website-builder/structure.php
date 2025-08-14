@@ -172,89 +172,137 @@ require __DIR__ . '/../header.php';
 <?php if ($generated): ?><div class="alert alert-info"><?= htmlspecialchars($generated) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 
-<div class="accordion" id="structureAccordion">
-<?php foreach ($pages as $p):
-    $slug = strtolower(preg_replace('/[^a-z0-9]+/i','-', $p));
-    $sections = $pageData[$p] ?? [];
-    $show = ($openPage === $p) ? ' show' : '';
-    $expanded = ($openPage === $p) ? 'true' : 'false';
-?>
-  <div class="accordion-item">
-    <h2 class="accordion-header" id="heading-<?= $slug ?>">
-      <button class="accordion-button<?= $show ? '' : ' collapsed' ?>" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-<?= $slug ?>" aria-expanded="<?= $expanded ?>" aria-controls="collapse-<?= $slug ?>">
-        <?= htmlspecialchars($p) ?>
-      </button>
-    </h2>
-    <div id="collapse-<?= $slug ?>" class="accordion-collapse collapse<?= $show ?>" aria-labelledby="heading-<?= $slug ?>" data-bs-parent="#structureAccordion">
-      <div class="accordion-body">
-        <form method="post" class="page-form" id="form-<?= $slug ?>">
-          <input type="hidden" name="page" value="<?= htmlspecialchars($p) ?>">
-          <input type="hidden" name="page_structure" id="input-<?= $slug ?>">
-          <ul class="list-group mb-2 section-list" id="list-<?= $slug ?>">
-            <?php foreach ($sections as $sec): ?>
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-              <span><?= htmlspecialchars($sec) ?></span>
-              <button type="button" class="btn btn-sm btn-link text-danger remove-section">x</button>
-            </li>
-            <?php endforeach; ?>
-          </ul>
-          <div id="addSectionContainer-<?= $slug ?>" class="mb-2 d-flex align-items-center gap-2">
-            <button type="button" class="btn btn-secondary btn-sm show-add-section">Add Section</button>
-            <div class="input-group input-group-sm d-none add-section-form" style="width:auto;">
-              <select class="form-select form-select-sm section-select">
-                <?php foreach ($sectionOptions as $opt): ?>
-                  <option value="<?= htmlspecialchars($opt) ?>"><?= htmlspecialchars($opt) ?></option>
-                <?php endforeach; ?>
-              </select>
-              <button class="btn btn-success btn-sm add-section-confirm" type="button">Add</button>
-            </div>
-          </div>
-          <button type="submit" name="generate_structure" class="btn btn-secondary btn-sm me-2">Generate</button>
-          <button type="submit" name="save_structure" class="btn btn-primary btn-sm">Save</button>
-        </form>
-      </div>
-    </div>
+<div class="row">
+  <div class="col-md-3">
+    <ul class="list-group position-sticky" style="top: 0;">
+      <?php foreach ($pages as $p): ?>
+      <li class="list-group-item d-flex justify-content-between align-items-center page-item<?= ($openPage === $p) ? ' active' : '' ?>" data-page="<?= htmlspecialchars($p) ?>">
+        <span><?= htmlspecialchars($p) ?></span>
+        <span class="btn-group btn-group-sm">
+          <button type="button" class="btn btn-secondary generate-btn">Generate</button>
+          <button type="button" class="btn btn-primary save-btn">Save</button>
+        </span>
+      </li>
+      <?php endforeach; ?>
+    </ul>
   </div>
-<?php endforeach; ?>
+  <div class="col-md-9">
+    <div id="sectionsContainer" class="mb-3"></div>
+  </div>
 </div>
+
+<form id="actionForm" method="post" class="d-none"></form>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
-document.querySelectorAll('.section-list').forEach(function(el){
-  Sortable.create(el,{animation:150});
-});
-document.querySelectorAll('.show-add-section').forEach(function(btn){
-  btn.addEventListener('click',function(){
-    const form = this.nextElementSibling;
-    form.classList.toggle('d-none');
+var pageData = <?= json_encode($pageData) ?>;
+var sectionOptions = <?= json_encode($sectionOptions) ?>;
+var imgBase = 'https://greenmindagency.com/websites/wordprseo/wp-content/themes/wordprseo/acf-images/';
+var currentPage = <?= $openPage ? json_encode($openPage) : 'null' ?>;
+
+function createSectionElement(sec){
+  const div = document.createElement('div');
+  div.className = 'section-item position-relative mb-2';
+  const img = document.createElement('img');
+  img.src = imgBase + sec + '.png';
+  img.alt = sec;
+  img.className = 'img-fluid';
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'btn btn-sm btn-danger position-absolute top-0 end-0 remove-section';
+  del.textContent = 'x';
+  del.addEventListener('click', () => div.remove());
+  const add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'btn btn-sm btn-success position-absolute top-0 start-0 add-before';
+  add.textContent = '+';
+  add.addEventListener('click', () => showAddMenu(add, div));
+  div.append(img, add, del);
+  return div;
+}
+
+function showAddMenu(btn, refDiv){
+  if (btn.nextElementSibling && btn.nextElementSibling.classList.contains('add-menu')) {
+    btn.nextElementSibling.remove();
+    return;
+  }
+  const menu = document.createElement('div');
+  menu.className = 'add-menu position-absolute bg-white border p-1';
+  const select = document.createElement('select');
+  select.className = 'form-select form-select-sm mb-1';
+  sectionOptions.forEach(opt => {
+    const o = document.createElement('option');
+    o.value = opt;
+    o.textContent = opt;
+    select.appendChild(o);
+  });
+  const ok = document.createElement('button');
+  ok.type = 'button';
+  ok.className = 'btn btn-sm btn-primary w-100';
+  ok.textContent = 'Add';
+  ok.addEventListener('click', () => {
+    refDiv.parentNode.insertBefore(createSectionElement(select.value), refDiv);
+    menu.remove();
+  });
+  menu.append(select, ok);
+  btn.after(menu);
+}
+
+function loadPage(page){
+  currentPage = page;
+  document.querySelectorAll('.page-item').forEach(li => li.classList.toggle('active', li.dataset.page === page));
+  const container = document.getElementById('sectionsContainer');
+  container.innerHTML = '';
+  (pageData[page] || []).forEach(sec => container.appendChild(createSectionElement(sec)));
+  if (!container.dataset.sortable) {
+    Sortable.create(container, {animation:150});
+    container.dataset.sortable = '1';
+  }
+}
+
+document.querySelectorAll('.page-item').forEach(li => {
+  li.addEventListener('click', function(e){
+    if (e.target.classList.contains('generate-btn') || e.target.classList.contains('save-btn')) return;
+    loadPage(this.dataset.page);
+  });
+  li.querySelector('.generate-btn').addEventListener('click', function(e){
+    e.stopPropagation();
+    submitAction(li.dataset.page, 'generate_structure');
+  });
+  li.querySelector('.save-btn').addEventListener('click', function(e){
+    e.stopPropagation();
+    submitAction(li.dataset.page, 'save_structure');
   });
 });
-document.querySelectorAll('.add-section-confirm').forEach(function(btn){
-  btn.addEventListener('click',function(){
-    const select = this.previousElementSibling;
-    const val = select.value;
-    if(!val) return;
-    const ul = this.closest('.accordion-body').querySelector('.section-list');
-    const li = document.createElement('li');
-    li.className = 'list-group-item d-flex justify-content-between align-items-center';
-    li.innerHTML = "<span>"+val+"</span><button type='button' class='btn btn-sm btn-link text-danger remove-section'>x</button>";
-    ul.appendChild(li);
-  });
-});
-document.querySelectorAll('.section-list').forEach(function(ul){
-  ul.addEventListener('click',function(e){
-    if(e.target.classList.contains('remove-section')){
-      e.target.closest('li').remove();
-    }
-  });
-});
-document.querySelectorAll('.page-form').forEach(function(f){
-  f.addEventListener('submit',function(){
-    const id = this.id.replace('form-','');
-    const ul = document.getElementById('list-'+id);
-    const arr = Array.from(ul.querySelectorAll('li span')).map(s=>s.innerText.trim()).filter(Boolean);
-    document.getElementById('input-'+id).value = JSON.stringify(arr);
-  });
-});
+
+function submitAction(page, action){
+  const form = document.getElementById('actionForm');
+  form.innerHTML = '';
+  const pageInput = document.createElement('input');
+  pageInput.type = 'hidden';
+  pageInput.name = 'page';
+  pageInput.value = page;
+  form.appendChild(pageInput);
+  const container = document.getElementById('sectionsContainer');
+  const arr = Array.from(container.querySelectorAll('.section-item img')).map(img => img.alt);
+  const structInput = document.createElement('input');
+  structInput.type = 'hidden';
+  structInput.name = 'page_structure';
+  structInput.value = JSON.stringify(arr);
+  form.appendChild(structInput);
+  const actionInput = document.createElement('input');
+  actionInput.type = 'hidden';
+  actionInput.name = action;
+  actionInput.value = '1';
+  form.appendChild(actionInput);
+  form.submit();
+}
+
+if (currentPage === null && Object.keys(pageData).length) {
+  currentPage = Object.keys(pageData)[0];
+}
+if (currentPage) {
+  loadPage(currentPage);
+}
 </script>
 <?php include __DIR__ . '/../footer.php'; ?>
