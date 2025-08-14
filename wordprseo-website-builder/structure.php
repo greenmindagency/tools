@@ -37,7 +37,7 @@ $openPage = '';
 $error = '';
 $generated = '';
 
-$sectionOptions = ['accordion','articledescription','articleimages','articletitle','articlevideo','articlevideogallery','catconnection','postconnection','tagconnection','contacts','herovideo','imageslider','imagecarousel','imgcarousel','pagecontent1','pagecontent2','pagecontent3','pagecontent4','pagecontent5','pagecontent6','pagecontent7','pagecontent8','pagecontent9','postsrelatedcat','postsrelatedcatslider','postsrelatedwithfilter','slider','tagslist','testimonial','verticaltabs'];
+$sectionOptions = ['accordion','articleimages','articletitle','articlevideo','articlevideogallery','catconnection','postconnection','tagconnection','contacts','herovideo','imageslider','imagecarousel','imgcarousel','pagecontent1','pagecontent2','pagecontent3','pagecontent4','pagecontent5','pagecontent6','pagecontent7','pagecontent8','pagecontent9','postsrelatedcat','postsrelatedcatslider','postsrelatedwithfilter','slider','tagslist','testimonial','verticaltabs'];
 
 $defaultPageInstr = <<<TXT
 
@@ -47,32 +47,31 @@ what i need from you is to follow below sections you have to make pages appeal a
 
 you can chosse from below:
 
-accordion,articledescription,articleimages,articletitle,articlevideo,articlevideogallery,catconnection,postconnection,tagconnection,contacts,herovideo,imageslider,imagecarousel,imgcarousel,pagecontent1,pagecontent2,pagecontent3,pagecontent4,pagecontent5,pagecontent6,pagecontent7,pagecontent8,pagecontent9,postsrelatedcat,postsrelatedcatslider,postsrelatedwithfilter,slider,tagslist,testimonial,verticaltabs
+accordion,articleimages,articletitle,articlevideo,articlevideogallery,catconnection,postconnection,tagconnection,contacts,herovideo,imageslider,imagecarousel,imgcarousel,pagecontent1,pagecontent2,pagecontent3,pagecontent4,pagecontent5,pagecontent6,pagecontent7,pagecontent8,pagecontent9,postsrelatedcat,postsrelatedcatslider,postsrelatedwithfilter,slider,tagslist,testimonial,verticaltabs
 
 Some instructions:
 
 - If i have tags in the site map you can include if i haven't you should elemnate adding tags
-- articletitle can be added only for sections didn't have titles which are (articleimages, articledescription, articlevideogallery,imageslider,imagecarousel,imgcarousel)
+- articletitle can be added only for sections didn't have titles which are (articleimages, articlevideogallery,imageslider,imagecarousel,imgcarousel)
 - postsrelatedcat,postsrelatedcatslider,postsrelatedwithfilter can only be added if i have single pages under categories if not you have not to include them
 
 the default template have the below structure just for your info (don't copy paste):
 
 home page:
-slider, tagslist, pagecontent2, pagecontent1, catconnection, slider, pagecontent3, articletitle, articleimages, postconnection, hero-video, articletitle, pagecontent7, postsrelatedcat, accordion, pagecontent5
+slider, tagslist, pagecontent2, pagecontent1, catconnection, pagecontent3, articletitle, articleimages, hero-video, articletitle, pagecontent7, postsrelatedcat, accordion, pagecontent5
 
 
 about page:
-slider, articletitle, pagecontent2, pagecontent1, catconnection, pagecontent4, tagconnection, postsrelatedcat, articletitle, articleslideshow, pagecontent5
+slider, articletitle, pagecontent2, pagecontent1, catconnection, pagecontent4, articletitle, articleslideshow, pagecontent5
 
 service category which has all services 
-hero-video, tagslist, articletitle, articlevideogallery, postsrelatedtagslider, pagecontent1, pagecontent3, verticaltabs, pagecontent7, pagecontent4, pagecontent2, pagecontent5, catconnection, articletitle, articleimages, tagconnection, postsrelatedcat, articletitle, articlevideogallery, postconnection, pagecontent5
+hero-video, tagslist, articletitle, articlevideogallery, postsrelatedtagslider, pagecontent3, verticaltabs, pagecontent7, pagecontent2, pagecontent5
 
 for other categories like blog or news it has only 1 section postsrelatedcat and select the infinite checkbox
 
 
 service tags (sub services) under the service category working as a subservices (tag)
-slider, pagecontent1, tagconnection, articletitle, pagecontent1, pagecontent3, pagecontent1, articletitle, articlevideogallery, accordion, articletitle, imgcarousel, pagecontent5
-
+slider, pagecontent1, tagconnection, pagecontent1, pagecontent3, articletitle, accordion, pagecontent5
 
 careers page have the pagecontent5 only which is the form
 
