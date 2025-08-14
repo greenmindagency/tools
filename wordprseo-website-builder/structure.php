@@ -216,36 +216,38 @@ function createSectionElement(sec){
   add.type = 'button';
   add.className = 'btn btn-sm btn-success position-absolute top-0 start-0 add-before';
   add.textContent = '+';
-  add.addEventListener('click', () => showAddMenu(add, div));
+  add.addEventListener('click', () => showAddMenu(div));
   div.append(img, add, del);
   return div;
 }
 
-function showAddMenu(btn, refDiv){
-  if (btn.nextElementSibling && btn.nextElementSibling.classList.contains('add-menu')) {
-    btn.nextElementSibling.remove();
+function showAddMenu(refDiv){
+  const prev = refDiv.previousElementSibling;
+  if (prev && prev.classList.contains('add-menu')) {
+    prev.remove();
     return;
   }
+  document.querySelectorAll('.add-menu').forEach(m => m.remove());
   const menu = document.createElement('div');
-  menu.className = 'add-menu position-absolute bg-white border p-1';
-  const select = document.createElement('select');
-  select.className = 'form-select form-select-sm mb-1';
+  menu.className = 'add-menu mb-2 p-2 border bg-white';
+  const grid = document.createElement('div');
+  grid.className = 'row row-cols-4 g-1';
   sectionOptions.forEach(opt => {
-    const o = document.createElement('option');
-    o.value = opt;
-    o.textContent = opt;
-    select.appendChild(o);
+    const col = document.createElement('div');
+    col.className = 'col';
+    const img = document.createElement('img');
+    img.src = imgBase + opt + '.png';
+    img.alt = opt;
+    img.className = 'img-fluid';
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', () => {
+      menu.replaceWith(createSectionElement(opt));
+    });
+    col.appendChild(img);
+    grid.appendChild(col);
   });
-  const ok = document.createElement('button');
-  ok.type = 'button';
-  ok.className = 'btn btn-sm btn-primary w-100';
-  ok.textContent = 'Add';
-  ok.addEventListener('click', () => {
-    refDiv.parentNode.insertBefore(createSectionElement(select.value), refDiv);
-    menu.remove();
-  });
-  menu.append(select, ok);
-  btn.after(menu);
+  menu.appendChild(grid);
+  refDiv.parentNode.insertBefore(menu, refDiv);
 }
 
 function loadPage(page){
