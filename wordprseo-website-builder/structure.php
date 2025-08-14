@@ -234,7 +234,7 @@ function showAddMenu(refDiv){
   grid.className = 'row row-cols-4 g-1';
   sectionOptions.forEach(opt => {
     const col = document.createElement('div');
-    col.className = 'col';
+    col.className = 'col border';
     const img = document.createElement('img');
     img.src = imgBase + opt + '.jpg';
     img.alt = opt;
