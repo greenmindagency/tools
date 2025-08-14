@@ -75,7 +75,10 @@ slider, pagecontent1, tagconnection, pagecontent1, pagecontent3, articletitle, a
 
 careers page have the pagecontent5 only which is the form
 
-contact us or any forms included like book appointment,  have the contacts section and pagecontent6 for the map
+contact us:  have the contacts section and pagecontent6 for the map
+
+for any forms included pages like book appointment or book now or something like this it should be pagecontent5 which has the forms and a 2 or 3 sections below it.
+
 
 the important thing try to be creative in the structure of page don't copy paste from default template try to produce something creative. i don't mind to have 3/4 sections per page based on the content i provided in the instructions, i made the sections long in the above example because i have content source i can build from.
 
