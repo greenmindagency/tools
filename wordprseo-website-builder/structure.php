@@ -202,7 +202,7 @@ var currentPage = <?= $openPage ? json_encode($openPage) : 'null' ?>;
 
 function createSectionElement(sec){
   const div = document.createElement('div');
-  div.className = 'section-item position-relative mb-2';
+  div.className = 'section-item position-relative';
   const img = document.createElement('img');
   img.src = imgBase + sec + '.jpg';
   img.alt = sec;
