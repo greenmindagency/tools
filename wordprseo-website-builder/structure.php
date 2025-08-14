@@ -236,7 +236,7 @@ function showAddMenu(refDiv){
     const col = document.createElement('div');
     col.className = 'col';
     const img = document.createElement('img');
-    img.src = imgBase + opt + '.png';
+    img.src = imgBase + opt + '.jpg';
     img.alt = opt;
     img.className = 'img-fluid';
     img.style.cursor = 'pointer';
