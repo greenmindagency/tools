@@ -179,10 +179,10 @@ require __DIR__ . '/../header.php';
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 
 <div class="row">
-  <div class="col-md-5">
+  <div class="col-md-4">
     <ul class="list-group position-sticky" style="top: 70px;">
       <?php foreach ($pages as $p): ?>
-      <?php $paddingClass = $p['level'] > 0 ? 'ps-3' : 'ps-2'; ?>
+      <?php $paddingClass = $p['level'] > 0 ? 'ps-4' : 'ps-2'; ?>
       <li class="list-group-item d-flex justify-content-between align-items-center <?= $paddingClass ?> page-item<?= ($openPage === $p['title']) ? ' active' : '' ?>" data-page="<?= htmlspecialchars($p['title']) ?>">
         <span>
           <?= htmlspecialchars($p['title']) ?>
@@ -197,7 +197,7 @@ require __DIR__ . '/../header.php';
     </ul>
   </div>
 
-  <div class="col-md-7">
+  <div class="col-md-8">
     <div id="sectionsContainer" class="mb-3"></div>
   </div>
 </div>
