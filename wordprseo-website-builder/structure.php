@@ -173,7 +173,7 @@ require __DIR__ . '/../header.php';
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 
 <div class="row">
-  <div class="col-md-3">
+  <div class="col-md-5">
     <ul class="list-group position-sticky" style="top: 0;">
       <?php foreach ($pages as $p): ?>
       <li class="list-group-item d-flex justify-content-between align-items-center page-item<?= ($openPage === $p) ? ' active' : '' ?>" data-page="<?= htmlspecialchars($p) ?>">
@@ -186,7 +186,7 @@ require __DIR__ . '/../header.php';
       <?php endforeach; ?>
     </ul>
   </div>
-  <div class="col-md-9">
+  <div class="col-md-7">
     <div id="sectionsContainer" class="mb-3"></div>
   </div>
 </div>
