@@ -49,6 +49,12 @@ you can chosse from below:
 
 accordion,articledescription,articleimages,articletitle,articlevideo,articlevideogallery,catconnection,postconnection,tagconnection,contacts,herovideo,imageslider,imagecarousel,imgcarousel,pagecontent1,pagecontent2,pagecontent3,pagecontent4,pagecontent5,pagecontent6,pagecontent7,pagecontent8,pagecontent9,postsrelatedcat,postsrelatedcatslider,postsrelatedwithfilter,slider,tagslist,testimonial,verticaltabs
 
+Some instructions:
+
+- If i have tags in the site map you can include if i haven't you should elemnate adding tags
+- articletitle can be added only for sections didn't have titles which are (articleimages, articledescription, articlevideogallery,imageslider,imagecarousel,imgcarousel)
+- postsrelatedcat,postsrelatedcatslider,postsrelatedwithfilter can only be added if i have single pages under categories if not you have not to include them
+
 the default template have the below structure just for your info (don't copy paste):
 
 home page:
@@ -59,9 +65,7 @@ about page:
 slider, articletitle, pagecontent2, pagecontent1, catconnection, pagecontent4, tagconnection, postsrelatedcat, articletitle, articleslideshow, pagecontent5
 
 service category which has all services 
-hero-video|pagecontent5, tagslist, articletitle, articlevideogallery, postsrelatedtagslider, pagecontent1, pagecontent3, verticaltabs, pagecontent7, pagecontent4, pagecontent2, pagecontent5, catconnection, articletitle, articleimages, tagconnection, postsrelatedcat, articletitle, articlevideogallery, postconnection, pagecontent5
-
-when you see | between 2 tabs means this is a 2 columns of tabs beside each other it can work only in hero video and pagecontent5
+hero-video, tagslist, articletitle, articlevideogallery, postsrelatedtagslider, pagecontent1, pagecontent3, verticaltabs, pagecontent7, pagecontent4, pagecontent2, pagecontent5, catconnection, articletitle, articleimages, tagconnection, postsrelatedcat, articletitle, articlevideogallery, postconnection, pagecontent5
 
 for other categories like blog or news it has only 1 section postsrelatedcat and select the infinite checkbox
 
@@ -72,9 +76,11 @@ slider, pagecontent1, tagconnection, articletitle, pagecontent1, pagecontent3, p
 
 careers page have the pagecontent5 only which is the form
 
-contact us have the contacts section and pagecontent6 for the map
+contact us or any forms included like book appointment,  have the contacts section and pagecontent6 for the map
 
 the important thing try to don't chnage to mush in the structure of the default website since we spent alot of time to do, and also make the sections that cover the content only don't make things too long and repetative in 1 page, i don't mind to have 3/4 sections per page based on the content i provided in the instructions, i made the sections long in the above example because i have content source i can build from.
+
+
 
 TXT;
 
