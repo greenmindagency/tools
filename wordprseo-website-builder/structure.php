@@ -182,7 +182,7 @@ require __DIR__ . '/../header.php';
   <div class="col-md-5">
     <ul class="list-group position-sticky" style="top: 70px;">
       <?php foreach ($pages as $p): ?>
-      <li class="list-group-item d-flex justify-content-between align-items-center page-item<?= ($openPage === $p['title']) ? ' active' : '' ?>" data-page="<?= htmlspecialchars($p['title']) ?>" style="padding-left: <?= $p['level'] * 15 ?>px;">
+      <li class="list-group-item d-flex justify-content-between align-items-center ps-2 page-item<?= ($openPage === $p['title']) ? ' active' : '' ?>" data-page="<?= htmlspecialchars($p['title']) ?>" style="padding-left: <?= $p['level'] * 15 ?>px;">
         <span>
           <?= htmlspecialchars($p['title']) ?>
           <span class="badge bg-secondary ms-1"><?= htmlspecialchars($p['type']) ?></span>
