@@ -37,7 +37,7 @@ $openPage = '';
 $error = '';
 $generated = '';
 
-$sectionOptions = ['accordion','articleimages','articletitle','articlevideo','articlevideogallery','catconnection','postconnection','tagconnection','contacts','herovideo','imageslider','imagecarousel','imgcarousel','pagecontent1','pagecontent2','pagecontent3','pagecontent4','pagecontent5','pagecontent6','pagecontent7','pagecontent8','pagecontent9','postsrelatedcat','postsrelatedcatslider','postsrelatedwithfilter','slider','tagslist','testimonial','verticaltabs'];
+$sectionOptions = ['accordion','articleimages','articletitle','articlevideo','articlevideogallery','catconnection','postconnection','tagconnection','contacts','herovideo','imagesslider','imgcarousel','imgcarousel','pagecontent1','pagecontent2','pagecontent3','pagecontent4','pagecontent5','pagecontent6','pagecontent7','pagecontent8','pagecontent9','postsrelatedcat','postsrelatedcatslider','postsrelatedwithfilter','slider','tagslist','testimonial','verticaltabs'];
 
 $defaultPageInstr = <<<TXT
 
@@ -47,12 +47,12 @@ what i need from you is to follow below sections you have to make pages appeal a
 
 you can chosse from below:
 
-accordion,articleimages,articletitle,articlevideo,articlevideogallery,catconnection,postconnection,tagconnection,contacts,herovideo,imageslider,imagecarousel,imgcarousel,pagecontent1,pagecontent2,pagecontent3,pagecontent4,pagecontent5,pagecontent6,pagecontent7,pagecontent8,pagecontent9,postsrelatedcat,postsrelatedcatslider,postsrelatedwithfilter,slider,tagslist,testimonial,verticaltabs
+accordion,articleimages,articletitle,articlevideo,articlevideogallery,catconnection,postconnection,tagconnection,contacts,herovideo,imagesslider,imgcarousel,imgcarousel,pagecontent1,pagecontent2,pagecontent3,pagecontent4,pagecontent5,pagecontent6,pagecontent7,pagecontent8,pagecontent9,postsrelatedcat,postsrelatedcatslider,postsrelatedwithfilter,slider,tagslist,testimonial,verticaltabs
 
 Some instructions:
 
 - If i have tags in the site map you can include if i haven't you should elemnate adding tags
-- articletitle can be added only for sections didn't have titles which are (articleimages, articlevideogallery,imageslider,imagecarousel,imgcarousel)
+- articletitle can be added only for sections didn't have titles which are (articleimages, articlevideogallery,imagesslider,imgcarousel,imgcarousel)
 - postsrelatedcat,postsrelatedcatslider,postsrelatedwithfilter can only be added if i have single pages under categories if not you have not to include them
 
 the default template have the below structure just for your info (don't copy paste):
