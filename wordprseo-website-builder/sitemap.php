@@ -145,7 +145,7 @@ function renderList(array $items) {
         echo "<option value='single'" . ($type==='single'?" selected":"") . ">Single</option>";
         echo "<option value='category'" . ($type==='category'?" selected":"") . ">Category</option>";
         echo "<option value='tag'" . ($type==='tag'?" selected":"") . ">Tag</option>";
-        echo "</select><span><button type='button' class='btn btn-sm btn-link add-child'>+</button><button type='button' class='btn btn-sm btn-link text-danger remove'>x</button></span></div><ul class='list-group ms-3 children'>";
+        echo "</select><div class='btn-group btn-group-sm ms-2'><button type='button' class='btn btn-outline-secondary add-child'>+</button><button type='button' class='btn btn-outline-danger remove'>x</button></div></div><ul class='list-group ms-3 children'>";
         if (!empty($item['children'])) renderList($item['children']);
         echo "</ul></li>";
     }
@@ -235,7 +235,7 @@ function createItem(name){
     "<option value='single'>Single</option>"+
     "<option value='category'>Category</option>"+
     "<option value='tag'>Tag</option>"+
-    "</select><span><button type='button' class='btn btn-sm btn-link add-child'>+</button><button type='button' class='btn btn-sm btn-link text-danger remove'>x</button></span></div><ul class='list-group ms-3 children'></ul>";
+    "</select><div class='btn-group btn-group-sm ms-2'><button type='button' class='btn btn-outline-secondary add-child'>+</button><button type='button' class='btn btn-outline-danger remove'>x</button></div></div><ul class='list-group ms-3 children'></ul>";
   li.querySelector('.item-title-input').value=name;
   return li;
 }
