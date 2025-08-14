@@ -188,6 +188,7 @@ require __DIR__ . '/../header.php';
       <?php endforeach; ?>
     </ul>
   </div>
+
   <div class="col-md-7">
     <div id="sectionsContainer" class="mb-3"></div>
   </div>
