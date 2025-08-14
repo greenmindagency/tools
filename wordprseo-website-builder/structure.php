@@ -197,14 +197,14 @@ require __DIR__ . '/../header.php';
 <script>
 var pageData = <?= json_encode($pageData) ?>;
 var sectionOptions = <?= json_encode($sectionOptions) ?>;
-var imgBase = 'https://greenmindagency.com/websites/wordprseo/wp-content/themes/wordprseo/acf-images/';
+var imgBase = 'https://wordprseo.greenmindagency.com/wp-content/themes/wordprseo/acf-images/';
 var currentPage = <?= $openPage ? json_encode($openPage) : 'null' ?>;
 
 function createSectionElement(sec){
   const div = document.createElement('div');
   div.className = 'section-item position-relative mb-2';
   const img = document.createElement('img');
-  img.src = imgBase + sec + '.png';
+  img.src = imgBase + sec + '.jpg';
   img.alt = sec;
   img.className = 'img-fluid';
   const del = document.createElement('button');
