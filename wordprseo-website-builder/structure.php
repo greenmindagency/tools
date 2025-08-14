@@ -41,11 +41,15 @@ $sectionOptions = ['accordion','articledescription','articleimages','articletitl
 
 $defaultPageInstr = <<<TXT
 
-I need to create an SEO content for the page please start with Meta title (60 characters max don't add the client name), Meta description (from 110 to 140 characters max)
+I need to create an wordprseo structure for the page please
 
 what i need from you is to follow below sections you have to make pages appeal and have varities of sections, usually make a variations to make things looks nice 
 
-the default template have the below structure that you can follow:
+you can chosse from below:
+
+accordion,articledescription,articleimages,articletitle,articlevideo,articlevideogallery,catconnection,postconnection,tagconnection,contacts,herovideo,imageslider,imagecarousel,imgcarousel,pagecontent1,pagecontent2,pagecontent3,pagecontent4,pagecontent5,pagecontent6,pagecontent7,pagecontent8,pagecontent9,postsrelatedcat,postsrelatedcatslider,postsrelatedwithfilter,slider,tagslist,testimonial,verticaltabs
+
+the default template have the below structure just for your info (don't copy paste):
 
 home page:
 slider, tagslist, pagecontent2, pagecontent1, catconnection, slider, pagecontent3, articletitle, articleimages, postconnection, hero-video, articletitle, pagecontent7, postsrelatedcat, accordion, pagecontent5
