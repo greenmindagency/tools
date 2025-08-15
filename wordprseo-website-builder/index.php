@@ -70,7 +70,7 @@ foreach ($stmt as $client) {
     $id = $client['id'];
     $name = htmlspecialchars($client['name']);
     echo "<li class='list-group-item d-flex justify-content-between align-items-center'>";
-    echo "<a class='me-auto text-decoration-none' href='source.php?client_id=$id'>$name</a>";
+    echo "<a class='me-auto text-decoration-none' href='sitemap.php?client_id=$id'>$name</a>";
     echo "<form method='POST' class='d-inline ms-1' onsubmit=\"return confirm('Delete this client?');\">";
     echo "<input type='hidden' name='delete_client' value='$id'>";
     echo "<button class='btn btn-sm btn-outline-danger'>Remove</button>";
