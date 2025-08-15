@@ -482,9 +482,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($res) {
                     $sectionContent = $res['sections'] ?? [];
                     foreach ($sections as $sec) {
-                        if (empty(trim(strip_tags($sectionContent[$sec] ?? '')))) {
-                            $sectionContent[$sec] = '<p>Content pending...</p>';
+                        $content = $sectionContent[$sec] ?? '';
+                        if (is_array($content)) {
+                            $content = $content['content'] ?? '';
                         }
+                        if (!is_string($content) || !trim(strip_tags($content))) {
+                            $content = '<p>Content pending...</p>';
+                        }
+                        $sectionContent[$sec] = $content;
                     }
                     $pageData[$page] = [
                         'meta_title' => $res['meta_title'] ?? '',
@@ -532,8 +537,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $text = preg_replace('/^```\w*\n?|```$/m', '', $text);
                 $res = json_decode($text, true);
                 if ($res && !empty($res['content'])) {
+                    $content = $res['content'];
+                    if (is_array($content)) {
+                        $content = $content['content'] ?? '';
+                    }
                     if (!isset($pageData[$page])) $pageData[$page] = ['meta_title' => '', 'meta_description' => '', 'sections' => []];
-                    $pageData[$page]['sections'][$section] = $res['content'];
+                    $pageData[$page]['sections'][$section] = $content;
                     $generated = 'Section regenerated.';
                 } else {
                     $error = 'Failed to parse generated section.';
@@ -620,7 +629,7 @@ var pageStructures = <?= json_encode($pageStructures) ?>;
 var currentPage = <?= $openPage ? json_encode($openPage) : 'null' ?>;
 
 function sanitizeHtml(html){
-  return html.replace(/<(?!\/?(h3|h4|p)\b)[^>]*>/gi, '');
+  return String(html || '').replace(/<(?!\/?(h3|h4|p)\b)[^>]*>/gi, '');
 }
 
 function loadPage(page){
