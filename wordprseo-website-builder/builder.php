@@ -436,6 +436,26 @@ Title (3–5 words).
 
 TXT;
 
+function sectionInstr(array $sections, string $instr): string {
+    $parts = preg_split('/\nSection Name:\s*/', $instr);
+    $map = [];
+    for ($i = 1; $i < count($parts); $i++) {
+        $block = $parts[$i];
+        $lines = explode("\n", $block, 2);
+        $name = strtolower(trim($lines[0]));
+        $content = $lines[1] ?? '';
+        $map[$name] = trim($content);
+    }
+    $result = [];
+    foreach ($sections as $s) {
+        $key = strtolower($s);
+        if (isset($map[$key])) {
+            $result[] = "Section Name: {$s}\n" . $map[$key];
+        }
+    }
+    return implode("\n", $result);
+}
+
 if ($sitemap) {
     $convert = function (&$items) use (&$convert) {
         foreach ($items as &$item) {
@@ -451,10 +471,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $page = $_POST['page'] ?? '';
         $openPage = $page;
         $sections = $pageStructures[$page] ?? [];
-        $pageInstr = $defaultPageInstr;
+        $sectionInstr = sectionInstr($sections, $defaultPageInstr);
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $sectionList = implode(', ', $sections);
-        $prompt = "Using the following source text:\n{$client['core_text']}\n\nSections: {$sectionList}\n\nInstructions:\n{$pageInstr}\nGenerate JSON with keys: meta_title (<=60 chars), meta_description (110-140 chars), and sections (object mapping section name to HTML content using only <h3>, <h4>, and <p> tags). Provide non-empty content for every listed section. If unsure, add a brief placeholder paragraph. Return JSON only.";
+        $prompt = "Using the following source text:\n{$client['core_text']}\n\nSections: {$sectionList}\n\nInstructions:\n{$sectionInstr}\nGenerate JSON with keys: meta_title (<=60 chars), meta_description (110-140 chars), and sections (object mapping section name to HTML content using only <h3>, <h4>, and <p> tags). Provide non-empty content for every listed section. If unsure, add a brief placeholder paragraph. Return JSON only.";
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -478,6 +498,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
                 $text = $json['candidates'][0]['content']['parts'][0]['text'];
                 $text = preg_replace('/^```\w*\n?|```$/m', '', $text);
+                $start = strpos($text, '{');
+                $end = strrpos($text, '}');
+                if ($start !== false && $end !== false && $end >= $start) {
+                    $text = substr($text, $start, $end - $start + 1);
+                }
                 $res = json_decode($text, true);
                 if ($res) {
                     $sectionContent = $res['sections'] ?? [];
@@ -509,9 +534,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $page = $_POST['page'] ?? '';
         $section = $_POST['section'] ?? '';
         $openPage = $page;
-        $pageInstr = $defaultPageInstr;
+        $sectionInstr = sectionInstr([$section], $defaultPageInstr);
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-        $prompt = "Using the following source text:\n{$client['core_text']}\n\nSection: {$section}\n\nInstructions:\n{$pageInstr}\nGenerate JSON with key 'content' containing HTML for the section using only <h3>, <h4>, and <p> tags. Provide non-empty content. Return JSON only.";
+        $prompt = "Using the following source text:\n{$client['core_text']}\n\nSection: {$section}\n\nInstructions:\n{$sectionInstr}\nGenerate JSON with key 'content' containing HTML for the section using only <h3>, <h4>, and <p> tags. Provide non-empty content. Return JSON only.";
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -535,6 +560,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
                 $text = $json['candidates'][0]['content']['parts'][0]['text'];
                 $text = preg_replace('/^```\w*\n?|```$/m', '', $text);
+                $start = strpos($text, '{');
+                $end = strrpos($text, '}');
+                if ($start !== false && $end !== false && $end >= $start) {
+                    $text = substr($text, $start, $end - $start + 1);
+                }
                 $res = json_decode($text, true);
                 if ($res && !empty($res['content'])) {
                     $content = $res['content'];
