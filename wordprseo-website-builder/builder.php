@@ -436,6 +436,46 @@ Title (3–5 words).
 
 TXT;
 
+function callGemini(string $prompt, string $apiKey, string &$error): ?string {
+    $payload = json_encode([
+        'contents' => [[ 'parts' => [['text' => $prompt]] ]]
+    ]);
+    $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent');
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'X-goog-api-key: ' . $apiKey,
+    ]);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    $response = curl_exec($ch);
+    if ($response === false) {
+        $error = 'API request failed: ' . curl_error($ch);
+        curl_close($ch);
+        return null;
+    }
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    $json = json_decode($response, true);
+    if ($code >= 400 || isset($json['error'])) {
+        $msg = $json['error']['message'] ?? $response;
+        $error = 'API error: ' . $msg;
+        return null;
+    }
+    if (!isset($json['candidates'][0]['content']['parts'][0]['text'])) {
+        $error = 'Unexpected API response.';
+        return null;
+    }
+    $text = $json['candidates'][0]['content']['parts'][0]['text'];
+    return preg_replace('/^```\\w*\\n?|```$/m', '', $text);
+}
+
+function generateSectionContent(string $source, string $section, string $instr, string $apiKey, string &$error): string {
+    $prompt = "Using the following source text:\n{$source}\n\nSection: {$section}\n\nInstructions:\n{$instr}\nGenerate HTML content for the {$section} section using only <h3>, <h4>, and <p> tags. Return HTML only.";
+    $text = callGemini($prompt, $apiKey, $error);
+    return $text ? strip_tags($text, '<h3><h4><p>') : '';
+}
+
 if ($sitemap) {
     $convert = function (&$items) use (&$convert) {
         foreach ($items as &$item) {
@@ -485,6 +525,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'meta_description' => $res['meta_description'] ?? '',
                         'sections' => $res['sections'] ?? []
                     ];
+                    foreach ($sections as $sec) {
+                        $check = trim(strip_tags($pageData[$page]['sections'][$sec] ?? ''));
+                        if ($check === '') {
+                            $pageData[$page]['sections'][$sec] = generateSectionContent($client['core_text'], $sec, $pageInstr, $apiKey, $error);
+                        }
+                    }
                     $generated = 'Content generated. Review before saving.';
                 } else {
                     $error = 'Failed to parse generated content.';
@@ -494,6 +540,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         curl_close($ch);
+    } elseif (isset($_POST['generate_section'])) {
+        $page = $_POST['page'] ?? '';
+        $openPage = $page;
+        $section = $_POST['section'] ?? '';
+        $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
+        if ($section === 'meta_title') {
+            $prompt = "Using the following source text:\n{$client['core_text']}\n\nInstructions:\n{$defaultPageInstr}\nGenerate a meta title for the '{$page}' page with a maximum of 60 characters. Return plain text.";
+            $text = callGemini($prompt, $apiKey, $error);
+            if ($text !== null) {
+                $pageData[$page]['meta_title'] = trim($text);
+                $generated = 'Meta title generated.';
+            }
+        } elseif ($section === 'meta_description') {
+            $prompt = "Using the following source text:\n{$client['core_text']}\n\nInstructions:\n{$defaultPageInstr}\nGenerate a meta description for the '{$page}' page between 110 and 140 characters. Return plain text.";
+            $text = callGemini($prompt, $apiKey, $error);
+            if ($text !== null) {
+                $pageData[$page]['meta_description'] = trim($text);
+                $generated = 'Meta description generated.';
+            }
+        } elseif ($section) {
+            $content = generateSectionContent($client['core_text'], $section, $defaultPageInstr, $apiKey, $error);
+            if ($content !== '') {
+                $pageData[$page]['sections'][$section] = $content;
+                $generated = 'Section generated.';
+            }
+        }
     } elseif (isset($_POST['save_page'])) {
         $page = $_POST['page'] ?? '';
         $openPage = $page;
@@ -585,34 +657,68 @@ function loadPage(page){
   const container = document.getElementById('contentContainer');
   container.innerHTML = '';
   const data = pageData[page] || {};
+  const metaTitleGroup = document.createElement('div');
+  metaTitleGroup.className = 'input-group mb-2';
   const metaTitle = document.createElement('input');
   metaTitle.type = 'text';
   metaTitle.id = 'metaTitle';
   metaTitle.maxLength = 60;
-  metaTitle.className = 'form-control mb-2';
+  metaTitle.className = 'form-control';
   metaTitle.placeholder = 'Meta Title (max 60 chars)';
   metaTitle.value = data.meta_title || '';
+  const metaTitleBtn = document.createElement('button');
+  metaTitleBtn.type = 'button';
+  metaTitleBtn.className = 'btn btn-outline-secondary generate-section-btn';
+  metaTitleBtn.dataset.target = 'meta_title';
+  metaTitleBtn.innerHTML = '\u21bb';
+  metaTitleGroup.append(metaTitle, metaTitleBtn);
+
+  const metaDescGroup = document.createElement('div');
+  metaDescGroup.className = 'input-group mb-3';
   const metaDesc = document.createElement('textarea');
   metaDesc.id = 'metaDescription';
   metaDesc.maxLength = 140;
   metaDesc.rows = 3;
-  metaDesc.className = 'form-control mb-3';
+  metaDesc.className = 'form-control';
   metaDesc.placeholder = 'Meta Description (110-140 chars)';
   metaDesc.value = data.meta_description || '';
-  container.append(metaTitle, metaDesc);
+  const metaDescBtn = document.createElement('button');
+  metaDescBtn.type = 'button';
+  metaDescBtn.className = 'btn btn-outline-secondary generate-section-btn';
+  metaDescBtn.dataset.target = 'meta_description';
+  metaDescBtn.innerHTML = '\u21bb';
+  metaDescGroup.append(metaDesc, metaDescBtn);
+
+  container.append(metaTitleGroup, metaDescGroup);
   const sections = pageStructures[page] || [];
   const secData = data.sections || {};
   sections.forEach(sec => {
+    const wrap = document.createElement('div');
+    wrap.className = 'mb-3';
+    const header = document.createElement('div');
+    header.className = 'd-flex justify-content-between align-items-center mb-1';
     const label = document.createElement('label');
-    label.className = 'form-label';
+    label.className = 'form-label m-0';
     label.textContent = sec;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm btn-outline-secondary generate-section-btn';
+    btn.dataset.target = sec;
+    btn.innerHTML = '\u21bb';
+    header.append(label, btn);
     const div = document.createElement('div');
-    div.className = 'form-control mb-3 section-field';
+    div.className = 'form-control section-field';
     div.contentEditable = 'true';
     div.dataset.section = sec;
     div.style.minHeight = '6em';
     div.innerHTML = sanitizeHtml(secData[sec] || '');
-    container.append(label, div);
+    wrap.append(header, div);
+    container.append(wrap);
+  });
+  container.querySelectorAll('.generate-section-btn').forEach(btn => {
+    btn.addEventListener('click', function(){
+      submitAction(currentPage, 'generate_section', this.dataset.target);
+    });
   });
 }
 
@@ -623,15 +729,15 @@ document.querySelectorAll('.page-item').forEach(li => {
   });
   li.querySelector('.generate-btn').addEventListener('click', function(e){
     e.stopPropagation();
-    submitAction(li.dataset.page, 'generate_page');
+    submitAction(li.dataset.page, 'generate_page', null);
   });
   li.querySelector('.save-btn').addEventListener('click', function(e){
     e.stopPropagation();
-    submitAction(li.dataset.page, 'save_page');
+    submitAction(li.dataset.page, 'save_page', null);
   });
 });
 
-function submitAction(page, action){
+function submitAction(page, action, section){
   const form = document.getElementById('actionForm');
   form.innerHTML = '';
   const pageInput = document.createElement('input');
@@ -639,6 +745,13 @@ function submitAction(page, action){
   pageInput.name = 'page';
   pageInput.value = page;
   form.appendChild(pageInput);
+  if (section) {
+    const secInput = document.createElement('input');
+    secInput.type = 'hidden';
+    secInput.name = 'section';
+    secInput.value = section;
+    form.appendChild(secInput);
+  }
   if (action === 'save_page') {
     const obj = {
       meta_title: document.getElementById('metaTitle').value,
