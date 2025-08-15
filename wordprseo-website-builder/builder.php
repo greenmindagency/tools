@@ -32,7 +32,8 @@ $stmt = $pdo->prepare('SELECT page, structure FROM client_structures WHERE clien
 $stmt->execute([$client_id]);
 $pageStructures = [];
 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-    $pageStructures[$row['page']] = json_decode($row['structure'], true) ?: [];
+    $arr = json_decode($row['structure'], true) ?: [];
+    $pageStructures[$row['page']] = array_values($arr);
 }
 $error = '';
 $saved = '';
@@ -41,6 +42,10 @@ $openPage = '';
 $sitemap = $client['sitemap'] ? json_decode($client['sitemap'], true) : [];
 // Default page generation instructions.
 $defaultPageInstr = <<<TXT
+
+I need to create an SEO content for the page please start with Meta title (60 characters max don't add the client name), Meta description (from 110 to 140 characters max) 
+
+please follow below guidelines on the length of each section and Structure
 
 --- sections description and design:
 
@@ -62,7 +67,7 @@ Number of Panels: Three total, can be up to 5.
 
 Interaction: Only one panel is expanded at a time (likely configured via accordion behavior).
 
-
+---
 
 Section Name: article description
 
@@ -75,7 +80,7 @@ Paragraphs: 1–2 short paragraphs (each 20–35 words) describing the article o
 Additional Element: May include a subheading above the paragraphs (optional, 3–6 words).
 
 
-
+---
 
 Section Name: article images
 
@@ -95,7 +100,7 @@ Heading: One main section title (recommended 2–5 words).
 
 Subtitle: One subtitle directly under the title (recommended 5–8 words).
 
-
+---
 
 Section Name: article video
 
@@ -107,7 +112,7 @@ Heading: Optional heading above the video (2–4 words).
 
 Video Dimensions: Full-width or responsive container.
 
-
+---
 
 Section Name: article video gallery
 
@@ -119,7 +124,7 @@ Number of Videos: 2–4 per section.
 
 Video Dimensions: Equal height and width for consistent display.
 
-
+---
 
 Section Name: catconnection
 
@@ -129,6 +134,7 @@ Left Column: Full-height background image.
 
 loaded from the category page that i'll select need only title (3–5 words), and  subtitle (4–8 words) 
 
+---
 
 Section Name: postconnection
 
@@ -138,6 +144,7 @@ Left Column: Full-height background image.
 
 loaded from the post  page that i'll select need only title (3–5 words), and  subtitle (4–8 words) 
 
+---
 
 Section Name: tagconnection
 
@@ -147,7 +154,7 @@ Left Column: Full-height background image.
 
 loaded from the tag  page that i'll select need only title (3–5 words), and  subtitle (4–8 words) 
 
-
+---
 
 Section Name: contacts
 
@@ -161,7 +168,7 @@ Heading: 2–5 words.
 
 Intro Text: One short paragraph (15–25 words).
 
-
+---
 
 Section Name: herovideo
 
@@ -169,7 +176,9 @@ Layout Structure: Full-width background video.
 
 Text Overlay: Large title (4–8 words), short subtitle (6–10 words), and 1–2 call-to-action buttons.
 
+Please suggest a video stocks photoage links from yoututbe that can be a background video.
 
+---
 
 Section Name: image slider
 
@@ -179,7 +188,7 @@ Images: 4–6 logos or images per view.
 
 Navigation: Left/right arrows.
 
-
+---
 
 Section Name: image carousel
 
@@ -189,7 +198,7 @@ Images: 1 large image visible at a time.
 
 Navigation: Dots or arrows for switching.
 
-
+---
 
 Section Name: pagecontent1
 
@@ -202,7 +211,7 @@ then a 3 columns section have:
 - title of the column (2-3 words)
 - description 8–10 words.
 
-
+---
 
 Section Name: pagecontent2
 
@@ -212,7 +221,7 @@ Each Column: Icon (awesome font icon), number , and (2–3 words) reflecting the
 
 this section is show statstics number achivements, etc..
 
-
+---
 
 Section Name: pagecontent3
 
@@ -221,6 +230,7 @@ Layout Structure: Full-width background color with centered statistics.
 
 Stats: 3–5 numerical highlights, each with an icon (awesome font icon), number, and label (2–4 words).
 
+---
 
 
 
@@ -239,6 +249,7 @@ Right Column: related to each image has 1–2 short paragraphs (20–35 words ea
 
 at the end a content ending the section can have a bullet list.
 
+---
 
 
 Section Name: pagecontent5
@@ -248,19 +259,15 @@ Layout Structure: 1-column
 a content form section for ending pages can be transfered to a title/ subtitle and a call to action 1 or 2 buttons
 
 
-Section Name: pagecontent5
-
-Layout Structure: 1-column
-
-a content form section for ending pages can be transfered to a title/ subtitle and a call to action 1 or 2 buttons
-
-
+---
 
 Section Name: pagecontent6
 
 Layout Structure: 1-column
 
 a map location at the end above it title (5/6 words) and description 15 to 20 words.
+
+---
 
 
 Section Name: pagecontent7
@@ -272,6 +279,8 @@ a section present % of success
 title (5/6 words) and content under it 15 to 20 words.
 
 at the right a title and % this title showing a service or important figuer with % beside it, please make sure to have 3 items with 3 of % and titles
+
+---
 
 
 Section Name: pagecontent8
@@ -289,6 +298,9 @@ Content Style: When expanded, each panel shows a short paragraph (20–35 words)
 Additional Text Block: Short paragraph (20–30 words) below accordion to highlight overall career mission.
 
 Call-to-Action: One button (2–4 words) below text block.
+
+
+---
 
 
 Section Name: pagecontent9
@@ -317,6 +329,7 @@ a hidden content will show up under the Short paragraph the lenght is
 
 
 
+---
 
 
 Section Name: postsrelatedcat
@@ -331,6 +344,7 @@ Content Display: Three-column grid, posts related from the category i'll select,
 
 Number of Cards: 3 visible per row.
 
+---
 
 
 Section Name: postsrelatedcatslider
@@ -345,6 +359,7 @@ Content Display: 1 grid carousel, posts related from the category i'll select, n
 
 Number of Cards: 1 visible per row.
 
+---
 
 
 Section Name: postsrelatedwithfilter
@@ -356,6 +371,8 @@ Heading: Large main heading (3–5 words).
 Subtitle: Short descriptive line (8–12 words).
 
 Filters: Tag buttons above grid, please tell me the tags i should select that will filter the posts
+
+---
 
 
 Section Name: slider
@@ -372,6 +389,7 @@ Subtitle (6–10 words).
 
 from 3 to 5 slides make sure to suggest image keyword for search on images stocks websites
 
+---
 
 
 Section Name: tagslist
@@ -385,6 +403,7 @@ Subtitle: Short descriptive line (6–10 words).
 Each Service Item: will be selected tags from admin, just mention the tags.
 
 
+---
 
 
 Section Name: testimonial
@@ -397,6 +416,7 @@ Subtitle: Short descriptive line (8–12 words).
 
 Content Display: a testemenials number i'll select and it will show up form the single pages.
 
+---
 
 
 Section Name: verticaltabs
@@ -434,7 +454,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pageInstr = $defaultPageInstr;
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $sectionList = implode(', ', $sections);
-        $prompt = "Using the following source text:\n{$client['core_text']}\n\nSections: {$sectionList}\n\nInstructions:\n{$pageInstr}\nGenerate JSON with keys: meta_title (<=60 chars), meta_description (110-140 chars), and sections (object mapping section name to HTML content). Return JSON only.";
+        $prompt = "Using the following source text:\n{$client['core_text']}\n\nSections: {$sectionList}\n\nInstructions:\n{$pageInstr}\nGenerate JSON with keys: meta_title (<=60 chars), meta_description (110-140 chars), and sections (object mapping section name to HTML content using only <h3>, <h4>, and <p> tags). Provide non-empty content for every listed section. If unsure, add a brief placeholder paragraph. Return JSON only.";
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -460,14 +480,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $text = preg_replace('/^```\w*\n?|```$/m', '', $text);
                 $res = json_decode($text, true);
                 if ($res) {
+                    $sectionContent = $res['sections'] ?? [];
+                    if (is_array($sectionContent) && array_values($sectionContent) === $sectionContent) {
+                        $mapped = [];
+                        foreach ($sectionContent as $item) {
+                            if (!is_array($item)) continue;
+                            $name = $item['name'] ?? $item['section'] ?? $item['title'] ?? null;
+                            if (!$name) continue;
+                            $mapped[$name] = $item['content'] ?? '';
+                        }
+                        $sectionContent = $mapped;
+                    }
+                    foreach ($sections as $sec) {
+                        $content = $sectionContent[$sec] ?? '';
+                        if (is_array($content)) {
+                            $content = $content['content'] ?? $content['html'] ?? '';
+                        }
+                        if (!is_string($content) || !trim(strip_tags($content))) {
+                            $content = '<p>Content pending...</p>';
+                        }
+                        $sectionContent[$sec] = $content;
+                    }
                     $pageData[$page] = [
                         'meta_title' => $res['meta_title'] ?? '',
                         'meta_description' => $res['meta_description'] ?? '',
-                        'sections' => $res['sections'] ?? []
+                        'sections' => $sectionContent
                     ];
                     $generated = 'Content generated. Review before saving.';
                 } else {
                     $error = 'Failed to parse generated content.';
+                }
+            } else {
+                $error = 'Unexpected API response.';
+            }
+        }
+        curl_close($ch);
+    } elseif (isset($_POST['generate_section'])) {
+        $page = $_POST['page'] ?? '';
+        $section = $_POST['section'] ?? '';
+        $openPage = $page;
+        $pageInstr = $defaultPageInstr;
+        $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
+        $prompt = "Using the following source text:\n{$client['core_text']}\n\nSection: {$section}\n\nInstructions:\n{$pageInstr}\nGenerate JSON with key 'content' containing HTML for the section using only <h3>, <h4>, and <p> tags. Provide non-empty content. Return JSON only.";
+        $payload = json_encode([
+            'contents' => [[ 'parts' => [['text' => $prompt]] ]]
+        ]);
+        $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'X-goog-api-key: ' . $apiKey,
+        ]);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        $response = curl_exec($ch);
+        if ($response === false) {
+            $error = 'API request failed: ' . curl_error($ch);
+        } else {
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $json = json_decode($response, true);
+            if ($code >= 400 || isset($json['error'])) {
+                $msg = $json['error']['message'] ?? $response;
+                $error = 'API error: ' . $msg;
+            } elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
+                $text = $json['candidates'][0]['content']['parts'][0]['text'];
+                $text = preg_replace('/^```\w*\n?|```$/m', '', $text);
+                $res = json_decode($text, true);
+                if ($res && !empty($res['content'])) {
+                    $content = $res['content'];
+                    if (is_array($content)) {
+                        $content = $content['content'] ?? $content['html'] ?? '';
+                    }
+                    if (!is_string($content) || !trim(strip_tags($content))) {
+                        $content = '<p>Content pending...</p>';
+                    }
+                    if (!isset($pageData[$page])) $pageData[$page] = ['meta_title' => '', 'meta_description' => '', 'sections' => []];
+                    $pageData[$page]['sections'][$section] = $content;
+                    $generated = 'Section regenerated.';
+                } else {
+                    $error = 'Failed to parse generated section.';
                 }
             } else {
                 $error = 'Unexpected API response.';
@@ -550,6 +641,10 @@ var pageData = <?= json_encode($pageData) ?>;
 var pageStructures = <?= json_encode($pageStructures) ?>;
 var currentPage = <?= $openPage ? json_encode($openPage) : 'null' ?>;
 
+function sanitizeHtml(html){
+  return String(html || '').replace(/<(?!\/?(h3|h4|p)\b)[^>]*>/gi, '');
+}
+
 function loadPage(page){
   currentPage = page;
   document.querySelectorAll('.page-item').forEach(li => {
@@ -576,18 +671,36 @@ function loadPage(page){
   metaDesc.placeholder = 'Meta Description (110-140 chars)';
   metaDesc.value = data.meta_description || '';
   container.append(metaTitle, metaDesc);
-  const sections = pageStructures[page] || [];
+  let sections = pageStructures[page] || [];
+  if (!Array.isArray(sections)) {
+    sections = Object.values(sections);
+  }
   const secData = data.sections || {};
   sections.forEach(sec => {
+    const wrap = document.createElement('div');
+    wrap.className = 'd-flex justify-content-between align-items-center';
     const label = document.createElement('label');
-    label.className = 'form-label';
+    label.className = 'form-label mb-0';
     label.textContent = sec;
-    const ta = document.createElement('textarea');
-    ta.className = 'form-control mb-3 section-field';
-    ta.dataset.section = sec;
-    ta.rows = 4;
-    ta.value = secData[sec] || '';
-    container.append(label, ta);
+    const regen = document.createElement('button');
+    regen.type = 'button';
+    regen.className = 'btn btn-sm btn-outline-secondary regen-section';
+    regen.dataset.section = sec;
+    regen.innerHTML = '\u21bb';
+    wrap.append(label, regen);
+    const div = document.createElement('div');
+    div.className = 'form-control mb-3 section-field';
+    div.contentEditable = 'true';
+    div.dataset.section = sec;
+    div.style.minHeight = '6em';
+    div.innerHTML = sanitizeHtml(secData[sec] || '');
+    container.append(wrap, div);
+  });
+  container.querySelectorAll('.regen-section').forEach(btn => {
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      submitAction(currentPage, 'generate_section', this.dataset.section);
+    });
   });
 }
 
@@ -606,7 +719,7 @@ document.querySelectorAll('.page-item').forEach(li => {
   });
 });
 
-function submitAction(page, action){
+function submitAction(page, action, section){
   const form = document.getElementById('actionForm');
   form.innerHTML = '';
   const pageInput = document.createElement('input');
@@ -620,14 +733,20 @@ function submitAction(page, action){
       meta_description: document.getElementById('metaDescription').value,
       sections: {}
     };
-    document.querySelectorAll('.section-field').forEach(ta => {
-      obj.sections[ta.dataset.section] = ta.value;
+    document.querySelectorAll('.section-field').forEach(div => {
+      obj.sections[div.dataset.section] = sanitizeHtml(div.innerHTML);
     });
     const contentInput = document.createElement('input');
     contentInput.type = 'hidden';
     contentInput.name = 'page_content';
     contentInput.value = JSON.stringify(obj);
     form.appendChild(contentInput);
+  } else if (action === 'generate_section') {
+    const secInput = document.createElement('input');
+    secInput.type = 'hidden';
+    secInput.name = 'section';
+    secInput.value = section;
+    form.appendChild(secInput);
   }
   const actionInput = document.createElement('input');
   actionInput.type = 'hidden';
