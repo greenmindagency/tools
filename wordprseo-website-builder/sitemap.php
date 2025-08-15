@@ -1,7 +1,6 @@
 <?php
 session_start();
 require __DIR__ . '/config.php';
-require __DIR__ . '/file_utils.php';
 if (!isset($_SESSION['user'])) {
     header('Location: login.php');
     exit;
@@ -19,12 +18,8 @@ if (!$client) {
 $error = '';
 $saved = '';
 $generated = '';
-$activeTab = $_GET['tab'] ?? 'source';
-if (!in_array($activeTab, ['source','sitemap'])) {
-    $activeTab = 'source';
-}
-$instructions = $client['instructions'] ?? '';
 $sitemap = $client['sitemap'] ? json_decode($client['sitemap'], true) : [];
+$instructions = $client['instructions'] ?? '';
 
 if ($sitemap) {
     $convert = function (&$items) use (&$convert) {
@@ -58,31 +53,11 @@ function buildTree(array $items, int &$count, int $max, array &$seen): array {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['save_core'])) {
-        $text = $_POST['core_text'] ?? '';
-        if (!empty($_FILES['source']['name'][0])) {
-            $files = $_FILES['source'];
-            $count = is_array($files['name']) ? count($files['name']) : 0;
-            $errors = [];
-            for ($i=0; $i<$count; $i++) {
-                if ($files['error'][$i] !== UPLOAD_ERR_OK) continue;
-                $part = extractUploaded($files['tmp_name'][$i], $files['name'][$i], $errors);
-                if ($part !== '') {
-                    $text .= ($text ? "\n" : '') . $part;
-                }
-            }
-            if ($errors) $error = implode(' ', $errors);
-        }
-        $pdo->prepare('UPDATE clients SET core_text = ? WHERE id = ?')->execute([$text, $client_id]);
-        $client['core_text'] = $text;
-        $saved = 'Source text saved.';
-        $activeTab = 'source';
-    } elseif (isset($_POST['save_sitemap'])) {
+    if (isset($_POST['save_sitemap'])) {
         $json = $_POST['sitemap_json'] ?? '[]';
         $pdo->prepare('UPDATE clients SET sitemap = ? WHERE id = ?')->execute([$json, $client_id]);
         $sitemap = json_decode($json, true);
         $saved = 'Sitemap saved.';
-        $activeTab = 'sitemap';
     } elseif (isset($_POST['regenerate'])) {
         $num = (int)($_POST['num_pages'] ?? 4);
         $source = $client['core_text'] ?? '';
@@ -130,7 +105,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         curl_close($ch);
-        $activeTab = 'sitemap';
     }
 }
 
@@ -167,63 +141,46 @@ function countPages(array $items): int {
 $title = 'Wordprseo Content Builder';
 require __DIR__ . '/../header.php';
 ?>
-<ul class="nav nav-tabs mb-3" role="tablist">
-  <li class="nav-item" role="presentation">
-    <button class="nav-link <?= $activeTab==='source'?'active':'' ?>" data-bs-toggle="tab" data-bs-target="#sourceTab" type="button" role="tab">Source</button>
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item">
+    <a class="nav-link" href="source.php?client_id=<?= $client_id ?>">Source</a>
   </li>
-  <li class="nav-item" role="presentation">
-    <button class="nav-link <?= $activeTab==='sitemap'?'active':'' ?>" data-bs-toggle="tab" data-bs-target="#sitemapTab" type="button" role="tab">Site Map</button>
+  <li class="nav-item">
+    <a class="nav-link active" href="#">Site Map</a>
   </li>
-  <li class="nav-item" role="presentation">
+  <li class="nav-item">
     <a class="nav-link" href="structure.php?client_id=<?= $client_id ?>">Structure</a>
   </li>
-  <li class="nav-item" role="presentation">
-    <a class="nav-link" href="builder.php?client_id=<?= $client_id ?>">Content</a>
+  <li class="nav-item">
+    <a class="nav-link" href="content.php?client_id=<?= $client_id ?>">Content</a>
   </li>
 </ul>
 <?php if ($saved): ?><div class="alert alert-success"><?= htmlspecialchars($saved) ?></div><?php endif; ?>
 <?php if ($generated): ?><div class="alert alert-info"><?= htmlspecialchars($generated) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
-<div class="tab-content border border-top-0 p-3">
-  <div class="tab-pane fade <?= $activeTab==='source'?'show active':'' ?>" id="sourceTab" role="tabpanel">
-    <form method="post" enctype="multipart/form-data">
-      <div class="mb-3">
-        <label class="form-label">Upload Source Files</label>
-        <input type="file" name="source[]" multiple class="form-control">
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Core Text</label>
-        <textarea name="core_text" class="form-control" rows="10"><?= htmlspecialchars($client['core_text']) ?></textarea>
-      </div>
-      <button type="submit" name="save_core" class="btn btn-primary">Save</button>
-    </form>
+<form method="post" id="sitemapForm" class="border p-3">
+  <div class="mb-3">
+    <label class="form-label">Number of pages</label>
+    <input type="number" name="num_pages" class="form-control" value="<?= countPages($sitemap) ?: 4 ?>">
   </div>
-  <div class="tab-pane fade <?= $activeTab==='sitemap'?'show active':'' ?>" id="sitemapTab" role="tabpanel">
-    <form method="post" id="sitemapForm">
-      <div class="mb-3">
-        <label class="form-label">Number of pages</label>
-        <input type="number" name="num_pages" class="form-control" value="<?= countPages($sitemap) ?: 4 ?>">
-      </div>
-      <div class="p-3 rounded mb-3">
-        <ul id="sitemapRoot" class="list-group mb-0">
-          <?php renderList($sitemap); ?>
-        </ul>
-      </div>
-      <div id="addPageContainer" class="mb-3">
-        <button type="button" class="btn btn-secondary" id="showAddPage">Add Page</button>
-        <div id="addPageForm" class="input-group mt-2 d-none">
-          <input type="text" id="newPage" class="form-control" placeholder="New page name">
-          <button class="btn btn-success" type="button" id="addPage">Add</button>
-        </div>
-      </div>
-      <input type="hidden" name="sitemap_json" id="sitemapData">
-      <button type="submit" name="save_sitemap" class="btn btn-primary">Save Site Map</button>
-      <button type="submit" name="regenerate" class="btn btn-outline-secondary">Regenerate</button>
-    </form>
+  <div class="p-3 rounded mb-3">
+    <ul id="sitemapRoot" class="list-group mb-0">
+      <?php renderList($sitemap); ?>
+    </ul>
   </div>
-</div>
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-  <script>
+  <div id="addPageContainer" class="mb-3">
+    <button type="button" class="btn btn-secondary" id="showAddPage">Add Page</button>
+    <div id="addPageForm" class="input-group mt-2 d-none">
+      <input type="text" id="newPage" class="form-control" placeholder="New page name">
+      <button class="btn btn-success" type="button" id="addPage">Add</button>
+    </div>
+  </div>
+  <input type="hidden" name="sitemap_json" id="sitemapData">
+  <button type="submit" name="save_sitemap" class="btn btn-primary">Save Site Map</button>
+  <button type="submit" name="regenerate" class="btn btn-outline-secondary">Regenerate</button>
+</form>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
   function setDepth(li, depth){
     li.dataset.depth = depth;
     const btnGroup = li.querySelector('.btn-group');
