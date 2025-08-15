@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sectionInstr = sectionInstr($sections);
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $sectionList = implode(', ', $sections);
-        $prompt = "Using the following source text:\n{$client['core_text']}\n\nSections: {$sectionList}\n\nInstructions:\n{$sectionInstr}\nGenerate JSON with keys: meta_title (<=60 chars), meta_description (110-140 chars), and sections (object mapping section name to HTML content using only <h3>, <h4>, and <p> tags). Provide non-empty content for every listed section. If unsure, add a brief placeholder paragraph. Return JSON only.";
+        $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nSections: {$sectionList}\n\nInstructions:\n{$sectionInstr}\nGenerate JSON with keys: meta_title (<=60 chars, SEO-optimized and related to the page name), meta_description (110-140 chars, SEO-optimized and related to the page name), slug (URL-friendly, lowercase, hyphen-separated, SEO-optimized), and sections (object mapping section name to HTML content using only <h3>, <h4>, and <p> tags). Provide non-empty content for every listed section. If unsure, add a brief placeholder paragraph. Return JSON only.";
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -148,6 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $pageData[$page] = [
                         'meta_title' => $res['meta_title'] ?? '',
                         'meta_description' => $res['meta_description'] ?? '',
+                        'slug' => $res['slug'] ?? '',
                         'sections' => $sectionContent
                     ];
                     $generated = 'Content generated. Review before saving.';
@@ -200,7 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (is_array($content)) {
                         $content = $content['content'] ?? '';
                     }
-                    if (!isset($pageData[$page])) $pageData[$page] = ['meta_title' => '', 'meta_description' => '', 'sections' => []];
+                    if (!isset($pageData[$page])) $pageData[$page] = ['meta_title' => '', 'meta_description' => '', 'slug' => '', 'sections' => []];
                     $pageData[$page]['sections'][$section] = $content;
                     $generated = 'Section regenerated.';
                 } else {
@@ -313,10 +314,17 @@ function loadPage(page){
   metaDesc.id = 'metaDescription';
   metaDesc.maxLength = 140;
   metaDesc.rows = 3;
-  metaDesc.className = 'form-control mb-3';
+  metaDesc.className = 'form-control mb-2';
   metaDesc.placeholder = 'Meta Description (110-140 chars)';
   metaDesc.value = data.meta_description || '';
-  container.append(metaTitle, metaDesc);
+  const slugInput = document.createElement('input');
+  slugInput.type = 'text';
+  slugInput.id = 'slug';
+  slugInput.maxLength = 80;
+  slugInput.className = 'form-control mb-3';
+  slugInput.placeholder = 'Slug (lowercase, hyphen-separated)';
+  slugInput.value = data.slug || '';
+  container.append(metaTitle, metaDesc, slugInput);
   let sections = pageStructures[page] || [];
   if (!Array.isArray(sections)) {
     sections = Object.values(sections);
@@ -377,6 +385,7 @@ function submitAction(page, action, section){
     const obj = {
       meta_title: document.getElementById('metaTitle').value,
       meta_description: document.getElementById('metaDescription').value,
+      slug: document.getElementById('slug').value,
       sections: {}
     };
     document.querySelectorAll('.section-field').forEach(div => {
