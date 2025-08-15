@@ -70,7 +70,7 @@ $sectionInstructions = [
 'slider' => 'Full-width image slider with 3–5 slides, each with background image, 4–6-word title, and 6–10-word subtitle (search keywords: skyline night, creative workspace, teamwork meeting, nature trail, data dashboard).',
 'tagslist' => 'Two-row, two-column grid with heading/subtitle listing selected tags from admin as service items.',
 'testimonial' => 'Full-width testimonials section with heading/subtitle that displays a chosen number of entries from single testimonial pages.',
-'verticaltabs' => 'Two-column tabs: left shows 3–6 vertical tab buttons; right shows image (search keywords like modern office, team brainstorming), 3–5-word title, and 1–2 short paragraphs.'
+'verticaltabs' => 'Two-column tabs: left shows 3–6 vertical tab buttons 4 to 7 words max treat it like the title when the user click on it it opens the description in the right; in the right shows 3–5-word title, and 1–2 short paragraphs.'
 ];
 
 // Instructions for meta fields.
