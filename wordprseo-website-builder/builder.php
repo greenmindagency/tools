@@ -210,7 +210,6 @@ then a 3 columns section have:
 - title of the column (2-3 words)
 - description 8–10 words.
 
-
 ---
 
 Section Name: pagecontent2
@@ -436,46 +435,6 @@ Title (3–5 words).
 
 TXT;
 
-function callGemini(string $prompt, string $apiKey, string &$error): ?string {
-    $payload = json_encode([
-        'contents' => [[ 'parts' => [['text' => $prompt]] ]]
-    ]);
-    $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent');
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'X-goog-api-key: ' . $apiKey,
-    ]);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-    $response = curl_exec($ch);
-    if ($response === false) {
-        $error = 'API request failed: ' . curl_error($ch);
-        curl_close($ch);
-        return null;
-    }
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    $json = json_decode($response, true);
-    if ($code >= 400 || isset($json['error'])) {
-        $msg = $json['error']['message'] ?? $response;
-        $error = 'API error: ' . $msg;
-        return null;
-    }
-    if (!isset($json['candidates'][0]['content']['parts'][0]['text'])) {
-        $error = 'Unexpected API response.';
-        return null;
-    }
-    $text = $json['candidates'][0]['content']['parts'][0]['text'];
-    return preg_replace('/^```\\w*\\n?|```$/m', '', $text);
-}
-
-function generateSectionContent(string $source, string $section, string $instr, string $apiKey, string &$error): string {
-    $prompt = "Using the following source text:\n{$source}\n\nSection: {$section}\n\nInstructions:\n{$instr}\nGenerate HTML content for the {$section} section using only <h3>, <h4>, and <p> tags. Return HTML only.";
-    $text = callGemini($prompt, $apiKey, $error);
-    return $text ? strip_tags($text, '<h3><h4><p>') : '';
-}
-
 if ($sitemap) {
     $convert = function (&$items) use (&$convert) {
         foreach ($items as &$item) {
@@ -494,7 +453,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pageInstr = $defaultPageInstr;
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $sectionList = implode(', ', $sections);
-        $prompt = "Using the following source text:\n{$client['core_text']}\n\nSections: {$sectionList}\n\nInstructions:\n{$pageInstr}\nGenerate JSON with keys: meta_title (<=60 chars), meta_description (110-140 chars), and sections (object mapping section name to HTML content using only <h3>, <h4>, and <p> tags). Provide non-empty content for every listed section. If unsure, add a brief placeholder paragraph. Return JSON only.";
+        $prompt = "Using the following source text:\n{$client['core_text']}\n\nSections: {$sectionList}\n\nInstructions:\n{$pageInstr}\nGenerate JSON with keys: meta_title (<=60 chars), meta_description (110-140 chars), and sections (object mapping section name to HTML content using only <h3>, <h4>, and <p> tags). Return JSON only.";
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -520,69 +479,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $text = preg_replace('/^```\w*\n?|```$/m', '', $text);
                 $res = json_decode($text, true);
                 if ($res) {
-                    $sectionContent = $res['sections'] ?? [];
-                    foreach ($sections as $sec) {
-                        if (empty(trim(strip_tags($sectionContent[$sec] ?? '')))) {
-                            $sectionContent[$sec] = '<p>Content pending...</p>';
-                        }
-                    }
                     $pageData[$page] = [
                         'meta_title' => $res['meta_title'] ?? '',
                         'meta_description' => $res['meta_description'] ?? '',
-                        'sections' => $sectionContent
+                        'sections' => $res['sections'] ?? []
                     ];
-                    foreach ($sections as $sec) {
-                        $check = trim(strip_tags($pageData[$page]['sections'][$sec] ?? ''));
-                        if ($check === '') {
-                            $pageData[$page]['sections'][$sec] = generateSectionContent($client['core_text'], $sec, $pageInstr, $apiKey, $error);
-                        }
-                    }
                     $generated = 'Content generated. Review before saving.';
                 } else {
                     $error = 'Failed to parse generated content.';
-                }
-            } else {
-                $error = 'Unexpected API response.';
-            }
-        }
-        curl_close($ch);
-    } elseif (isset($_POST['generate_section'])) {
-        $page = $_POST['page'] ?? '';
-        $section = $_POST['section'] ?? '';
-        $openPage = $page;
-        $pageInstr = $defaultPageInstr;
-        $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-        $prompt = "Using the following source text:\n{$client['core_text']}\n\nSection: {$section}\n\nInstructions:\n{$pageInstr}\nGenerate JSON with key 'content' containing HTML for the section using only <h3>, <h4>, and <p> tags. Provide non-empty content. Return JSON only.";
-        $payload = json_encode([
-            'contents' => [[ 'parts' => [['text' => $prompt]] ]]
-        ]);
-        $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent');
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json',
-            'X-goog-api-key: ' . $apiKey,
-        ]);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-        $response = curl_exec($ch);
-        if ($response === false) {
-            $error = 'API request failed: ' . curl_error($ch);
-        } else {
-            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $json = json_decode($response, true);
-            if ($code >= 400 || isset($json['error'])) {
-                $msg = $json['error']['message'] ?? $response;
-                $error = 'API error: ' . $msg;
-            } elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
-                $text = $json['candidates'][0]['content']['parts'][0]['text'];
-                $text = preg_replace('/^```\w*\n?|```$/m', '', $text);
-                $res = json_decode($text, true);
-                if ($res && !empty($res['content'])) {
-                    if (!isset($pageData[$page])) $pageData[$page] = ['meta_title' => '', 'meta_description' => '', 'sections' => []];
-                    $pageData[$page]['sections'][$section] = $res['content'];
-                    $generated = 'Section regenerated.';
-                } else {
-                    $error = 'Failed to parse generated section.';
                 }
             } else {
                 $error = 'Unexpected API response.';
@@ -680,66 +584,34 @@ function loadPage(page){
   const container = document.getElementById('contentContainer');
   container.innerHTML = '';
   const data = pageData[page] || {};
-  const metaTitleGroup = document.createElement('div');
-  metaTitleGroup.className = 'input-group mb-2';
   const metaTitle = document.createElement('input');
   metaTitle.type = 'text';
   metaTitle.id = 'metaTitle';
   metaTitle.maxLength = 60;
-  metaTitle.className = 'form-control';
+  metaTitle.className = 'form-control mb-2';
   metaTitle.placeholder = 'Meta Title (max 60 chars)';
   metaTitle.value = data.meta_title || '';
-  const metaTitleBtn = document.createElement('button');
-  metaTitleBtn.type = 'button';
-  metaTitleBtn.className = 'btn btn-outline-secondary generate-section-btn';
-  metaTitleBtn.dataset.target = 'meta_title';
-  metaTitleBtn.innerHTML = '\u21bb';
-  metaTitleGroup.append(metaTitle, metaTitleBtn);
-
-  const metaDescGroup = document.createElement('div');
-  metaDescGroup.className = 'input-group mb-3';
   const metaDesc = document.createElement('textarea');
   metaDesc.id = 'metaDescription';
   metaDesc.maxLength = 140;
   metaDesc.rows = 3;
-  metaDesc.className = 'form-control';
+  metaDesc.className = 'form-control mb-3';
   metaDesc.placeholder = 'Meta Description (110-140 chars)';
   metaDesc.value = data.meta_description || '';
-  const metaDescBtn = document.createElement('button');
-  metaDescBtn.type = 'button';
-  metaDescBtn.className = 'btn btn-outline-secondary generate-section-btn';
-  metaDescBtn.dataset.target = 'meta_description';
-  metaDescBtn.innerHTML = '\u21bb';
-  metaDescGroup.append(metaDesc, metaDescBtn);
-
-  container.append(metaTitleGroup, metaDescGroup);
+  container.append(metaTitle, metaDesc);
   const sections = pageStructures[page] || [];
   const secData = data.sections || {};
   sections.forEach(sec => {
-    const wrap = document.createElement('div');
-    wrap.className = 'd-flex justify-content-between align-items-center';
     const label = document.createElement('label');
-    label.className = 'form-label mb-0';
+    label.className = 'form-label';
     label.textContent = sec;
-    const regen = document.createElement('button');
-    regen.type = 'button';
-    regen.className = 'btn btn-sm btn-outline-secondary regen-section';
-    regen.dataset.section = sec;
-    regen.innerHTML = '\u21bb';
-    wrap.append(label, regen);
     const div = document.createElement('div');
-    div.className = 'form-control section-field';
+    div.className = 'form-control mb-3 section-field';
     div.contentEditable = 'true';
     div.dataset.section = sec;
     div.style.minHeight = '6em';
     div.innerHTML = sanitizeHtml(secData[sec] || '');
-    container.append(wrap, div);
-  });
-  container.querySelectorAll('.regen-section').forEach(btn => {
-    btn.addEventListener('click', function(e){
-      e.preventDefault();
-      submitAction(currentPage, 'generate_section', this.dataset.section);
-    });
+    container.append(label, div);
   });
 }
 
@@ -750,15 +622,15 @@ document.querySelectorAll('.page-item').forEach(li => {
   });
   li.querySelector('.generate-btn').addEventListener('click', function(e){
     e.stopPropagation();
-    submitAction(li.dataset.page, 'generate_page', null);
+    submitAction(li.dataset.page, 'generate_page');
   });
   li.querySelector('.save-btn').addEventListener('click', function(e){
     e.stopPropagation();
-    submitAction(li.dataset.page, 'save_page', null);
+    submitAction(li.dataset.page, 'save_page');
   });
 });
 
-function submitAction(page, action, section){
+function submitAction(page, action){
   const form = document.getElementById('actionForm');
   form.innerHTML = '';
   const pageInput = document.createElement('input');
@@ -766,13 +638,6 @@ function submitAction(page, action, section){
   pageInput.name = 'page';
   pageInput.value = page;
   form.appendChild(pageInput);
-  if (section) {
-    const secInput = document.createElement('input');
-    secInput.type = 'hidden';
-    secInput.name = 'section';
-    secInput.value = section;
-    form.appendChild(secInput);
-  }
   if (action === 'save_page') {
     const obj = {
       meta_title: document.getElementById('metaTitle').value,
@@ -787,12 +652,6 @@ function submitAction(page, action, section){
     contentInput.name = 'page_content';
     contentInput.value = JSON.stringify(obj);
     form.appendChild(contentInput);
-  } else if (action === 'generate_section') {
-    const secInput = document.createElement('input');
-    secInput.type = 'hidden';
-    secInput.name = 'section';
-    secInput.value = section;
-    form.appendChild(secInput);
   }
   const actionInput = document.createElement('input');
   actionInput.type = 'hidden';
