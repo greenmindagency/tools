@@ -479,20 +479,6 @@ flattenPages($sitemap, $pages);
   </div>
 </div>
 
-<div class="modal fade" id="sectionImageModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Section Image</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body text-center">
-        <img id="sectionImage" class="img-fluid" alt="Section preview">
-      </div>
-    </div>
-  </div>
-</div>
-
 <form id="actionForm" method="post" class="d-none"></form>
 
 <script>
@@ -500,9 +486,6 @@ var pageData = <?= json_encode($pageData) ?>;
 var pageStructures = <?= json_encode($pageStructures) ?>;
 var allPages = <?= json_encode(array_column($pages, 'title')) ?>;
 var currentPage = <?= $openPage ? json_encode($openPage) : 'null' ?>;
-
-var imageModal = new bootstrap.Modal(document.getElementById('sectionImageModal'));
-var imageEl = document.getElementById('sectionImage');
 
 function sanitizeHtml(html){
   return String(html || '').replace(/<(?!\/?(h3|h4|p)\b)[^>]*>/gi, '');
@@ -616,8 +599,7 @@ function loadPage(page){
   container.querySelectorAll('.view-section').forEach(btn => {
     btn.addEventListener('click', function(e){
       e.preventDefault();
-      imageEl.src = 'https://wordprseo.greenmindagency.com/wp-content/themes/wordprseo/acf-images/' + this.dataset.section + '.jpg';
-      imageModal.show();
+      window.open('https://wordprseo.greenmindagency.com/wp-content/themes/wordprseo/acf-images/' + this.dataset.section + '.jpg', '_blank');
     });
   });
 }
