@@ -201,13 +201,15 @@ Navigation: Dots or arrows for switching.
 
 Section Name: pagecontent1
 
-Layout Structure: Single-column text block.
-
 Heading: 4–6 words.
+sub heading: 8–10 words.
 
-Paragraphs: 2–3 paragraphs (each 25–35 words).
+then a 3 columns section have:
 
-Optional List: Bulleted list (3–5 items, 4–7 words each).
+- an icon in top (suggest awesome font name) 
+- title of the column (2-3 words)
+- description 8–10 words.
+
 
 ---
 
