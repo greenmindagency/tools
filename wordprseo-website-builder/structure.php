@@ -161,16 +161,16 @@ require __DIR__ . '/../header.php';
 
 <ul class="nav nav-tabs mb-3">
   <li class="nav-item">
-    <a class="nav-link" href="sitemap.php?client_id=<?= $client_id ?>&tab=source">Source</a>
+    <a class="nav-link" href="source.php?client_id=<?= $client_id ?>">Source</a>
   </li>
   <li class="nav-item">
-    <a class="nav-link" href="sitemap.php?client_id=<?= $client_id ?>&tab=sitemap">Site Map</a>
+    <a class="nav-link" href="sitemap.php?client_id=<?= $client_id ?>">Site Map</a>
   </li>
   <li class="nav-item">
     <a class="nav-link active" href="#">Structure</a>
   </li>
   <li class="nav-item">
-    <a class="nav-link" href="builder.php?client_id=<?= $client_id ?>">Content</a>
+    <a class="nav-link" href="content.php?client_id=<?= $client_id ?>">Content</a>
   </li>
 </ul>
 
@@ -329,3 +329,4 @@ if (currentPage) {
 }
 </script>
 <?php include __DIR__ . '/../footer.php'; ?>
+
