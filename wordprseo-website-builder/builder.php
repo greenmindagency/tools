@@ -40,401 +40,50 @@ $saved = '';
 $generated = '';
 $openPage = '';
 $sitemap = $client['sitemap'] ? json_decode($client['sitemap'], true) : [];
-// Default page generation instructions.
-$defaultPageInstr = <<<TXT
 
-I need to create an SEO content for the page please start with Meta title (60 characters max don't add the client name), Meta description (from 110 to 140 characters max) 
-
-please follow below guidelines on the length of each section and Structure
-
---- sections description and design:
-
-Section Name: accordion
-
-Layout Structure: Single-column full-width layout.
-
-Title: One main section title at the top (recommended 3–6 words).
-
-Subtitle: One subtitle directly under the main title (recommended 4–8 words).
-
-Content Display: Accordion component with three collapsible panels.
-
-Panels: Each panel has a clickable heading bar with a background color and title text (recommended 2–4 words).
-
-Content Style: When a panel is expanded, it displays a short paragraph (recommended 25–40 words) or bullet list (3–5 bullet points, 4–7 words each) beneath the heading.
-
-Number of Panels: Three total, can be up to 5.
-
-Interaction: Only one panel is expanded at a time (likely configured via accordion behavior).
-
----
-
-Section Name: article description
-
-Layout Structure: Single-column full-width layout.
-
-Heading: One section heading (recommended 2–5 words).
-
-Paragraphs: 1–2 short paragraphs (each 20–35 words) describing the article or topic.
-
-Additional Element: May include a subheading above the paragraphs (optional, 3–6 words).
-
-
----
-
-Section Name: article images
-
-Layout Structure: Single row with multiple columns (4–6 equal-width image blocks).
-
-Images: Each block contains a single logo or image.
-
-Text: No text overlay, images only.
-
-Recommended Size: Consistent image dimensions for uniform alignment.
-
-Section Name: article title
-
-Layout Structure: Single-column full-width layout.
-
-Heading: One main section title (recommended 2–5 words).
-
-Subtitle: One subtitle directly under the title (recommended 5–8 words).
-
----
-
-Section Name: article video
-
-Layout Structure: Single-column full-width layout.
-
-Content: Embedded video player.
-
-Heading: Optional heading above the video (2–4 words).
-
-Video Dimensions: Full-width or responsive container.
-
----
-
-Section Name: article video gallery
-
-Layout Structure: Two-column layout.
-
-Content: Each column contains an embedded video player.
-
-Number of Videos: 2–4 per section.
-
-Video Dimensions: Equal height and width for consistent display.
-
----
-
-Section Name: catconnection
-
-Layout Structure: Two-column layout.
-
-Left Column: Full-height background image.
-
-loaded from the category page that i'll select need only title (3–5 words), and  subtitle (4–8 words) 
-
----
-
-Section Name: postconnection
-
-Layout Structure: Two-column layout.
-
-Left Column: Full-height background image.
-
-loaded from the post  page that i'll select need only title (3–5 words), and  subtitle (4–8 words) 
-
----
-
-Section Name: tagconnection
-
-Layout Structure: Two-column layout.
-
-Left Column: Full-height background image.
-
-loaded from the tag  page that i'll select need only title (3–5 words), and  subtitle (4–8 words) 
-
----
-
-Section Name: contacts
-
-Layout Structure: Two-column layout.
-
-Left Column: Contact information grouped by location, each with an icon for phone and address.
-
-Right Column: Simple form with and submit button, this is loaded from the cf7.
-
-Heading: 2–5 words.
-
-Intro Text: One short paragraph (15–25 words).
-
----
-
-Section Name: herovideo
-
-Layout Structure: Full-width background video.
-
-Text Overlay: Large title (4–8 words), short subtitle (6–10 words), and 1–2 call-to-action buttons.
-
-Please suggest a video stocks photoage links from yoututbe that can be a background video.
-
----
-
-Section Name: image slider
-
-Layout Structure: Single-row image carousel.
-
-Images: 4–6 logos or images per view.
-
-Navigation: Left/right arrows.
-
----
-
-Section Name: image carousel
-
-Layout Structure: Full-width rotating image gallery.
-
-Images: 1 large image visible at a time.
-
-Navigation: Dots or arrows for switching.
-
----
-
-Section Name: pagecontent1
-
-Heading: 4–6 words.
-sub heading: 8–10 words.
-
-then a 3 columns section have:
-
-- an icon in top (suggest awesome font name) 
-- title of the column (2-3 words)
-- description 8–10 words.
-
----
-
-Section Name: pagecontent2
-
-Layout Structure: Three equal-width columns.
-
-Each Column: Icon (awesome font icon), number , and (2–3 words) reflecting the icon.
-
-this section is show statstics number achivements, etc..
-
----
-
-Section Name: pagecontent3
-
-
-Layout Structure: Full-width background color with centered statistics.
-
-Stats: 3–5 numerical highlights, each with an icon (awesome font icon), number, and label (2–4 words).
-
----
-
-
-
-Section Name: pagecontent4
-
-it can work for the team members or images left with content beside it 
-
-
-strating with title 5 words and subtitle from 15 to 20 words
-
-Layout Structure: Two-column layout, loop content.
-
-Left Column: Image.
-
-Right Column: related to each image has 1–2 short paragraphs (20–35 words each).
-
-at the end a content ending the section can have a bullet list.
-
----
-
-
-Section Name: pagecontent5
-
-Layout Structure: 1-column
-
-a content form section for ending pages can be transfered to a title/ subtitle and a call to action 1 or 2 buttons
-
-
----
-
-Section Name: pagecontent6
-
-Layout Structure: 1-column
-
-a map location at the end above it title (5/6 words) and description 15 to 20 words.
-
----
-
-
-Section Name: pagecontent7
-
-Layout Structure: 2-columns
-
-a section present % of success 
-
-title (5/6 words) and content under it 15 to 20 words.
-
-at the right a title and % this title showing a service or important figuer with % beside it, please make sure to have 3 items with 3 of % and titles
-
----
-
-
-Section Name: pagecontent8
-
-Layout Structure: Two-column layout.
-
-Left Column: Full-height background image.
-
-Right Column: Section title (4–7 words), subtitle (6–10 words), and accordion list.
-
-Accordion Panels: 3 panels with headings (3–5 words each).
-
-Content Style: When expanded, each panel shows a short paragraph (20–35 words).
-
-Additional Text Block: Short paragraph (20–30 words) below accordion to highlight overall career mission.
-
-Call-to-Action: One button (2–4 words) below text block.
-
-
----
-
-
-Section Name: pagecontent9
-
-Layout Structure: Single-column full-width layout with heading and subtitle centered at the top.
-
-Heading: Large main heading (5–8 words).
-
-Subtitle: Short descriptive line (8–12 words).
-
-Content Display: Three-column grid.
-
-Each Column:
-
-Image on top.
-
-Title (2–4 words) overlay or below image.
-
-Short paragraph (10–20 words).
-
-Call-to-action link or button (2–4 words).
-
-Number of Cards: 3 visible per row.
-
-a hidden content will show up under the Short paragraph the lenght is 
-
-
-
----
-
-
-Section Name: postsrelatedcat
-
-Layout Structure: Single-column full-width layout.
-
-Heading: Large main heading (2–4 words).
-
-Subtitle: Short descriptive line (8–12 words).
-
-Content Display: Three-column grid, posts related from the category i'll select, no need to do anything, just mention if it should be,infinite loading, or have a button at the end linked to the category.
-
-Number of Cards: 3 visible per row.
-
----
-
-
-Section Name: postsrelatedcatslider
-
-Layout Structure: 2-column width layout.
-
-Heading: Large main heading (2–4 words).
-
-Subtitle: Short descriptive line (8–12 words).
-
-Content Display: 1 grid carousel, posts related from the category i'll select, no need to do anything.
-
-Number of Cards: 1 visible per row.
-
----
-
-
-Section Name: postsrelatedwithfilter
-
-Layout Structure: Single-column full-width layout.
-
-Heading: Large main heading (3–5 words).
-
-Subtitle: Short descriptive line (8–12 words).
-
-Filters: Tag buttons above grid, please tell me the tags i should select that will filter the posts
-
----
-
-
-Section Name: slider
-
-Layout Structure: Full-width image slider.
-
-Each Slide:
-
-Background image.
-
-Title (4–6 words).
-
-Subtitle (6–10 words). 
-
-from 3 to 5 slides make sure to suggest image keyword for search on images stocks websites
-
----
-
-
-Section Name: tagslist
-
-Layout Structure: Two-row, two-column grid.
-
-Heading: Large main heading (3–5 words).
-
-Subtitle: Short descriptive line (6–10 words).
-
-Each Service Item: will be selected tags from admin, just mention the tags.
-
-
----
-
-
-Section Name: testimonial
-
-Layout Structure: Single-column full-width layout.
-
-Heading: Large main heading (5–8 words).
-
-Subtitle: Short descriptive line (8–12 words).
-
-Content Display: a testemenials number i'll select and it will show up form the single pages.
-
----
-
-
-Section Name: verticaltabs
-
-Layout Structure: Two-column layout.
-
-Left Column: Vertical list of 3–6 tab buttons (3–6 words each).
-
-Right Column:
-
-Image on top make sure to suggest image keyword for search on images stocks websites.
-
-Title (3–5 words).
-
-1–2 short paragraphs (20–30 words each).
-
-
-TXT;
+// Placeholder instructions for each supported section.
+$sectionInstructions = [
+    'accordion' => 'Full-width section with a title, subtitle, and a 3-panel accordion (one open at a time) showing brief text or bullet points per panel.',
+'articleimages' => 'Single row of 4–6 equal-width logo/image blocks with consistent sizing and no text.',
+'articletitle' => 'Full-width section with a main title and a short subtitle directly beneath it.',
+'articlevideo' => 'Full-width embedded video (optional short heading above) in a responsive container.',
+'articlevideogallery' => 'Two-column layout displaying 2–4 equal-sized embedded videos side by side.',
+'catconnection' => 'Two-column layout with a full-height image and category-loaded title (3–5 words) plus subtitle (4–8 words).',
+'postconnection' => 'Two-column layout with a full-height image and selected post title (3–5 words) plus subtitle (4–8 words).',
+'tagconnection' => 'Two-column layout with a full-height image and selected tag title (3–5 words) plus subtitle (4–8 words).',
+'contacts' => 'Two-column contact block: left shows locations with phone/address icons, right shows a CF7 form, with heading and brief intro.',
+'herovideo' => 'Full-width background video with large title, short subtitle, and 1–2 CTAs (use stock loops like “city timelapse” or “abstract bokeh” on YouTube).',
+'imagesslider' => 'Single-row carousel showing 4–6 logos/images per view with left/right arrows.',
+'imgcarousel' => 'Full-width rotating gallery showing one large image at a time with dot/arrow navigation.',
+'pagecontent1' => 'Section with heading and subheading followed by three columns each with a Font Awesome icon, 2–3-word title, and 8–10-word description.',
+'pagecontent2' => 'Three equal columns showing a Font Awesome icon, a statistic number, and a 2–3-word label for achievements.',
+'pagecontent3' => 'Centered full-width stats bar with 3–5 highlights, each showing icon, number, and a 2–4-word label.',
+'pagecontent4' => 'Team/feature loop in two columns: image left, 1–2 short paragraphs right under a 5-word title and 15–20-word subtitle, ending with a bullet list.',
+'pagecontent5' => 'Single-column closing block with title, subtitle, and 1–2 call-to-action buttons (form/lead capture).',
+'pagecontent6' => 'Single-column map section with a 5–6-word title and a 15–20-word description above the map.',
+'pagecontent7' => 'Two-column success section: left has 5–6-word title and 15–20-word copy; right lists three items each with a title and percentage.',
+'pagecontent8' => 'Two-column block with full-height image left and right column showing title, subtitle, 3-panel accordion with 20–35-word content, brief summary, and one CTA.',
+'pagecontent9' => 'Full-width header (heading + subtitle) above a three-card grid, each with image, 2–4-word title, 10–20-word text, CTA, and hidden expandable content.',
+'postsrelatedcat' => 'Three-column grid of posts from a selected category with heading/subtitle and a “View all” button linking to the category.',
+'postsrelatedcatslider' => 'Two-column-width layout featuring a single-card carousel of posts from the selected category with heading and subtitle.',
+'postsrelatedwithfilter' => 'Full-width layout with heading/subtitle and tag filter buttons (e.g., News, Tips, Case Studies, Events) above the posts grid.',
+'slider' => 'Full-width image slider with 3–5 slides, each with background image, 4–6-word title, and 6–10-word subtitle (search keywords: skyline night, creative workspace, teamwork meeting, nature trail, data dashboard).',
+'tagslist' => 'Two-row, two-column grid with heading/subtitle listing selected tags from admin as service items.',
+'testimonial' => 'Full-width testimonials section with heading/subtitle that displays a chosen number of entries from single testimonial pages.',
+'verticaltabs' => 'Two-column tabs: left shows 3–6 vertical tab buttons; right shows image (search keywords like modern office, team brainstorming), 3–5-word title, and 1–2 short paragraphs.'
+];
+
+function sectionInstr(array $sections): string {
+    global $sectionInstructions;
+    $result = [];
+    foreach ($sections as $s) {
+        $key = strtolower($s);
+        if (isset($sectionInstructions[$key])) {
+            $result[] = "Section Name: {$s}\n" . $sectionInstructions[$key];
+        }
+    }
+    return implode("\n", $result);
+}
 
 function sectionInstr(array $sections, string $instr): string {
     $parts = preg_split('/\nSection Name:\s*/', $instr);
@@ -471,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $page = $_POST['page'] ?? '';
         $openPage = $page;
         $sections = $pageStructures[$page] ?? [];
-        $sectionInstr = sectionInstr($sections, $defaultPageInstr);
+        $sectionInstr = sectionInstr($sections);
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $sectionList = implode(', ', $sections);
         $prompt = "Using the following source text:\n{$client['core_text']}\n\nSections: {$sectionList}\n\nInstructions:\n{$sectionInstr}\nGenerate JSON with keys: meta_title (<=60 chars), meta_description (110-140 chars), and sections (object mapping section name to HTML content using only <h3>, <h4>, and <p> tags). Provide non-empty content for every listed section. If unsure, add a brief placeholder paragraph. Return JSON only.";
@@ -534,7 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $page = $_POST['page'] ?? '';
         $section = $_POST['section'] ?? '';
         $openPage = $page;
-        $sectionInstr = sectionInstr([$section], $defaultPageInstr);
+        $sectionInstr = sectionInstr([$section]);
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $prompt = "Using the following source text:\n{$client['core_text']}\n\nSection: {$section}\n\nInstructions:\n{$sectionInstr}\nGenerate JSON with key 'content' containing HTML for the section using only <h3>, <h4>, and <p> tags. Provide non-empty content. Return JSON only.";
         $payload = json_encode([
