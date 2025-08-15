@@ -85,6 +85,12 @@ function sectionInstr(array $sections): string {
     return implode("\n", $result);
 }
 
+function slugify(string $text): string {
+    $text = strtolower(trim($text));
+    $text = preg_replace('/[^a-z0-9]+/', '-', $text);
+    return trim($text, '-');
+}
+
 if ($sitemap) {
     $convert = function (&$items) use (&$convert) {
         foreach ($items as &$item) {
@@ -145,15 +151,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                         $sectionContent[$sec] = $content;
                     }
+                    $title = mb_substr(trim($res['meta_title'] ?? ''), 0, 60);
+                    $desc  = mb_substr(trim($res['meta_description'] ?? ''), 0, 140);
+                    $slug  = slugify($res['slug'] ?? '');
                     $pageData[$page] = [
-                        'meta_title' => $res['meta_title'] ?? '',
-                        'meta_description' => $res['meta_description'] ?? '',
-                        'slug' => $res['slug'] ?? '',
+                        'meta_title' => $title,
+                        'meta_description' => $desc,
+                        'slug' => $slug,
                         'sections' => $sectionContent
                     ];
-                    $generated = 'Content generated. Review before saving.';
+                    if (mb_strlen($desc) < 110 || mb_strlen($desc) > 140) {
+                        $generated = 'Content generated, description outside 110-140 chars. Review before saving.';
+                    } else {
+                        $generated = 'Content generated. Review before saving.';
+                    }
                 } else {
                     $error = 'Failed to parse generated content.';
+                }
+            } else {
+                $error = 'Unexpected API response.';
+            }
+        }
+        curl_close($ch);
+    } elseif (isset($_POST['generate_meta'])) {
+        $page = $_POST['page'] ?? '';
+        $openPage = $page;
+        $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
+        $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nGenerate JSON with keys: meta_title (<=60 chars, SEO-optimized and related to the page name), meta_description (110-140 chars, SEO-optimized and related to the page name), and slug (URL-friendly, lowercase, hyphen-separated, SEO-optimized). Return JSON only.";
+        $payload = json_encode([
+            'contents' => [[ 'parts' => [['text' => $prompt]] ]]
+        ]);
+        $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'X-goog-api-key: ' . $apiKey,
+        ]);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        $response = curl_exec($ch);
+        if ($response === false) {
+            $error = 'API request failed: ' . curl_error($ch);
+        } else {
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $json = json_decode($response, true);
+            if ($code >= 400 || isset($json['error'])) {
+                $msg = $json['error']['message'] ?? $response;
+                $error = 'API error: ' . $msg;
+            } elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
+                $text = $json['candidates'][0]['content']['parts'][0]['text'];
+                $text = preg_replace('/^```\w*\n?|```$/m', '', $text);
+                $start = strpos($text, '{');
+                $end = strrpos($text, '}');
+                if ($start !== false && $end !== false && $end >= $start) {
+                    $text = substr($text, $start, $end - $start + 1);
+                }
+                $res = json_decode($text, true);
+                if ($res) {
+                    $title = mb_substr(trim($res['meta_title'] ?? ''), 0, 60);
+                    $desc  = mb_substr(trim($res['meta_description'] ?? ''), 0, 140);
+                    $slug  = slugify($res['slug'] ?? '');
+                    if (!isset($pageData[$page])) {
+                        $pageData[$page] = ['meta_title' => '', 'meta_description' => '', 'slug' => '', 'sections' => []];
+                    }
+                    $pageData[$page]['meta_title'] = $title;
+                    $pageData[$page]['meta_description'] = $desc;
+                    $pageData[$page]['slug'] = $slug;
+                    if (mb_strlen($desc) < 110 || mb_strlen($desc) > 140) {
+                        $generated = 'Meta generated, description outside 110-140 chars. Review before saving.';
+                    } else {
+                        $generated = 'Meta generated. Review before saving.';
+                    }
+                } else {
+                    $error = 'Failed to parse generated meta.';
                 }
             } else {
                 $error = 'Unexpected API response.';
@@ -216,9 +286,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $page = $_POST['page'] ?? '';
         $openPage = $page;
         $content = $_POST['page_content'] ?? '';
+        $data = json_decode($content, true) ?: [];
+        if (isset($data['meta_title'])) {
+            $data['meta_title'] = mb_substr(trim($data['meta_title']), 0, 60);
+        }
+        if (isset($data['meta_description'])) {
+            $data['meta_description'] = mb_substr(trim($data['meta_description']), 0, 140);
+        }
+        if (isset($data['slug'])) {
+            $data['slug'] = slugify($data['slug']);
+        }
+        $content = json_encode($data);
         $stmt = $pdo->prepare('INSERT INTO client_pages (client_id, page, content) VALUES (?,?,?) ON DUPLICATE KEY UPDATE content=VALUES(content)');
         $stmt->execute([$client_id, $page, $content]);
-        $pageData[$page] = json_decode($content, true) ?: [];
+        $pageData[$page] = $data;
         $saved = 'Page content saved.';
     }
 }
@@ -324,7 +405,17 @@ function loadPage(page){
   slugInput.className = 'form-control mb-3';
   slugInput.placeholder = 'Slug (lowercase, hyphen-separated)';
   slugInput.value = data.slug || '';
-  container.append(metaTitle, metaDesc, slugInput);
+  const metaWrap = document.createElement('div');
+  metaWrap.className = 'text-end mb-3';
+  const regenMeta = document.createElement('button');
+  regenMeta.type = 'button';
+  regenMeta.className = 'btn btn-sm btn-outline-secondary';
+  regenMeta.textContent = 'Regenerate Meta';
+  regenMeta.addEventListener('click', function(){
+    submitAction(currentPage, 'generate_meta');
+  });
+  metaWrap.appendChild(regenMeta);
+  container.append(metaTitle, metaDesc, slugInput, metaWrap);
   let sections = pageStructures[page] || [];
   if (!Array.isArray(sections)) {
     sections = Object.values(sections);
@@ -382,10 +473,20 @@ function submitAction(page, action, section){
   pageInput.value = page;
   form.appendChild(pageInput);
   if (action === 'save_page') {
+    const mt = document.getElementById('metaTitle').value.trim();
+    const md = document.getElementById('metaDescription').value.trim();
+    if (mt.length > 60) {
+      alert('Meta title must be 60 characters or less.');
+      return;
+    }
+    if (md.length < 110 || md.length > 140) {
+      alert('Meta description must be between 110 and 140 characters.');
+      return;
+    }
     const obj = {
-      meta_title: document.getElementById('metaTitle').value,
-      meta_description: document.getElementById('metaDescription').value,
-      slug: document.getElementById('slug').value,
+      meta_title: mt,
+      meta_description: md,
+      slug: document.getElementById('slug').value.trim(),
       sections: {}
     };
     document.querySelectorAll('.section-field').forEach(div => {
