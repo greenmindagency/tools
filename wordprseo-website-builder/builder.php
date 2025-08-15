@@ -43,8 +43,8 @@ $sitemap = $client['sitemap'] ? json_decode($client['sitemap'], true) : [];
 
 // Placeholder instructions for each supported section.
 $sectionInstructions = [
-    'accordion' => 'Full-width section with a title, subtitle, and a 3-panel accordion (one open at a time) showing brief text or bullet points per panel.',
-    'articleimages' => 'Single row of 4–6 equal-width logo/image blocks with consistent sizing and no text.',
+    'accordion' => 'Instructions for accordion',
+    'articleimages' => 'Instructions for articleimages',
     'articletitle' => 'Instructions for articletitle',
     'articlevideo' => 'Instructions for articlevideo',
     'articlevideogallery' => 'Instructions for articlevideogallery',
