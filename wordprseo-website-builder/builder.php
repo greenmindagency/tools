@@ -599,7 +599,7 @@ function loadPage(page){
   container.querySelectorAll('.view-section').forEach(btn => {
     btn.addEventListener('click', function(e){
       e.preventDefault();
-      window.open('acf-images/' + this.dataset.section + '.png', '_blank');
+      window.open('https://wordprseo.greenmindagency.com/wp-content/themes/wordprseo/acf-images/' + this.dataset.section + '.jpg', '_blank');
     });
   });
 }
