@@ -134,19 +134,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-function renderList(array $items) {
+function renderList(array $items, int $depth = 0) {
     foreach ($items as $item) {
         $title = htmlspecialchars($item['title']);
         $type = htmlspecialchars($item['type'] ?? 'page');
-        echo "<li class='list-group-item py-1 bg-light'><div class='d-flex align-items-center mb-1 bg-light'>";
+        echo "<li class='list-group-item py-1 bg-light' data-depth='{$depth}'><div class='d-flex align-items-center mb-1 bg-light'>";
         echo "<input type='text' class='form-control form-control-sm item-title-input me-2' value='{$title}'>";
         echo "<select class='form-select form-select-sm item-type me-2'>";
         echo "<option value='page'" . ($type==='page'?" selected":"") . ">Page</option>";
         echo "<option value='single'" . ($type==='single'?" selected":"") . ">Single</option>";
         echo "<option value='category'" . ($type==='category'?" selected":"") . ">Category</option>";
         echo "<option value='tag'" . ($type==='tag'?" selected":"") . ">Tag</option>";
-        echo "</select><div class='btn-group btn-group-sm ms-2'><button type='button' class='btn btn-outline-secondary add-child'>+</button><button type='button' class='btn btn-outline-danger remove'>x</button></div></div><ul class='list-group ms-3 children'>";
-        if (!empty($item['children'])) renderList($item['children']);
+        echo "</select><div class='btn-group btn-group-sm ms-2'>";
+        if ($depth < 1) {
+            echo "<button type='button' class='btn btn-outline-secondary add-child'>+</button>";
+        }
+        echo "<button type='button' class='btn btn-outline-danger remove'>x</button></div></div><ul class='list-group ms-3 children'>";
+        if ($depth < 1 && !empty($item['children'])) renderList($item['children'], $depth + 1);
         echo "</ul></li>";
     }
 }
@@ -218,18 +222,42 @@ require __DIR__ . '/../header.php';
     </form>
   </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-<script>
-function initSortables(){
-  document.querySelectorAll('#sitemapRoot, #sitemapRoot .children').forEach(function(el){
-    Sortable.create(el,{group:'pages',animation:150});
-  });
-}
-function createItem(name){
-  const li=document.createElement('li');
-  li.className='list-group-item py-1 bg-light';
-  li.innerHTML="<div class='d-flex align-items-center mb-1 bg-light'>"+
-    "<input type='text' class='form-control form-control-sm item-title-input me-2'>"+
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script>
+  function setDepth(li, depth){
+    li.dataset.depth = depth;
+    const btnGroup = li.querySelector('.btn-group');
+    let addBtn = btnGroup.querySelector('.add-child');
+    if(depth >= 1){
+      if(addBtn) addBtn.remove();
+    } else {
+      if(!addBtn){
+        addBtn = document.createElement('button');
+        addBtn.type='button';
+        addBtn.className='btn btn-outline-secondary add-child';
+        addBtn.textContent='+';
+        btnGroup.insertBefore(addBtn, btnGroup.firstChild);
+      }
+    }
+    li.querySelectorAll(':scope > .children > li').forEach(function(child){
+      setDepth(child, depth + 1);
+    });
+  }
+  function updateDepths(){
+    document.querySelectorAll('#sitemapRoot > li').forEach(function(li){
+      setDepth(li,0);
+    });
+  }
+  function initSortables(){
+    document.querySelectorAll('#sitemapRoot, #sitemapRoot > li > .children').forEach(function(el){
+      Sortable.create(el,{group:'pages',animation:150,onEnd:updateDepths});
+    });
+  }
+  function createItem(name){
+    const li=document.createElement('li');
+    li.className='list-group-item py-1 bg-light';
+    li.innerHTML="<div class='d-flex align-items-center mb-1 bg-light'>"+
+      "<input type='text' class='form-control form-control-sm item-title-input me-2'>"+
     "<select class='form-select form-select-sm item-type me-2'>"+
     "<option value='page'>Page</option>"+
     "<option value='single'>Single</option>"+
@@ -239,35 +267,43 @@ function createItem(name){
   li.querySelector('.item-title-input').value=name;
   return li;
 }
-initSortables();
-document.getElementById('showAddPage').addEventListener('click',function(){
-  document.getElementById('addPageForm').classList.toggle('d-none');
-});
-document.getElementById('addPage').addEventListener('click',function(){
-  const name=document.getElementById('newPage').value.trim();
-  if(!name) return;
-  document.getElementById('sitemapRoot').appendChild(createItem(name));
-  document.getElementById('newPage').value='';
   initSortables();
-});
-document.getElementById('sitemapRoot').addEventListener('click',function(e){
-  if(e.target.classList.contains('add-child')){
-    const ul=e.target.closest('li').querySelector('.children');
-    ul.appendChild(createItem('New page'));
+  updateDepths();
+  document.getElementById('showAddPage').addEventListener('click',function(){
+    document.getElementById('addPageForm').classList.toggle('d-none');
+  });
+  document.getElementById('addPage').addEventListener('click',function(){
+    const name=document.getElementById('newPage').value.trim();
+    if(!name) return;
+    document.getElementById('sitemapRoot').appendChild(createItem(name));
+    document.getElementById('newPage').value='';
     initSortables();
-  } else if(e.target.classList.contains('remove')){
-    e.target.closest('li').remove();
-  }
-});
+    updateDepths();
+  });
+  document.getElementById('sitemapRoot').addEventListener('click',function(e){
+    if(e.target.classList.contains('add-child')){
+      const ul=e.target.closest('li').querySelector('.children');
+      ul.appendChild(createItem('New page'));
+      initSortables();
+      updateDepths();
+    } else if(e.target.classList.contains('remove')){
+      e.target.closest('li').remove();
+      updateDepths();
+    }
+  });
 document.getElementById('sitemapForm').addEventListener('submit',function(){
+  updateDepths();
   document.getElementById('sitemapData').value=JSON.stringify(serialize(document.getElementById('sitemapRoot')));
 });
-function serialize(ul){
+function serialize(ul, depth=0){
   const items=[];
   ul.querySelectorAll(':scope > li').forEach(function(li){
     const title=li.querySelector('.item-title-input').value.trim();
     const type=li.querySelector('.item-type').value;
-    const children=serialize(li.querySelector('.children'));
+    let children=[];
+    if(depth < 1){
+      children=serialize(li.querySelector('.children'), depth+1);
+    }
     items.push({title:title,type:type,children:children});
   });
   return items;

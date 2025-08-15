@@ -26,7 +26,13 @@ $stmt = $pdo->prepare('SELECT page, content FROM client_pages WHERE client_id = 
 $stmt->execute([$client_id]);
 $pageData = [];
 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-    $pageData[$row['page']] = $row['content'];
+    $pageData[$row['page']] = json_decode($row['content'], true) ?: [];
+}
+$stmt = $pdo->prepare('SELECT page, structure FROM client_structures WHERE client_id = ?');
+$stmt->execute([$client_id]);
+$pageStructures = [];
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $pageStructures[$row['page']] = json_decode($row['structure'], true) ?: [];
 }
 $error = '';
 $saved = '';
@@ -468,9 +474,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['generate_page'])) {
         $page = $_POST['page'] ?? '';
         $openPage = $page;
+        $sections = $pageStructures[$page] ?? [];
         $pageInstr = $defaultPageInstr;
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-        $prompt = "Using the following source text:\n{$client['core_text']}\n\nInstructions:\n{$pageInstr}\nWrite HTML-formatted content for the {$page} page only. Include a main <h3> heading and paragraphs using <p> tags. Return HTML only.";
+        $sectionList = implode(', ', $sections);
+        $prompt = "Using the following source text:\n{$client['core_text']}\n\nSections: {$sectionList}\n\nInstructions:\n{$pageInstr}\nGenerate JSON with keys: meta_title (<=60 chars), meta_description (110-140 chars), and sections (object mapping section name to HTML content). Return JSON only.";
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -492,13 +500,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = $json['error']['message'] ?? $response;
                 $error = 'API error: ' . $msg;
             } elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
-                $raw = html_entity_decode($json['candidates'][0]['content']['parts'][0]['text']);
-                $raw = preg_replace('/^```\w*\n?|```$/m', '', $raw);
-                $raw = preg_replace('/<img[^>]*>/i', '', $raw);
-                $raw = preg_replace('/!\[[^\]]*\]\([^\)]*\)/', '', $raw);
-                $raw = preg_replace("/\n{2,}/", "\n", $raw);
-                $pageData[$page] = trim($raw);
-                $generated = 'Content generated. Review before saving.';
+                $text = $json['candidates'][0]['content']['parts'][0]['text'];
+                $text = preg_replace('/^```\w*\n?|```$/m', '', $text);
+                $res = json_decode($text, true);
+                if ($res) {
+                    $pageData[$page] = [
+                        'meta_title' => $res['meta_title'] ?? '',
+                        'meta_description' => $res['meta_description'] ?? '',
+                        'sections' => $res['sections'] ?? []
+                    ];
+                    $generated = 'Content generated. Review before saving.';
+                } else {
+                    $error = 'Failed to parse generated content.';
+                }
             } else {
                 $error = 'Unexpected API response.';
             }
@@ -510,7 +524,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $content = $_POST['page_content'] ?? '';
         $stmt = $pdo->prepare('INSERT INTO client_pages (client_id, page, content) VALUES (?,?,?) ON DUPLICATE KEY UPDATE content=VALUES(content)');
         $stmt->execute([$client_id, $page, $content]);
-        $pageData[$page] = $content;
+        $pageData[$page] = json_decode($content, true) ?: [];
         $saved = 'Page content saved.';
     }
 }
@@ -537,55 +551,142 @@ require __DIR__ . '/../header.php';
 <?php if ($generated): ?><div class="alert alert-info"><?= htmlspecialchars($generated) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 <?php
-function flattenPages(array $items, array &$list) {
-    foreach ($items as $item) {
-        $list[] = $item['title'];
-        if (!empty($item['children'])) flattenPages($item['children'], $list);
+function flattenPages(array $items, array &$list, int $level = 0) {
+    foreach ($items as $it) {
+        $list[] = [
+            'title' => $it['title'],
+            'type' => $it['type'] ?? 'page',
+            'level' => $level
+        ];
+        if (!empty($it['children'])) flattenPages($it['children'], $list, $level + 1);
     }
 }
 $pages = [];
 flattenPages($sitemap, $pages);
 ?>
-<div class="accordion" id="contentAccordion">
-<?php foreach ($pages as $p) {
-    $esc = htmlspecialchars($p);
-    $content = $pageData[$p] ?? '';
-    $slug = strtolower(preg_replace('/[^a-z0-9]+/i','-', $p));
-    $show = ($openPage === $p) ? ' show' : '';
-    $collapsed = ($openPage === $p) ? '' : ' collapsed';
-    $hasContent = trim($content) !== '';
-?>
-  <div class="accordion-item">
-    <h2 class="accordion-header" id="heading-<?= $slug ?>">
-      <button class="accordion-button<?= $collapsed ?>" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-<?= $slug ?>" aria-expanded="<?= $openPage === $p ? 'true' : 'false' ?>" aria-controls="collapse-<?= $slug ?>">
-        <?= $esc ?>
-      </button>
-    </h2>
-    <div id="collapse-<?= $slug ?>" class="accordion-collapse collapse<?= $show ?>" aria-labelledby="heading-<?= $slug ?>" data-bs-parent="#contentAccordion">
-      <div class="accordion-body">
-        <form method="post" class="page-form" id="form-<?= $slug ?>">
-          <input type="hidden" name="page" value="<?= $esc ?>">
-          <input type="hidden" name="page_content" id="input-<?= $slug ?>">
-          <div class="mb-2<?= $hasContent ? '' : ' d-none' ?>">
-            <div class="border p-2" id="display-<?= $slug ?>" contenteditable="true" style="white-space: pre-wrap;">
-              <?= trim($content) ?>
-            </div>
-          </div>
-          <button type="submit" name="generate_page" class="btn btn-secondary btn-sm me-2">Generate</button>
-          <button type="submit" name="save_page" class="btn btn-primary btn-sm<?= $hasContent ? '' : ' d-none' ?>">Save</button>
-        </form>
-      </div>
-    </div>
+<div class="row">
+  <div class="col-md-4">
+    <ul class="list-group position-sticky" style="top: 70px;">
+      <?php foreach ($pages as $p): ?>
+      <?php $paddingClass = $p['level'] > 0 ? 'ps-4' : 'ps-2'; ?>
+      <li class="list-group-item d-flex justify-content-between align-items-center <?= $paddingClass ?> page-item<?= ($openPage === $p['title']) ? ' active' : '' ?>" data-page="<?= htmlspecialchars($p['title']) ?>">
+        <span>
+          <?= htmlspecialchars($p['title']) ?>
+          <span class="badge bg-secondary ms-1"><?= htmlspecialchars($p['type']) ?></span>
+        </span>
+        <span class="btn-group btn-group-sm d-none">
+          <button type="button" class="btn btn-secondary generate-btn">Generate</button>
+          <button type="button" class="btn btn-success save-btn">Save</button>
+        </span>
+      </li>
+      <?php endforeach; ?>
+    </ul>
   </div>
-<?php } ?>
+  <div class="col-md-8">
+    <div id="contentContainer" class="mb-3"></div>
+  </div>
 </div>
+
+<form id="actionForm" method="post" class="d-none"></form>
+
 <script>
-document.querySelectorAll('.page-form').forEach(function(f){
-  f.addEventListener('submit', function(){
-    const id = this.id.replace('form-','');
-    const display = document.getElementById('display-'+id);
-    document.getElementById('input-'+id).value = display.innerHTML;
+var pageData = <?= json_encode($pageData) ?>;
+var pageStructures = <?= json_encode($pageStructures) ?>;
+var currentPage = <?= $openPage ? json_encode($openPage) : 'null' ?>;
+
+function loadPage(page){
+  currentPage = page;
+  document.querySelectorAll('.page-item').forEach(li => {
+    const isActive = li.dataset.page === page;
+    li.classList.toggle('active', isActive);
+    const btns = li.querySelector('.btn-group');
+    if (btns) btns.classList.toggle('d-none', !isActive);
+  });
+  const container = document.getElementById('contentContainer');
+  container.innerHTML = '';
+  const data = pageData[page] || {};
+  const metaTitle = document.createElement('input');
+  metaTitle.type = 'text';
+  metaTitle.id = 'metaTitle';
+  metaTitle.maxLength = 60;
+  metaTitle.className = 'form-control mb-2';
+  metaTitle.placeholder = 'Meta Title (max 60 chars)';
+  metaTitle.value = data.meta_title || '';
+  const metaDesc = document.createElement('textarea');
+  metaDesc.id = 'metaDescription';
+  metaDesc.maxLength = 140;
+  metaDesc.rows = 3;
+  metaDesc.className = 'form-control mb-3';
+  metaDesc.placeholder = 'Meta Description (110-140 chars)';
+  metaDesc.value = data.meta_description || '';
+  container.append(metaTitle, metaDesc);
+  const sections = pageStructures[page] || [];
+  const secData = data.sections || {};
+  sections.forEach(sec => {
+    const label = document.createElement('label');
+    label.className = 'form-label';
+    label.textContent = sec;
+    const ta = document.createElement('textarea');
+    ta.className = 'form-control mb-3 section-field';
+    ta.dataset.section = sec;
+    ta.rows = 4;
+    ta.value = secData[sec] || '';
+    container.append(label, ta);
+  });
+}
+
+document.querySelectorAll('.page-item').forEach(li => {
+  li.addEventListener('click', function(e){
+    if (e.target.classList.contains('generate-btn') || e.target.classList.contains('save-btn')) return;
+    loadPage(this.dataset.page);
+  });
+  li.querySelector('.generate-btn').addEventListener('click', function(e){
+    e.stopPropagation();
+    submitAction(li.dataset.page, 'generate_page');
+  });
+  li.querySelector('.save-btn').addEventListener('click', function(e){
+    e.stopPropagation();
+    submitAction(li.dataset.page, 'save_page');
   });
 });
+
+function submitAction(page, action){
+  const form = document.getElementById('actionForm');
+  form.innerHTML = '';
+  const pageInput = document.createElement('input');
+  pageInput.type = 'hidden';
+  pageInput.name = 'page';
+  pageInput.value = page;
+  form.appendChild(pageInput);
+  if (action === 'save_page') {
+    const obj = {
+      meta_title: document.getElementById('metaTitle').value,
+      meta_description: document.getElementById('metaDescription').value,
+      sections: {}
+    };
+    document.querySelectorAll('.section-field').forEach(ta => {
+      obj.sections[ta.dataset.section] = ta.value;
+    });
+    const contentInput = document.createElement('input');
+    contentInput.type = 'hidden';
+    contentInput.name = 'page_content';
+    contentInput.value = JSON.stringify(obj);
+    form.appendChild(contentInput);
+  }
+  const actionInput = document.createElement('input');
+  actionInput.type = 'hidden';
+  actionInput.name = action;
+  actionInput.value = '1';
+  form.appendChild(actionInput);
+  form.submit();
+}
+
+if (currentPage === null) {
+  const keys = Object.keys(pageData);
+  currentPage = keys.length ? keys[0] : Object.keys(pageStructures)[0];
+}
+if (currentPage) {
+  loadPage(currentPage);
+}
 </script>
 <?php include __DIR__ . '/../footer.php'; ?>
