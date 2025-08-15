@@ -452,7 +452,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pageInstr = $defaultPageInstr;
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $sectionList = implode(', ', $sections);
-        $prompt = "Using the following source text:\n{$client['core_text']}\n\nSections: {$sectionList}\n\nInstructions:\n{$pageInstr}\nGenerate JSON with keys: meta_title (<=60 chars), meta_description (110-140 chars), and sections (object mapping section name to HTML content). Return JSON only.";
+        $prompt = "Using the following source text:\n{$client['core_text']}\n\nSections: {$sectionList}\n\nInstructions:\n{$pageInstr}\nGenerate JSON with keys: meta_title (<=60 chars), meta_description (110-140 chars), and sections (object mapping section name to HTML content using only <h3>, <h4>, and <p> tags). Return JSON only.";
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -568,6 +568,10 @@ var pageData = <?= json_encode($pageData) ?>;
 var pageStructures = <?= json_encode($pageStructures) ?>;
 var currentPage = <?= $openPage ? json_encode($openPage) : 'null' ?>;
 
+function sanitizeHtml(html){
+  return html.replace(/<(?!\/?(h3|h4|p)\b)[^>]*>/gi, '');
+}
+
 function loadPage(page){
   currentPage = page;
   document.querySelectorAll('.page-item').forEach(li => {
@@ -600,12 +604,13 @@ function loadPage(page){
     const label = document.createElement('label');
     label.className = 'form-label';
     label.textContent = sec;
-    const ta = document.createElement('textarea');
-    ta.className = 'form-control mb-3 section-field';
-    ta.dataset.section = sec;
-    ta.rows = 4;
-    ta.value = secData[sec] || '';
-    container.append(label, ta);
+    const div = document.createElement('div');
+    div.className = 'form-control mb-3 section-field';
+    div.contentEditable = 'true';
+    div.dataset.section = sec;
+    div.style.minHeight = '6em';
+    div.innerHTML = sanitizeHtml(secData[sec] || '');
+    container.append(label, div);
   });
 }
 
@@ -638,8 +643,8 @@ function submitAction(page, action){
       meta_description: document.getElementById('metaDescription').value,
       sections: {}
     };
-    document.querySelectorAll('.section-field').forEach(ta => {
-      obj.sections[ta.dataset.section] = ta.value;
+    document.querySelectorAll('.section-field').forEach(div => {
+      obj.sections[div.dataset.section] = sanitizeHtml(div.innerHTML);
     });
     const contentInput = document.createElement('input');
     contentInput.type = 'hidden';
