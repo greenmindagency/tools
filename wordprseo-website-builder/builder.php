@@ -501,7 +501,10 @@ var pageStructures = <?= json_encode($pageStructures) ?>;
 var allPages = <?= json_encode(array_column($pages, 'title')) ?>;
 var currentPage = <?= $openPage ? json_encode($openPage) : 'null' ?>;
 
-var imageModal = new bootstrap.Modal(document.getElementById('sectionImageModal'));
+var imageModal;
+document.addEventListener('DOMContentLoaded', function(){
+  imageModal = new bootstrap.Modal(document.getElementById('sectionImageModal'));
+});
 var imageEl = document.getElementById('sectionImage');
 
 function sanitizeHtml(html){
