@@ -498,6 +498,7 @@ flattenPages($sitemap, $pages);
 <script>
 var pageData = <?= json_encode($pageData) ?>;
 var pageStructures = <?= json_encode($pageStructures) ?>;
+var sectionInstructions = <?= json_encode($sectionInstructions) ?>;
 var allPages = <?= json_encode(array_column($pages, 'title')) ?>;
 var currentPage = <?= $openPage ? json_encode($openPage) : 'null' ?>;
 
@@ -509,6 +510,48 @@ var imageEl = document.getElementById('sectionImage');
 
 function sanitizeHtml(html){
   return String(html || '').replace(/<(?!\/?(h3|h4|p)\b)[^>]*>/gi, '');
+}
+
+function extractKeywords(instr){
+  const match = instr.match(/search keywords[^)]+/i);
+  if (!match) return [];
+  return match[0]
+    .replace(/search keywords|like|[:()]/gi, '')
+    .split(/,\s*/)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function findQuoted(instr){
+  const res = [];
+  const regex = /["'“”]([^"'“”]+)["'“”]/g;
+  let m;
+  while ((m = regex.exec(instr)) !== null) {
+    res.push(m[1]);
+  }
+  return res;
+}
+
+function mediaSuggestions(instr){
+  const result = {icons: [], images: [], videos: []};
+  if (!instr) return result;
+  const lower = instr.toLowerCase();
+  const keywords = extractKeywords(instr);
+  const quoted = findQuoted(instr);
+  if (keywords.length) {
+    if (lower.includes('video') || lower.includes('youtube')) {
+      result.videos = keywords;
+    } else {
+      result.images = keywords;
+    }
+  }
+  if ((lower.includes('video') || lower.includes('youtube')) && !result.videos.length) {
+    result.videos = quoted;
+  }
+  if (lower.includes('icon')) {
+    result.icons = quoted.length ? quoted : ['fa-star','fa-check','fa-bolt'];
+  }
+  return result;
 }
 
 function loadPage(page){
@@ -609,6 +652,27 @@ function loadPage(page){
     div.style.minHeight = '6em';
     div.innerHTML = sanitizeHtml(secData[sec] || '');
     container.append(wrap, div);
+    const media = mediaSuggestions(sectionInstructions[sec] || '');
+    if (media.icons.length || media.images.length || media.videos.length) {
+      const sugg = document.createElement('div');
+      sugg.className = 'small text-muted mb-3';
+      if (media.icons.length) {
+        const p = document.createElement('p');
+        p.textContent = 'Recommended icons: ' + media.icons.join(', ');
+        sugg.appendChild(p);
+      }
+      if (media.images.length) {
+        const p = document.createElement('p');
+        p.textContent = 'Recommended images: ' + media.images.join(', ');
+        sugg.appendChild(p);
+      }
+      if (media.videos.length) {
+        const p = document.createElement('p');
+        p.textContent = 'Recommended videos: ' + media.videos.join(', ');
+        sugg.appendChild(p);
+      }
+      container.append(sugg);
+    }
   });
   container.querySelectorAll('.regen-section').forEach(btn => {
     btn.addEventListener('click', function(e){
