@@ -85,26 +85,6 @@ function sectionInstr(array $sections): string {
     return implode("\n", $result);
 }
 
-function sectionInstr(array $sections, string $instr): string {
-    $parts = preg_split('/\nSection Name:\s*/', $instr);
-    $map = [];
-    for ($i = 1; $i < count($parts); $i++) {
-        $block = $parts[$i];
-        $lines = explode("\n", $block, 2);
-        $name = strtolower(trim($lines[0]));
-        $content = $lines[1] ?? '';
-        $map[$name] = trim($content);
-    }
-    $result = [];
-    foreach ($sections as $s) {
-        $key = strtolower($s);
-        if (isset($map[$key])) {
-            $result[] = "Section Name: {$s}\n" . $map[$key];
-        }
-    }
-    return implode("\n", $result);
-}
-
 if ($sitemap) {
     $convert = function (&$items) use (&$convert) {
         foreach ($items as &$item) {
