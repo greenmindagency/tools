@@ -1,6 +1,7 @@
 <?php
 session_start();
 require __DIR__ . '/config.php';
+require __DIR__ . '/file_utils.php';
 if (!isset($_SESSION['user'])) {
     header('Location: login.php');
     exit;
@@ -18,6 +19,10 @@ if (!$client) {
 $error = '';
 $saved = '';
 $generated = '';
+$activeTab = $_GET['tab'] ?? 'source';
+if (!in_array($activeTab, ['source','sitemap'])) {
+    $activeTab = 'source';
+}
 $instructions = $client['instructions'] ?? '';
 $sitemap = $client['sitemap'] ? json_decode($client['sitemap'], true) : [];
 
@@ -53,11 +58,31 @@ function buildTree(array $items, int &$count, int $max, array &$seen): array {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['save_sitemap'])) {
+    if (isset($_POST['save_core'])) {
+        $text = $_POST['core_text'] ?? '';
+        if (!empty($_FILES['source']['name'][0])) {
+            $files = $_FILES['source'];
+            $count = is_array($files['name']) ? count($files['name']) : 0;
+            $errors = [];
+            for ($i=0; $i<$count; $i++) {
+                if ($files['error'][$i] !== UPLOAD_ERR_OK) continue;
+                $part = extractUploaded($files['tmp_name'][$i], $files['name'][$i], $errors);
+                if ($part !== '') {
+                    $text .= ($text ? "\n" : '') . $part;
+                }
+            }
+            if ($errors) $error = implode(' ', $errors);
+        }
+        $pdo->prepare('UPDATE clients SET core_text = ? WHERE id = ?')->execute([$text, $client_id]);
+        $client['core_text'] = $text;
+        $saved = 'Source text saved.';
+        $activeTab = 'source';
+    } elseif (isset($_POST['save_sitemap'])) {
         $json = $_POST['sitemap_json'] ?? '[]';
         $pdo->prepare('UPDATE clients SET sitemap = ? WHERE id = ?')->execute([$json, $client_id]);
         $sitemap = json_decode($json, true);
         $saved = 'Sitemap saved.';
+        $activeTab = 'sitemap';
     } elseif (isset($_POST['regenerate'])) {
         $num = (int)($_POST['num_pages'] ?? 4);
         $source = $client['core_text'] ?? '';
@@ -96,22 +121,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $seen = [];
                     $count = 0;
                     $sitemap = buildTree($items, $count, $num, $seen);
-                    $pdo->prepare('UPDATE clients SET sitemap = ? WHERE id = ?')->execute([json_encode($sitemap), $client_id]);
-                    $generated = 'Sitemap regenerated. Review before saving.';
+                    $generated = 'Sitemap regenerated. Save to apply changes.';
                 } else {
-                    $error = 'Failed to parse generated sitemap.';
+                    $error = 'Failed to parse sitemap JSON.';
                 }
             } else {
                 $error = 'Unexpected API response.';
             }
         }
+        curl_close($ch);
+        $activeTab = 'sitemap';
     }
 }
 
 function renderList(array $items, int $depth = 0) {
     foreach ($items as $item) {
         $title = htmlspecialchars($item['title']);
-        $type = htmlspecialchars($item['type']);
+        $type = htmlspecialchars($item['type'] ?? 'page');
         echo "<li class='list-group-item py-1 bg-light' data-depth='{$depth}'><div class='d-flex align-items-center mb-1 bg-light'>";
         echo "<input type='text' class='form-control form-control-sm item-title-input me-2' value='{$title}'>";
         echo "<select class='form-select form-select-sm item-type me-2'>";
@@ -141,140 +167,147 @@ function countPages(array $items): int {
 $title = 'Wordprseo Content Builder';
 require __DIR__ . '/../header.php';
 ?>
-<ul class="nav nav-tabs mb-3">
-  <li class="nav-item">
-    <a class="nav-link" href="source.php?client_id=<?= $client_id ?>">Source</a>
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link <?= $activeTab==='source'?'active':'' ?>" data-bs-toggle="tab" data-bs-target="#sourceTab" type="button" role="tab">Source</button>
   </li>
-  <li class="nav-item">
-    <a class="nav-link active" href="#">Site Map</a>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link <?= $activeTab==='sitemap'?'active':'' ?>" data-bs-toggle="tab" data-bs-target="#sitemapTab" type="button" role="tab">Site Map</button>
   </li>
-  <li class="nav-item">
+  <li class="nav-item" role="presentation">
     <a class="nav-link" href="structure.php?client_id=<?= $client_id ?>">Structure</a>
   </li>
-  <li class="nav-item">
-    <a class="nav-link" href="content.php?client_id=<?= $client_id ?>">Content</a>
+  <li class="nav-item" role="presentation">
+    <a class="nav-link" href="builder.php?client_id=<?= $client_id ?>">Content</a>
   </li>
 </ul>
 <?php if ($saved): ?><div class="alert alert-success"><?= htmlspecialchars($saved) ?></div><?php endif; ?>
 <?php if ($generated): ?><div class="alert alert-info"><?= htmlspecialchars($generated) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
-<form method="post" id="sitemapForm">
-  <div class="mb-3">
-    <label class="form-label">Number of pages</label>
-    <input type="number" name="num_pages" class="form-control" value="<?= countPages($sitemap) ?: 4 ?>">
+<div class="tab-content border border-top-0 p-3">
+  <div class="tab-pane fade <?= $activeTab==='source'?'show active':'' ?>" id="sourceTab" role="tabpanel">
+    <form method="post" enctype="multipart/form-data">
+      <div class="mb-3">
+        <label class="form-label">Upload Source Files</label>
+        <input type="file" name="source[]" multiple class="form-control">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Core Text</label>
+        <textarea name="core_text" class="form-control" rows="10"><?= htmlspecialchars($client['core_text']) ?></textarea>
+      </div>
+      <button type="submit" name="save_core" class="btn btn-primary">Save</button>
+    </form>
   </div>
-  <div class="p-3 rounded mb-3">
-    <ul id="sitemapRoot" class="list-group mb-0">
-      <?php renderList($sitemap); ?>
-    </ul>
+  <div class="tab-pane fade <?= $activeTab==='sitemap'?'show active':'' ?>" id="sitemapTab" role="tabpanel">
+    <form method="post" id="sitemapForm">
+      <div class="mb-3">
+        <label class="form-label">Number of pages</label>
+        <input type="number" name="num_pages" class="form-control" value="<?= countPages($sitemap) ?: 4 ?>">
+      </div>
+      <div class="p-3 rounded mb-3">
+        <ul id="sitemapRoot" class="list-group mb-0">
+          <?php renderList($sitemap); ?>
+        </ul>
+      </div>
+      <div id="addPageContainer" class="mb-3">
+        <button type="button" class="btn btn-secondary" id="showAddPage">Add Page</button>
+        <div id="addPageForm" class="input-group mt-2 d-none">
+          <input type="text" id="newPage" class="form-control" placeholder="New page name">
+          <button class="btn btn-success" type="button" id="addPage">Add</button>
+        </div>
+      </div>
+      <input type="hidden" name="sitemap_json" id="sitemapData">
+      <button type="submit" name="save_sitemap" class="btn btn-primary">Save Site Map</button>
+      <button type="submit" name="regenerate" class="btn btn-outline-secondary">Regenerate</button>
+    </form>
   </div>
-  <div id="addPageContainer" class="mb-3">
-    <button type="button" class="btn btn-secondary" id="showAddPage">Add Page</button>
-    <div id="addPageForm" class="input-group mt-2 d-none">
-      <input type="text" id="newPage" class="form-control" placeholder="New page name">
-      <button class="btn btn-success" type="button" id="addPage">Add</button>
-    </div>
-  </div>
-  <input type="hidden" name="sitemap_json" id="sitemapData">
-  <button type="submit" name="save_sitemap" class="btn btn-primary">Save Site Map</button>
-  <button type="submit" name="regenerate" class="btn btn-outline-secondary">Regenerate</button>
-</form>
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-<script>
-function setDepth(li, depth){
-  li.dataset.depth = depth;
-  const btnGroup = li.querySelector('.btn-group');
-  let addBtn = btnGroup.querySelector('.add-child');
-  if(depth >= 1){
-    if(addBtn) addBtn.remove();
-  } else {
-    if(!addBtn){
-      addBtn = document.createElement('button');
-      addBtn.type='button';
-      addBtn.className='btn btn-outline-secondary add-child';
-      addBtn.textContent='+';
-      btnGroup.insertBefore(addBtn, btnGroup.firstChild);
+</div>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script>
+  function setDepth(li, depth){
+    li.dataset.depth = depth;
+    const btnGroup = li.querySelector('.btn-group');
+    let addBtn = btnGroup.querySelector('.add-child');
+    if(depth >= 1){
+      if(addBtn) addBtn.remove();
+    } else {
+      if(!addBtn){
+        addBtn = document.createElement('button');
+        addBtn.type='button';
+        addBtn.className='btn btn-outline-secondary add-child';
+        addBtn.textContent='+';
+        btnGroup.insertBefore(addBtn, btnGroup.firstChild);
+      }
     }
+    li.querySelectorAll(':scope > .children > li').forEach(function(child){
+      setDepth(child, depth + 1);
+    });
   }
-  li.querySelectorAll(':scope > .children > li').forEach(function(child){
-    setDepth(child, depth + 1);
-  });
-}
-function updateDepths(){
-  document.querySelectorAll('#sitemapRoot > li').forEach(function(li){
-    setDepth(li,0);
-  });
-}
-function initSortables(){
-  document.querySelectorAll('#sitemapRoot, #sitemapRoot > li > .children').forEach(function(el){
-    Sortable.create(el,{group:'pages',animation:150,onEnd:updateDepths});
-  });
-}
-function createItem(name){
-  const li=document.createElement('li');
-  li.className='list-group-item py-1 bg-light';
-  li.innerHTML="<div class='d-flex align-items-center mb-1 bg-light'>"+
-    "<input type='text' class='form-control form-control-sm item-title-input me-2'>"+
+  function updateDepths(){
+    document.querySelectorAll('#sitemapRoot > li').forEach(function(li){
+      setDepth(li,0);
+    });
+  }
+  function initSortables(){
+    document.querySelectorAll('#sitemapRoot, #sitemapRoot > li > .children').forEach(function(el){
+      Sortable.create(el,{group:'pages',animation:150,onEnd:updateDepths});
+    });
+  }
+  function createItem(name){
+    const li=document.createElement('li');
+    li.className='list-group-item py-1 bg-light';
+    li.innerHTML="<div class='d-flex align-items-center mb-1 bg-light'>"+
+      "<input type='text' class='form-control form-control-sm item-title-input me-2'>"+
     "<select class='form-select form-select-sm item-type me-2'>"+
     "<option value='page'>Page</option>"+
     "<option value='single'>Single</option>"+
     "<option value='category'>Category</option>"+
     "<option value='tag'>Tag</option>"+
-    "</select><div class='btn-group btn-group-sm ms-2'>"+
-    "<button type='button' class='btn btn-outline-secondary add-child'>+</button>"+
-    "<button type='button' class='btn btn-outline-danger remove'>x</button></div></div><ul class='list-group ms-3 children'></ul>";
+    "</select><div class='btn-group btn-group-sm ms-2'><button type='button' class='btn btn-outline-secondary add-child'>+</button><button type='button' class='btn btn-outline-danger remove'>x</button></div></div><ul class='list-group ms-3 children'></ul>";
   li.querySelector('.item-title-input').value=name;
   return li;
 }
-initSortables();
-updateDepths();
-
-function collectData(){
-  function recurse(ul){
-    const arr=[];
-    ul.querySelectorAll(':scope > li').forEach(function(li){
-      const title=li.querySelector('.item-title-input').value.trim();
-      const type=li.querySelector('.item-type').value;
-      const childUl=li.querySelector('.children');
-      const node={title:title,type:type,children:[]};
-      if(childUl) node.children=recurse(childUl);
-      arr.push(node);
-    });
-    return arr;
-  }
-  document.getElementById('sitemapData').value = JSON.stringify(recurse(document.getElementById('sitemapRoot')));
-}
-
-document.getElementById('showAddPage').addEventListener('click', function(){
-  document.getElementById('addPageForm').classList.toggle('d-none');
-});
-document.getElementById('addPage').addEventListener('click', function(){
-  const name=document.getElementById('newPage').value.trim();
-  if(name){
-    const li=createItem(name);
-    document.getElementById('sitemapRoot').appendChild(li);
+  initSortables();
+  updateDepths();
+  document.getElementById('showAddPage').addEventListener('click',function(){
+    document.getElementById('addPageForm').classList.toggle('d-none');
+  });
+  document.getElementById('addPage').addEventListener('click',function(){
+    const name=document.getElementById('newPage').value.trim();
+    if(!name) return;
+    document.getElementById('sitemapRoot').appendChild(createItem(name));
     document.getElementById('newPage').value='';
+    initSortables();
     updateDepths();
-  }
-});
-
-document.getElementById('sitemapForm').addEventListener('submit', function(){
-  collectData();
-});
-
-document.getElementById('sitemapRoot').addEventListener('click', function(e){
-  if(e.target.classList.contains('remove')){
-    e.target.closest('li').remove();
-  } else if(e.target.classList.contains('add-child')){
-    const name=prompt('Child page name');
-    if(name){
-      const childUl=e.target.closest('li').querySelector('.children');
-      const li=createItem(name);
-      childUl.appendChild(li);
+  });
+  document.getElementById('sitemapRoot').addEventListener('click',function(e){
+    if(e.target.classList.contains('add-child')){
+      const ul=e.target.closest('li').querySelector('.children');
+      ul.appendChild(createItem('New page'));
+      initSortables();
+      updateDepths();
+    } else if(e.target.classList.contains('remove')){
+      e.target.closest('li').remove();
       updateDepths();
     }
-  }
+  });
+document.getElementById('sitemapForm').addEventListener('submit',function(){
+  updateDepths();
+  document.getElementById('sitemapData').value=JSON.stringify(serialize(document.getElementById('sitemapRoot')));
 });
+function serialize(ul, depth=0){
+  const items=[];
+  ul.querySelectorAll(':scope > li').forEach(function(li){
+    const title=li.querySelector('.item-title-input').value.trim();
+    const type=li.querySelector('.item-type').value;
+    let children=[];
+    if(depth < 1){
+      children=serialize(li.querySelector('.children'), depth+1);
+    }
+    items.push({title:title,type:type,children:children});
+  });
+  return items;
+}
 </script>
 <?php include __DIR__ . '/../footer.php'; ?>
 

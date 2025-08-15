@@ -427,10 +427,10 @@ require __DIR__ . '/../header.php';
 ?>
 <ul class="nav nav-tabs mb-3">
   <li class="nav-item">
-    <a class="nav-link" href="source.php?client_id=<?= $client_id ?>">Source</a>
+    <a class="nav-link" href="sitemap.php?client_id=<?= $client_id ?>&tab=source">Source</a>
   </li>
   <li class="nav-item">
-    <a class="nav-link" href="sitemap.php?client_id=<?= $client_id ?>">Site Map</a>
+    <a class="nav-link" href="sitemap.php?client_id=<?= $client_id ?>&tab=sitemap">Site Map</a>
   </li>
   <li class="nav-item">
     <a class="nav-link" href="structure.php?client_id=<?= $client_id ?>">Structure</a>
@@ -479,16 +479,6 @@ flattenPages($sitemap, $pages);
   </div>
 </div>
 
-<div class="modal fade" id="sectionModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-body p-0">
-        <img id="sectionModalImg" src="" class="img-fluid w-100" alt="">
-      </div>
-    </div>
-  </div>
-</div>
-
 <form id="actionForm" method="post" class="d-none"></form>
 
 <script>
@@ -496,10 +486,6 @@ var pageData = <?= json_encode($pageData) ?>;
 var pageStructures = <?= json_encode($pageStructures) ?>;
 var allPages = <?= json_encode(array_column($pages, 'title')) ?>;
 var currentPage = <?= $openPage ? json_encode($openPage) : 'null' ?>;
-var imgBase = 'https://wordprseo.greenmindagency.com/wp-content/themes/wordprseo/acf-images/';
-var modalEl = document.getElementById('sectionModal');
-var modalImg = document.getElementById('sectionModalImg');
-var sectionModal = new bootstrap.Modal(modalEl);
 
 function sanitizeHtml(html){
   return String(html || '').replace(/<(?!\/?(h3|h4|p)\b)[^>]*>/gi, '');
@@ -613,8 +599,7 @@ function loadPage(page){
   container.querySelectorAll('.view-section').forEach(btn => {
     btn.addEventListener('click', function(e){
       e.preventDefault();
-      modalImg.src = imgBase + this.dataset.section + '.jpg';
-      sectionModal.show();
+      window.open('https://wordprseo.greenmindagency.com/wp-content/themes/wordprseo/acf-images/' + this.dataset.section + '.jpg', '_blank');
     });
   });
 }
