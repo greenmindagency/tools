@@ -481,10 +481,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $res = json_decode($text, true);
                 if ($res) {
                     $sectionContent = $res['sections'] ?? [];
+                    if (is_array($sectionContent) && array_values($sectionContent) === $sectionContent) {
+                        $mapped = [];
+                        foreach ($sectionContent as $item) {
+                            if (!is_array($item)) continue;
+                            $name = $item['name'] ?? $item['section'] ?? $item['title'] ?? null;
+                            if (!$name) continue;
+                            $mapped[$name] = $item['content'] ?? '';
+                        }
+                        $sectionContent = $mapped;
+                    }
                     foreach ($sections as $sec) {
                         $content = $sectionContent[$sec] ?? '';
                         if (is_array($content)) {
-                            $content = $content['content'] ?? '';
+                            $content = $content['content'] ?? $content['html'] ?? '';
                         }
                         if (!is_string($content) || !trim(strip_tags($content))) {
                             $content = '<p>Content pending...</p>';
@@ -539,7 +549,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($res && !empty($res['content'])) {
                     $content = $res['content'];
                     if (is_array($content)) {
-                        $content = $content['content'] ?? '';
+                        $content = $content['content'] ?? $content['html'] ?? '';
+                    }
+                    if (!is_string($content) || !trim(strip_tags($content))) {
+                        $content = '<p>Content pending...</p>';
                     }
                     if (!isset($pageData[$page])) $pageData[$page] = ['meta_title' => '', 'meta_description' => '', 'sections' => []];
                     $pageData[$page]['sections'][$section] = $content;
