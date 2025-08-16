@@ -121,6 +121,7 @@ if ($sitemap) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $isAjax = isset($_POST['ajax']);
     if (isset($_POST['generate_page'])) {
         $page = $_POST['page'] ?? '';
         $openPage = $page;
@@ -160,9 +161,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $res = json_decode($text, true);
                 if ($res) {
-                    $sectionContent = $res['sections'] ?? [];
+                    $sectionContentRaw = $res['sections'] ?? [];
+                    $normalized = [];
+                    foreach ($sectionContentRaw as $k => $v) {
+                        $normalized[strtolower($k)] = $v;
+                    }
+                    $sectionContent = [];
                     foreach ($sections as $sec) {
-                        $content = $sectionContent[$sec] ?? '';
+                        $key = strtolower($sec);
+                        $content = $normalized[$key] ?? '';
                         if (is_array($content)) {
                             $content = $content['content'] ?? '';
                         }
@@ -399,6 +406,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         curl_close($ch);
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            if ($error) {
+                echo json_encode(['error' => $error]);
+            } else {
+                echo json_encode(['content' => $content]);
+            }
+            exit;
+        }
+    } elseif (isset($_POST['save_section'])) {
+        $page = $_POST['page'] ?? '';
+        $section = $_POST['section'] ?? '';
+        $content = $_POST['content'] ?? '';
+        $openPage = $page;
+        $data = $pageData[$page] ?? ['meta_title' => '', 'meta_description' => '', 'slug' => '', 'sections' => []];
+        $data['sections'][$section] = $content;
+        $contentJson = json_encode($data);
+        $stmt = $pdo->prepare('INSERT INTO client_pages (client_id, page, content) VALUES (?,?,?) ON DUPLICATE KEY UPDATE content=VALUES(content)');
+        $stmt->execute([$client_id, $page, $contentJson]);
+        $pageData[$page] = $data;
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'saved']);
+            exit;
+        } else {
+            $saved = 'Section saved.';
+        }
     } elseif (isset($_POST['save_page'])) {
         $page = $_POST['page'] ?? '';
         $openPage = $page;
@@ -498,7 +532,6 @@ flattenPages($sitemap, $pages);
 <script>
 var pageData = <?= json_encode($pageData) ?>;
 var pageStructures = <?= json_encode($pageStructures) ?>;
-var sectionInstructions = <?= json_encode($sectionInstructions) ?>;
 var allPages = <?= json_encode(array_column($pages, 'title')) ?>;
 var currentPage = <?= $openPage ? json_encode($openPage) : 'null' ?>;
 
@@ -512,40 +545,69 @@ function sanitizeHtml(html){
   return String(html || '').replace(/<(?!\/?(h3|h4|p)\b)[^>]*>/gi, '');
 }
 
-function extractContentKeywords(html, limit = 5){
-  if (!html) return [];
-  const text = html.replace(/<[^>]*>/g, ' ').toLowerCase();
-  const words = text.match(/\b[a-z]{4,}\b/g) || [];
-  const stop = new Set(['this','that','with','from','they','them','your','about','above','below','which','their','into','where','when','will','shall','could','would','there','these','those','other','make','have','such','each','more']);
-  const result = [];
-  for (const w of words) {
-    if (!stop.has(w) && !result.includes(w)) {
-      result.push(w);
-      if (result.length >= limit) break;
-    }
-  }
-  return result;
+function mediaSuggestions(html){
+  const text = html.replace(/<[^>]+>/g, ' ');
+  const words = Array.from(new Set(text.toLowerCase().split(/\W+/).filter(w => w.length > 4))).slice(0,5);
+  return {icons: words, images: words, videos: words};
 }
 
-function mediaSuggestions(instr, content){
-  const result = {icons: [], images: [], videos: []};
-  if (!instr) return result;
-  const lower = instr.toLowerCase();
-  const needsIcons = lower.includes('icon');
-  const needsImages = lower.includes('image') || lower.includes('logo');
-  const needsVideos = lower.includes('video') || lower.includes('youtube');
-  if (!needsIcons && !needsImages && !needsVideos) return result;
-  const keywords = extractContentKeywords(content);
-  if (needsIcons) {
-    result.icons = keywords.slice(0,3).map(k => 'fa-' + k.replace(/\s+/g,'-'));
+function updateSuggestions(section, html){
+  const sugg = document.getElementById('sugg-' + section);
+  if (!sugg) return;
+  const media = mediaSuggestions(html);
+  sugg.innerHTML = '';
+  if (media.icons.length) {
+    const p = document.createElement('p');
+    p.textContent = 'Recommended icons: ' + media.icons.join(', ');
+    sugg.appendChild(p);
   }
-  if (needsImages) {
-    result.images = keywords.slice(0,5);
+  if (media.images.length) {
+    const p = document.createElement('p');
+    p.textContent = 'Recommended images: ' + media.images.join(', ');
+    sugg.appendChild(p);
   }
-  if (needsVideos) {
-    result.videos = keywords.slice(0,5);
+  if (media.videos.length) {
+    const p = document.createElement('p');
+    p.textContent = 'Recommended videos: ' + media.videos.join(', ');
+    sugg.appendChild(p);
   }
-  return result;
+}
+
+function regenSection(section){
+  fetch('', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({ajax: '1', generate_section: '1', page: currentPage, section: section})
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.content !== undefined) {
+      const div = document.querySelector('.section-field[data-section="' + section + '"]');
+      if (div) {
+        div.innerHTML = sanitizeHtml(res.content);
+        setTimeout(() => updateSuggestions(section, div.innerHTML), 1000);
+      }
+    } else if (res.error) {
+      alert(res.error);
+    }
+  });
+}
+
+function saveSection(section){
+  const div = document.querySelector('.section-field[data-section="' + section + '"]');
+  if (!div) return;
+  const content = sanitizeHtml(div.innerHTML);
+  fetch('', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({ajax: '1', save_section: '1', page: currentPage, section: section, content: content})
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.status !== 'saved') {
+      alert('Save failed');
+    }
+  });
 }
 
 function loadPage(page){
@@ -631,13 +693,18 @@ function loadPage(page){
     viewBtn.type = 'button';
     viewBtn.className = 'btn btn-sm btn-outline-info me-2 view-section';
     viewBtn.dataset.section = sec;
-    viewBtn.textContent = 'View';
+    viewBtn.innerHTML = '\u{1F441}';
     const regen = document.createElement('button');
     regen.type = 'button';
     regen.className = 'btn btn-sm btn-outline-secondary regen-section';
     regen.dataset.section = sec;
     regen.innerHTML = '\u21bb';
-    btnGroup.append(viewBtn, regen);
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'btn btn-sm btn-outline-success ms-2 save-section';
+    saveBtn.dataset.section = sec;
+    saveBtn.innerHTML = '\u{1F4BE}';
+    btnGroup.append(viewBtn, regen, saveBtn);
     wrap.append(label, btnGroup);
     const div = document.createElement('div');
     div.className = 'form-control mb-3 section-field';
@@ -645,33 +712,22 @@ function loadPage(page){
     div.dataset.section = sec;
     div.style.minHeight = '6em';
     div.innerHTML = sanitizeHtml(secData[sec] || '');
-    container.append(wrap, div);
-    const media = mediaSuggestions(sectionInstructions[sec] || '', secData[sec] || '');
-    if (media.icons.length || media.images.length || media.videos.length) {
-      const sugg = document.createElement('div');
-      sugg.className = 'small text-muted mb-3';
-      if (media.icons.length) {
-        const p = document.createElement('p');
-        p.textContent = 'Recommended icons: ' + media.icons.join(', ');
-        sugg.appendChild(p);
-      }
-      if (media.images.length) {
-        const p = document.createElement('p');
-        p.textContent = 'Recommended images: ' + media.images.join(', ');
-        sugg.appendChild(p);
-      }
-      if (media.videos.length) {
-        const p = document.createElement('p');
-        p.textContent = 'Recommended videos: ' + media.videos.join(', ');
-        sugg.appendChild(p);
-      }
-      container.append(sugg);
-    }
+    const sugg = document.createElement('div');
+    sugg.className = 'small text-muted mb-3';
+    sugg.id = 'sugg-' + sec;
+    container.append(wrap, div, sugg);
+    setTimeout(() => updateSuggestions(sec, div.innerHTML), 1000);
   });
   container.querySelectorAll('.regen-section').forEach(btn => {
     btn.addEventListener('click', function(e){
       e.preventDefault();
-      submitAction(currentPage, 'generate_section', this.dataset.section);
+      regenSection(this.dataset.section);
+    });
+  });
+  container.querySelectorAll('.save-section').forEach(btn => {
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      saveSection(this.dataset.section);
     });
   });
   container.querySelectorAll('.view-section').forEach(btn => {
@@ -698,7 +754,7 @@ document.querySelectorAll('.page-item').forEach(li => {
   });
 });
 
-function submitAction(page, action, section){
+function submitAction(page, action){
   const form = document.getElementById('actionForm');
   form.innerHTML = '';
   const pageInput = document.createElement('input');
@@ -731,12 +787,6 @@ function submitAction(page, action, section){
     contentInput.name = 'page_content';
     contentInput.value = JSON.stringify(obj);
     form.appendChild(contentInput);
-  } else if (action === 'generate_section') {
-    const secInput = document.createElement('input');
-    secInput.type = 'hidden';
-    secInput.name = 'section';
-    secInput.value = section;
-    form.appendChild(secInput);
   }
   const actionInput = document.createElement('input');
   actionInput.type = 'hidden';
