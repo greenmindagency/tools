@@ -75,8 +75,8 @@ $sectionInstructions = [
 
 // Instructions for meta fields.
 $metaInstructions = [
-    'meta_title' => 'SEO-optimized title related to the page name, maximum 60 characters.',
-    'meta_description' => 'SEO-optimized description related to the page name, 110-140 characters.',
+    'meta_title' => 'SEO-optimized title related to the page name, maximum 60 characters, dont add the client name in the title, dont cut off the content to follow the characters limit, make the content has a meaning.',
+    'meta_description' => 'SEO-optimized description related to the page name, 110-140 characters, dont cut off the content to follow the characters limit, make the content has a meaning.',
     'slug' => 'URL-friendly, lowercase, hyphen-separated slug tied to the page name.'
 ];
 
@@ -112,7 +112,7 @@ function slugify(string $text): string {
 
 function suggestMedia(string $html): array {
     $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-    $prompt = "Analyze the following HTML section and suggest relevant media.\n{$html}\nReturn JSON with keys 'icons', 'images', and 'videos'. 'icons' should list three Font Awesome icon class names, 'images' three 2-3 word stock photo keywords, and 'videos' three 2-3 word stock footage keywords. Avoid duplicates and relate suggestions to the content. Return JSON only.";
+    $prompt = "Analyze the following HTML section and suggest relevant media.\n{$html}\nReturn JSON with keys 'icons', 'images', and 'videos'. 'icons' should list three Font Awesome icon names only not a class, 'images' three 2-3 word stock photo keywords, and 'videos' three 2-3 word stock footage keywords. Avoid duplicates and relate suggestions to the content. Return JSON only.";
     $payload = json_encode([
         'contents' => [[ 'parts' => [['text' => $prompt]] ]]
     ]);
@@ -570,7 +570,7 @@ flattenPages($sitemap, $pages);
     <ul class="list-group position-sticky" style="top: 70px;">
       <?php foreach ($pages as $p): ?>
       <?php $paddingClass = $p['level'] > 0 ? 'ps-4' : 'ps-2'; ?>
-      <li class="list-group-item d-flex justify-content-between align-items-center <?= $paddingClass ?> page-item<?= ($openPage === $p['title']) ? ' active' : '' ?>" data-page="<?= htmlspecialchars($p['title']) ?>">
+      <li class="list-group-item d-flex justify-content-between align-items-center mb-2 <?= $paddingClass ?> page-item<?= ($openPage === $p['title']) ? ' active' : '' ?>" data-page="<?= htmlspecialchars($p['title']) ?>">
         <span>
           <?= htmlspecialchars($p['title']) ?>
           <span class="badge bg-secondary ms-1"><?= htmlspecialchars($p['type']) ?></span>
@@ -826,7 +826,7 @@ function loadPage(page){
   const secData = data.sections || {};
   sections.forEach(sec => {
     const wrap = document.createElement('div');
-    wrap.className = 'd-flex justify-content-between align-items-center';
+    wrap.className = 'd-flex justify-content-between align-items-center mb-2';
     const label = document.createElement('label');
     label.className = 'form-label mb-0';
     label.textContent = sec;
