@@ -214,8 +214,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                         $sectionContent[$sec] = $content;
                     }
-                    $title = mb_substr(trim($res['meta_title'] ?? ''), 0, 60);
-                    $desc  = mb_substr(trim($res['meta_description'] ?? ''), 0, 140);
+                    $title = trim($res['meta_title'] ?? '');
+                    $desc  = trim($res['meta_description'] ?? '');
                     $slug  = slugify($res['slug'] ?? '');
                     $sectionMedia = [];
                     foreach ($sectionContent as $secName => $html) {
@@ -277,7 +277,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $res = json_decode($text, true);
                 if ($res) {
-                    $title = mb_substr(trim($res['meta_title'] ?? ''), 0, 60);
+                    $title = trim($res['meta_title'] ?? '');
                     if (!isset($pageData[$page])) {
                         $pageData[$page] = ['meta_title' => '', 'meta_description' => '', 'slug' => '', 'sections' => []];
                     }
@@ -336,7 +336,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $res = json_decode($text, true);
                 if ($res) {
-                    $desc = mb_substr(trim($res['meta_description'] ?? ''), 0, 140);
+                    $desc = trim($res['meta_description'] ?? '');
                     if (!isset($pageData[$page])) {
                         $pageData[$page] = ['meta_title' => '', 'meta_description' => '', 'slug' => '', 'sections' => []];
                     }
@@ -514,10 +514,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $content = $_POST['page_content'] ?? '';
         $data = json_decode($content, true) ?: [];
         if (isset($data['meta_title'])) {
-            $data['meta_title'] = mb_substr(trim($data['meta_title']), 0, 60);
+            $data['meta_title'] = trim($data['meta_title']);
         }
         if (isset($data['meta_description'])) {
-            $data['meta_description'] = mb_substr(trim($data['meta_description']), 0, 140);
+            $data['meta_description'] = trim($data['meta_description']);
         }
         if (isset($data['slug'])) {
             $data['slug'] = slugify($data['slug']);
@@ -716,6 +716,20 @@ function saveSection(section){
   });
 }
 
+function checkMeta(){
+  const mt = document.getElementById('metaTitle');
+  const md = document.getElementById('metaDescription');
+  const mtNote = document.getElementById('metaTitleNote');
+  const mdNote = document.getElementById('metaDescNote');
+  if (mt && mtNote) {
+    mtNote.textContent = mt.value.length > 60 ? 'Title exceeds 60 characters' : '';
+  }
+  if (md && mdNote) {
+    const len = md.value.length;
+    mdNote.textContent = (len < 110 || len > 140) ? 'Description should be 110-140 characters' : '';
+  }
+}
+
 function regenMeta(field){
   const params = {ajax: '1', page: currentPage};
   params['generate_' + field] = '1';
@@ -730,6 +744,7 @@ function regenMeta(field){
     else if (res.meta_description !== undefined) document.getElementById('metaDescription').value = res.meta_description;
     else if (res.slug !== undefined) document.getElementById('slug').value = res.slug;
     else if (res.error) alert(res.error);
+    checkMeta();
   });
 }
 
@@ -769,9 +784,8 @@ function loadPage(page){
   const metaTitle = document.createElement('input');
   metaTitle.type = 'text';
   metaTitle.id = 'metaTitle';
-  metaTitle.maxLength = 60;
   metaTitle.className = 'form-control';
-  metaTitle.placeholder = 'Meta Title (max 60 chars)';
+  metaTitle.placeholder = 'Meta Title';
   metaTitle.value = data.meta_title || '';
   const mtBtn = document.createElement('button');
   mtBtn.type = 'button';
@@ -781,15 +795,17 @@ function loadPage(page){
     regenMeta('meta_title');
   });
   mtGroup.append(metaTitle, mtBtn);
+  const mtNote = document.createElement('div');
+  mtNote.id = 'metaTitleNote';
+  mtNote.className = 'form-text text-danger';
 
   const mdGroup = document.createElement('div');
   mdGroup.className = 'd-flex mb-2';
   const metaDesc = document.createElement('textarea');
   metaDesc.id = 'metaDescription';
-  metaDesc.maxLength = 140;
   metaDesc.rows = 3;
   metaDesc.className = 'form-control';
-  metaDesc.placeholder = 'Meta Description (110-140 chars)';
+  metaDesc.placeholder = 'Meta Description';
   metaDesc.value = data.meta_description || '';
   const mdBtn = document.createElement('button');
   mdBtn.type = 'button';
@@ -799,6 +815,9 @@ function loadPage(page){
     regenMeta('meta_description');
   });
   mdGroup.append(metaDesc, mdBtn);
+  const mdNote = document.createElement('div');
+  mdNote.id = 'metaDescNote';
+  mdNote.className = 'form-text text-danger';
 
   const slugGroup = document.createElement('div');
   slugGroup.className = 'd-flex mb-3';
@@ -818,7 +837,10 @@ function loadPage(page){
   });
   slugGroup.append(slugInput, slugBtn);
 
-  container.append(mtGroup, mdGroup, slugGroup);
+  container.append(mtGroup, mtNote, mdGroup, mdNote, slugGroup);
+  metaTitle.addEventListener('input', checkMeta);
+  metaDesc.addEventListener('input', checkMeta);
+  checkMeta();
   let sections = pageStructures[page] || [];
   if (!Array.isArray(sections)) {
     sections = Object.values(sections);
@@ -915,14 +937,6 @@ function submitAction(page, action){
   if (action === 'save_page') {
     const mt = document.getElementById('metaTitle').value.trim();
     const md = document.getElementById('metaDescription').value.trim();
-    if (mt.length > 60) {
-      alert('Meta title must be 60 characters or less.');
-      return;
-    }
-    if (md.length < 110 || md.length > 140) {
-      alert('Meta description must be between 110 and 140 characters.');
-      return;
-    }
     const obj = {
       meta_title: mt,
       meta_description: md,
