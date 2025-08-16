@@ -67,7 +67,7 @@ $sectionInstructions = [
 'postsrelatedcat' => 'Three-column grid of posts from a selected category with heading/subtitle and a “View all” button linking to the category.',
 'postsrelatedcatslider' => 'Two-column-width layout featuring a single-card carousel of posts from the selected category with heading and subtitle.',
 'postsrelatedwithfilter' => 'Full-width layout with heading/subtitle and tag filter buttons (e.g., News, Tips, Case Studies, Events) above the posts grid.',
-'slider' => 'Full-width image slider with 3–5 slides, each with background image, 4–6-word title, and 6–10-word subtitle (search keywords: skyline night, creative workspace, teamwork meeting, nature trail, data dashboard).',
+'slider' => 'Full-width image slider with overlay 4–6-word title, and 6–10-word subtitle, minmum 3 slides and maxmuim 6 slides.',
 'tagslist' => 'Two-row, two-column grid with heading/subtitle listing selected tags from admin as service items.',
 'testimonial' => 'Full-width testimonials section with heading/subtitle that displays a chosen number of entries from single testimonial pages.',
 'verticaltabs' => 'loop of 4 or 5 tabs, 4 to 7 words titles and 5 to 10 subtitles with description for each tab'
@@ -512,44 +512,38 @@ function sanitizeHtml(html){
   return String(html || '').replace(/<(?!\/?(h3|h4|p)\b)[^>]*>/gi, '');
 }
 
-function extractKeywords(instr){
-  const match = instr.match(/search keywords[^)]+/i);
-  if (!match) return [];
-  return match[0]
-    .replace(/search keywords|like|[:()]/gi, '')
-    .split(/,\s*/)
-    .map(s => s.trim())
-    .filter(Boolean);
-}
-
-function findQuoted(instr){
-  const res = [];
-  const regex = /["'“”]([^"'“”]+)["'“”]/g;
-  let m;
-  while ((m = regex.exec(instr)) !== null) {
-    res.push(m[1]);
+function extractContentKeywords(html, limit = 5){
+  if (!html) return [];
+  const text = html.replace(/<[^>]*>/g, ' ').toLowerCase();
+  const words = text.match(/\b[a-z]{4,}\b/g) || [];
+  const stop = new Set(['this','that','with','from','they','them','your','about','above','below','which','their','into','where','when','will','shall','could','would','there','these','those','other','make','have','such','each','more']);
+  const result = [];
+  for (const w of words) {
+    if (!stop.has(w) && !result.includes(w)) {
+      result.push(w);
+      if (result.length >= limit) break;
+    }
   }
-  return res;
+  return result;
 }
 
-function mediaSuggestions(instr){
+function mediaSuggestions(instr, content){
   const result = {icons: [], images: [], videos: []};
   if (!instr) return result;
   const lower = instr.toLowerCase();
-  const keywords = extractKeywords(instr);
-  const quoted = findQuoted(instr);
-  if (keywords.length) {
-    if (lower.includes('video') || lower.includes('youtube')) {
-      result.videos = keywords;
-    } else {
-      result.images = keywords;
-    }
+  const needsIcons = lower.includes('icon');
+  const needsImages = lower.includes('image') || lower.includes('logo');
+  const needsVideos = lower.includes('video') || lower.includes('youtube');
+  if (!needsIcons && !needsImages && !needsVideos) return result;
+  const keywords = extractContentKeywords(content);
+  if (needsIcons) {
+    result.icons = keywords.slice(0,3).map(k => 'fa-' + k.replace(/\s+/g,'-'));
   }
-  if ((lower.includes('video') || lower.includes('youtube')) && !result.videos.length) {
-    result.videos = quoted;
+  if (needsImages) {
+    result.images = keywords.slice(0,5);
   }
-  if (lower.includes('icon')) {
-    result.icons = quoted.length ? quoted : ['fa-star','fa-check','fa-bolt'];
+  if (needsVideos) {
+    result.videos = keywords.slice(0,5);
   }
   return result;
 }
@@ -652,7 +646,7 @@ function loadPage(page){
     div.style.minHeight = '6em';
     div.innerHTML = sanitizeHtml(secData[sec] || '');
     container.append(wrap, div);
-    const media = mediaSuggestions(sectionInstructions[sec] || '');
+    const media = mediaSuggestions(sectionInstructions[sec] || '', secData[sec] || '');
     if (media.icons.length || media.images.length || media.videos.length) {
       const sugg = document.createElement('div');
       sugg.className = 'small text-muted mb-3';
