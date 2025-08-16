@@ -217,11 +217,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $title = mb_substr(trim($res['meta_title'] ?? ''), 0, 60);
                     $desc  = mb_substr(trim($res['meta_description'] ?? ''), 0, 140);
                     $slug  = slugify($res['slug'] ?? '');
+                    $sectionMedia = [];
+                    foreach ($sectionContent as $secName => $html) {
+                        $sectionMedia[$secName] = suggestMedia($html);
+                    }
                     $pageData[$page] = [
                         'meta_title' => $title,
                         'meta_description' => $desc,
                         'slug' => $slug,
-                        'sections' => $sectionContent
+                        'sections' => $sectionContent,
+                        'media' => $sectionMedia
                     ];
                     if (mb_strlen($desc) < 110 || mb_strlen($desc) > 140) {
                         $generated = 'Content generated, description outside 110-140 chars. Review before saving.';
@@ -458,9 +463,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (is_array($content)) {
                         $content = $content['content'] ?? '';
                     }
-                    if (!isset($pageData[$page])) $pageData[$page] = ['meta_title' => '', 'meta_description' => '', 'slug' => '', 'sections' => []];
+                    if (!isset($pageData[$page])) {
+                        $pageData[$page] = ['meta_title' => '', 'meta_description' => '', 'slug' => '', 'sections' => [], 'media' => []];
+                    }
                     $pageData[$page]['sections'][$section] = $content;
                     $media = suggestMedia($content);
+                    $pageData[$page]['media'][$section] = $media;
                     $generated = 'Section regenerated.';
                 } else {
                     $error = 'Failed to parse generated section.';
@@ -479,19 +487,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             exit;
         }
-    } elseif (isset($_POST['suggest_media'])) {
-        $html = $_POST['content'] ?? '';
-        $media = suggestMedia($html);
-        header('Content-Type: application/json');
-        echo json_encode($media);
-        exit;
     } elseif (isset($_POST['save_section'])) {
         $page = $_POST['page'] ?? '';
         $section = $_POST['section'] ?? '';
         $content = $_POST['content'] ?? '';
+        $media = $_POST['media'] ?? '';
         $openPage = $page;
-        $data = $pageData[$page] ?? ['meta_title' => '', 'meta_description' => '', 'slug' => '', 'sections' => []];
+        $data = $pageData[$page] ?? ['meta_title' => '', 'meta_description' => '', 'slug' => '', 'sections' => [], 'media' => []];
         $data['sections'][$section] = $content;
+        $mediaArr = json_decode($media, true) ?: [];
+        $data['media'][$section] = $mediaArr;
         $contentJson = json_encode($data);
         $stmt = $pdo->prepare('INSERT INTO client_pages (client_id, page, content) VALUES (?,?,?) ON DUPLICATE KEY UPDATE content=VALUES(content)');
         $stmt->execute([$client_id, $page, $contentJson]);
@@ -664,17 +669,9 @@ function updateSuggestions(section, html, media){
   }
 }
 
-function fetchSuggestions(section, html){
-  return fetch('', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: new URLSearchParams({ajax: '1', suggest_media: '1', content: html})
-  })
-  .then(r => r.json())
-  .then(media => updateSuggestions(section, html, media));
-}
-
 function regenSection(section){
+  const prog = document.getElementById('prog-' + section);
+  if (prog) prog.classList.remove('d-none');
   return fetch('', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -685,23 +682,29 @@ function regenSection(section){
     if (res.content !== undefined) {
       const div = document.querySelector('.section-field[data-section="' + section + '"]');
       if (div) {
-        div.innerHTML = sanitizeHtml(res.content);
-        updateSuggestions(section, div.innerHTML, res.media);
+        const html = sanitizeHtml(res.content);
+        div.innerHTML = html;
+        updateSuggestions(section, html, res.media);
+        if (!pageData[currentPage]) pageData[currentPage] = {media:{}};
+        if (!pageData[currentPage].media) pageData[currentPage].media = {};
+        pageData[currentPage].media[section] = res.media;
       }
     } else if (res.error) {
       alert(res.error);
     }
-  });
+  })
+  .finally(() => { if (prog) prog.classList.add('d-none'); });
 }
 
 function saveSection(section){
   const div = document.querySelector('.section-field[data-section="' + section + '"]');
   if (!div) return;
   const content = sanitizeHtml(div.innerHTML);
+  const media = JSON.stringify((pageData[currentPage] && pageData[currentPage].media && pageData[currentPage].media[section]) || {});
   fetch('', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: new URLSearchParams({ajax: '1', save_section: '1', page: currentPage, section: section, content: content})
+    body: new URLSearchParams({ajax: '1', save_section: '1', page: currentPage, section: section, content: content, media: media})
   })
   .then(r => r.json())
   .then(res => {
@@ -852,13 +855,18 @@ function loadPage(page){
     div.dataset.section = sec;
     div.style.minHeight = '6em';
     div.innerHTML = sanitizeHtml(secData[sec] || '');
+    const prog = document.createElement('div');
+    prog.className = 'progress mb-2 d-none';
+    prog.id = 'prog-' + sec;
+    prog.innerHTML = '<div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>';
     const sugg = document.createElement('div');
     sugg.className = 'small text-muted mb-3';
     sugg.style.minHeight = '3em';
     sugg.id = 'sugg-' + sec;
     sugg.textContent = '...';
-    container.append(wrap, div, sugg);
-    fetchSuggestions(sec, div.innerHTML);
+    const media = (data.media && data.media[sec]) || null;
+    container.append(wrap, prog, div, sugg);
+    updateSuggestions(sec, div.innerHTML, media);
   });
   container.querySelectorAll('.regen-section').forEach(btn => {
     btn.addEventListener('click', function(e){
@@ -919,10 +927,15 @@ function submitAction(page, action){
       meta_title: mt,
       meta_description: md,
       slug: document.getElementById('slug').value.trim(),
-      sections: {}
+      sections: {},
+      media: {}
     };
     document.querySelectorAll('.section-field').forEach(div => {
-      obj.sections[div.dataset.section] = sanitizeHtml(div.innerHTML);
+      const sec = div.dataset.section;
+      obj.sections[sec] = sanitizeHtml(div.innerHTML);
+      if (pageData[page] && pageData[page].media && pageData[page].media[sec]) {
+        obj.media[sec] = pageData[page].media[sec];
+      }
     });
     const contentInput = document.createElement('input');
     contentInput.type = 'hidden';
