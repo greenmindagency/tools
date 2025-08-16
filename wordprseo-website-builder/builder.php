@@ -112,7 +112,7 @@ function slugify(string $text): string {
 
 function suggestMedia(string $html): array {
     $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-    $prompt = "Analyze the following HTML section and suggest relevant media.\n{$html}\nReturn JSON with keys 'icons', 'images', and 'videos'. 'icons' should list three Font Awesome icon names only not a class, 'images' three 2-3 word stock photo keywords, and 'videos' three 2-3 word stock footage keywords. Avoid duplicates and relate suggestions to the content. Return JSON only.";
+    $prompt = "Analyze the following HTML section and suggest relevant media.\n{$html}\nReturn JSON with keys 'icons', 'images', and 'videos'. 'icons' should list three Font Awesome icon class names, 'images' three 2-3 word stock photo keywords, and 'videos' three 2-3 word stock footage keywords. Avoid duplicates and relate suggestions to the content. Return JSON only.";
     $payload = json_encode([
         'contents' => [[ 'parts' => [['text' => $prompt]] ]]
     ]);
@@ -652,21 +652,28 @@ function updateSuggestions(section, html, media){
   if (!sugg) return;
   media = media || mediaSuggestions(html);
   sugg.innerHTML = '';
-  if (media.icons && media.icons.length) {
+  function addGroup(label, items){
+    if (!items || !items.length) return;
     const p = document.createElement('p');
-    p.textContent = 'Recommended icons: ' + media.icons.join(', ');
+    p.append(label + ': ');
+    items.forEach((item, idx) => {
+      const span = document.createElement('span');
+      span.className = 'text-primary me-2';
+      span.style.cursor = 'pointer';
+      span.textContent = item;
+      span.addEventListener('click', () => {
+        navigator.clipboard.writeText(item).then(() => {
+          showToast('Copied to clipboard', 'info');
+        });
+      });
+      p.append(span);
+      if (idx < items.length - 1) p.append(', ');
+    });
     sugg.appendChild(p);
   }
-  if (media.images && media.images.length) {
-    const p = document.createElement('p');
-    p.textContent = 'Recommended images: ' + media.images.join(', ');
-    sugg.appendChild(p);
-  }
-  if (media.videos && media.videos.length) {
-    const p = document.createElement('p');
-    p.textContent = 'Recommended videos: ' + media.videos.join(', ');
-    sugg.appendChild(p);
-  }
+  addGroup('Recommended icons', media.icons);
+  addGroup('Recommended images', media.images);
+  addGroup('Recommended videos', media.videos);
 }
 
 function regenSection(section){
@@ -837,7 +844,14 @@ function loadPage(page){
   });
   slugGroup.append(slugInput, slugBtn);
 
-  container.append(mtGroup, mtNote, mdGroup, mdNote, slugGroup);
+  const metaWrap = document.createElement('div');
+  metaWrap.className = 'mb-3';
+  metaWrap.id = 'metaSection';
+  metaWrap.append(mtGroup, mtNote, mdGroup, mdNote, slugGroup);
+  container.append(metaWrap);
+  const hr = document.createElement('hr');
+  hr.className = 'my-4';
+  container.append(hr);
   metaTitle.addEventListener('input', checkMeta);
   metaDesc.addEventListener('input', checkMeta);
   checkMeta();
