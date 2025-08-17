@@ -247,6 +247,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $metaInstr = metaInstr(['meta_title']);
         $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nMeta instructions:\n{$metaInstr}\nReturn JSON with key meta_title only.";
+        $userPrompt = trim($_POST['prompt'] ?? '');
+        if ($userPrompt !== '') {
+            $prompt .= "\nAdditional instructions:\n{$userPrompt}";
+        }
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -306,6 +310,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $metaInstr = metaInstr(['meta_description']);
         $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nMeta instructions:\n{$metaInstr}\nReturn JSON with key meta_description only.";
+        $userPrompt = trim($_POST['prompt'] ?? '');
+        if ($userPrompt !== '') {
+            $prompt .= "\nAdditional instructions:\n{$userPrompt}";
+        }
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -369,6 +377,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $metaInstr = metaInstr(['slug']);
         $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nMeta instructions:\n{$metaInstr}\nReturn JSON with key slug only.";
+        $userPrompt = trim($_POST['prompt'] ?? '');
+        if ($userPrompt !== '') {
+            $prompt .= "\nAdditional instructions:\n{$userPrompt}";
+        }
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -429,6 +441,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sectionInstr = sectionInstr([$section]);
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $prompt = "Using the following source text:\n{$client['core_text']}\n\nSection: {$section}\n\nInstructions:\n{$sectionInstr}\nGenerate JSON with key 'content' containing HTML for the section using only <h3>, <h4>, and <p> tags. Provide non-empty content. Return JSON only.";
+        $userPrompt = trim($_POST['prompt'] ?? '');
+        if ($userPrompt !== '') {
+            $prompt .= "\nAdditional instructions:\n{$userPrompt}";
+        }
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -486,6 +502,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 echo json_encode(['content' => $content, 'media' => $media]);
             }
             exit;
+        }
+    } elseif (isset($_POST['save_meta'])) {
+        $page = $_POST['page'] ?? '';
+        $openPage = $page;
+        $mt = trim($_POST['meta_title'] ?? '');
+        $md = trim($_POST['meta_description'] ?? '');
+        $sl = slugify($_POST['slug'] ?? '');
+        $data = $pageData[$page] ?? ['meta_title' => '', 'meta_description' => '', 'slug' => '', 'sections' => [], 'media' => []];
+        $data['meta_title'] = $mt;
+        $data['meta_description'] = $md;
+        $data['slug'] = $sl;
+        $contentJson = json_encode($data);
+        $stmt = $pdo->prepare('INSERT INTO client_pages (client_id, page, content) VALUES (?,?,?) ON DUPLICATE KEY UPDATE content=VALUES(content)');
+        $stmt->execute([$client_id, $page, $contentJson]);
+        $pageData[$page] = $data;
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'saved']);
+            exit;
+        } else {
+            $saved = 'Meta saved.';
         }
     } elseif (isset($_POST['save_section'])) {
         $page = $_POST['page'] ?? '';
@@ -576,8 +613,9 @@ flattenPages($sitemap, $pages);
           <span class="badge bg-secondary ms-1"><?= htmlspecialchars($p['type']) ?></span>
         </span>
         <span class="btn-group btn-group-sm d-none">
-          <button type="button" class="btn btn-secondary generate-btn">Generate</button>
-          <button type="button" class="btn btn-success save-btn">Save</button>
+          <button type="button" class="btn btn-secondary generate-btn" data-bs-toggle="tooltip" data-bs-title="Generate">&#x21bb;</button>
+          <button type="button" class="btn btn-primary prompt-generate-btn" data-bs-toggle="tooltip" data-bs-title="Generate with prompt">&#x2728;</button>
+          <button type="button" class="btn btn-success save-btn" data-bs-toggle="tooltip" data-bs-title="Save">&#x1f4be;</button>
         </span>
       </li>
       <?php endforeach; ?>
@@ -605,6 +643,23 @@ flattenPages($sitemap, $pages);
   </div>
 </div>
 
+<div class="modal fade" id="promptModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Enter Prompt</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <textarea id="promptInput" class="form-control" rows="4" placeholder="Enter prompt"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="promptSubmit">Generate</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <form id="actionForm" method="post" class="d-none"></form>
 
 <script>
@@ -613,9 +668,13 @@ var pageStructures = <?= json_encode($pageStructures) ?>;
 var allPages = <?= json_encode(array_column($pages, 'title')) ?>;
 var currentPage = <?= $openPage ? json_encode($openPage) : 'null' ?>;
 
-var imageModal;
+var imageModal, promptModal, promptInput, promptResolve;
 document.addEventListener('DOMContentLoaded', function(){
   imageModal = new bootstrap.Modal(document.getElementById('sectionImageModal'));
+  promptModal = new bootstrap.Modal(document.getElementById('promptModal'));
+  promptInput = document.getElementById('promptInput');
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  tooltipTriggerList.forEach(function(el){ new bootstrap.Tooltip(el); });
 });
 var imageEl = document.getElementById('sectionImage');
 var toastContainer = document.querySelector('.toast-container');
@@ -647,6 +706,19 @@ function mediaSuggestions(html){
   return {icons: icons, images: phrases.slice(0,3), videos: phrases.slice(3,6)};
 }
 
+function askPrompt(title){
+  return new Promise(resolve => {
+    promptResolve = resolve;
+    document.querySelector('#promptModal .modal-title').textContent = title || 'Enter Prompt';
+    promptInput.value = '';
+    promptModal.show();
+  });
+}
+document.getElementById('promptSubmit').addEventListener('click', function(){
+  promptModal.hide();
+  if (promptResolve) promptResolve(promptInput.value.trim());
+});
+
 function updateSuggestions(section, html, media){
   const sugg = document.getElementById('sugg-' + section);
   if (!sugg) return;
@@ -676,13 +748,15 @@ function updateSuggestions(section, html, media){
   addGroup('Recommended videos', media.videos);
 }
 
-function regenSection(section){
+function regenSection(section, prompt){
   const prog = document.getElementById('prog-' + section);
   if (prog) prog.classList.remove('d-none');
+  const params = {ajax: '1', generate_section: '1', page: currentPage, section: section};
+  if (prompt) params.prompt = prompt;
   return fetch('', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: new URLSearchParams({ajax: '1', generate_section: '1', page: currentPage, section: section})
+    body: new URLSearchParams(params)
   })
   .then(r => r.json())
   .then(res => {
@@ -723,6 +797,25 @@ function saveSection(section){
   });
 }
 
+function saveMeta(){
+  const mt = document.getElementById('metaTitle').value.trim();
+  const md = document.getElementById('metaDescription').value.trim();
+  const sl = document.getElementById('slug').value.trim();
+  fetch('', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({ajax: '1', save_meta: '1', page: currentPage, meta_title: mt, meta_description: md, slug: sl})
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.status !== 'saved') {
+      alert('Save failed');
+    } else {
+      showToast('Meta saved', 'success');
+    }
+  });
+}
+
 function checkMeta(){
   const mt = document.getElementById('metaTitle');
   const md = document.getElementById('metaDescription');
@@ -737,9 +830,10 @@ function checkMeta(){
   }
 }
 
-function regenMeta(field){
+function regenMeta(field, prompt){
   const params = {ajax: '1', page: currentPage};
   params['generate_' + field] = '1';
+  if (prompt) params.prompt = prompt;
   return fetch('', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -775,6 +869,28 @@ async function generatePage(page){
   showToast('Generation complete', 'info');
 }
 
+async function generatePagePrompt(page){
+  const userPrompt = await askPrompt('Prompt for page');
+  if (!userPrompt) return;
+  loadPage(page);
+  const sections = pageStructures[page] || [];
+  const total = sections.length + 3;
+  let done = 0;
+  const prog = document.getElementById('genProgress');
+  const bar = prog.querySelector('.progress-bar');
+  prog.classList.remove('d-none');
+  function step(){ done++; bar.style.width = (done/total*100)+'%'; }
+  await regenMeta('meta_title', userPrompt); step();
+  await regenMeta('meta_description', userPrompt); step();
+  await regenMeta('slug', userPrompt); step();
+  for (const sec of sections) {
+    await regenSection(sec, userPrompt); step();
+  }
+  prog.classList.add('d-none');
+  bar.style.width = '0%';
+  showToast('Generation complete', 'info');
+}
+
 function loadPage(page){
   currentPage = page;
   document.querySelectorAll('.page-item').forEach(li => {
@@ -798,6 +914,8 @@ function loadPage(page){
   mtBtn.type = 'button';
   mtBtn.className = 'btn btn-sm btn-outline-secondary ms-2';
   mtBtn.textContent = '\u21bb';
+  mtBtn.setAttribute('data-bs-toggle','tooltip');
+  mtBtn.setAttribute('data-bs-title','Regenerate meta title');
   mtBtn.addEventListener('click', function(){
     regenMeta('meta_title');
   });
@@ -818,6 +936,8 @@ function loadPage(page){
   mdBtn.type = 'button';
   mdBtn.className = 'btn btn-sm btn-outline-secondary ms-2';
   mdBtn.textContent = '\u21bb';
+  mdBtn.setAttribute('data-bs-toggle','tooltip');
+  mdBtn.setAttribute('data-bs-title','Regenerate meta description');
   mdBtn.addEventListener('click', function(){
     regenMeta('meta_description');
   });
@@ -839,10 +959,22 @@ function loadPage(page){
   slugBtn.type = 'button';
   slugBtn.className = 'btn btn-sm btn-outline-secondary ms-2';
   slugBtn.textContent = '\u21bb';
+  slugBtn.setAttribute('data-bs-toggle','tooltip');
+  slugBtn.setAttribute('data-bs-title','Regenerate slug');
   slugBtn.addEventListener('click', function(){
     regenMeta('slug');
   });
-  slugGroup.append(slugInput, slugBtn);
+  const metaSaveBtn = document.createElement('button');
+  metaSaveBtn.type = 'button';
+  metaSaveBtn.className = 'btn btn-sm btn-outline-success ms-2';
+  metaSaveBtn.innerHTML = '\u{1F4BE}';
+  metaSaveBtn.id = 'saveMetaBtn';
+  metaSaveBtn.setAttribute('data-bs-toggle','tooltip');
+  metaSaveBtn.setAttribute('data-bs-title','Save meta');
+  metaSaveBtn.addEventListener('click', function(){
+    saveMeta();
+  });
+  slugGroup.append(slugInput, slugBtn, metaSaveBtn);
 
   const metaWrap = document.createElement('div');
   metaWrap.className = 'mb-3';
@@ -873,17 +1005,30 @@ function loadPage(page){
     viewBtn.className = 'btn btn-sm btn-outline-info me-2 view-section';
     viewBtn.dataset.section = sec;
     viewBtn.innerHTML = '\u{1F441}';
+    viewBtn.setAttribute('data-bs-toggle','tooltip');
+    viewBtn.setAttribute('data-bs-title','View section image');
+    const promptBtn = document.createElement('button');
+    promptBtn.type = 'button';
+    promptBtn.className = 'btn btn-sm btn-outline-primary me-2 prompt-section';
+    promptBtn.dataset.section = sec;
+    promptBtn.innerHTML = '\u2728';
+    promptBtn.setAttribute('data-bs-toggle','tooltip');
+    promptBtn.setAttribute('data-bs-title','Generate with prompt');
     const regen = document.createElement('button');
     regen.type = 'button';
     regen.className = 'btn btn-sm btn-outline-secondary regen-section';
     regen.dataset.section = sec;
     regen.innerHTML = '\u21bb';
+    regen.setAttribute('data-bs-toggle','tooltip');
+    regen.setAttribute('data-bs-title','Regenerate section');
     const saveBtn = document.createElement('button');
     saveBtn.type = 'button';
     saveBtn.className = 'btn btn-sm btn-outline-success ms-2 save-section';
     saveBtn.dataset.section = sec;
     saveBtn.innerHTML = '\u{1F4BE}';
-    btnGroup.append(viewBtn, regen, saveBtn);
+    saveBtn.setAttribute('data-bs-toggle','tooltip');
+    saveBtn.setAttribute('data-bs-title','Save section');
+    btnGroup.append(viewBtn, promptBtn, regen, saveBtn);
     wrap.append(label, btnGroup);
     const div = document.createElement('div');
     div.className = 'form-control mb-3 section-field';
@@ -916,6 +1061,14 @@ function loadPage(page){
       saveSection(this.dataset.section);
     });
   });
+  container.querySelectorAll('.prompt-section').forEach(btn => {
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      askPrompt('Prompt for ' + this.dataset.section + ' section').then(p => {
+        if (p) regenSection(this.dataset.section, p).then(() => showToast('Section generated', 'info'));
+      });
+    });
+  });
   container.querySelectorAll('.view-section').forEach(btn => {
     btn.addEventListener('click', function(e){
       e.preventDefault();
@@ -923,16 +1076,22 @@ function loadPage(page){
       imageModal.show();
     });
   });
+  var tooltipTriggerList = [].slice.call(container.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  tooltipTriggerList.forEach(function(el){ new bootstrap.Tooltip(el); });
 }
 
 document.querySelectorAll('.page-item').forEach(li => {
   li.addEventListener('click', function(e){
-    if (e.target.classList.contains('generate-btn') || e.target.classList.contains('save-btn')) return;
+    if (e.target.closest('.generate-btn') || e.target.closest('.save-btn') || e.target.closest('.prompt-generate-btn')) return;
     loadPage(this.dataset.page);
   });
   li.querySelector('.generate-btn').addEventListener('click', function(e){
     e.stopPropagation();
     generatePage(li.dataset.page);
+  });
+  li.querySelector('.prompt-generate-btn').addEventListener('click', function(e){
+    e.stopPropagation();
+    generatePagePrompt(li.dataset.page);
   });
   li.querySelector('.save-btn').addEventListener('click', function(e){
     e.stopPropagation();
