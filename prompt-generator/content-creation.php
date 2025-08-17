@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
 
     if (isset($_POST['generate_content'])) {
         $prompt = $_POST['prompt'] ?? '';
-        $prompt .= "\n\nReturn JSON with keys 'meta_title','meta_description','slug','sections'. 'sections' is an array of objects with keys 'title','subtitle','paragraphs' (array of strings). Do not include markdown fences.";
+        $prompt .= "\n\nReturn JSON with keys 'meta_title','meta_description','slug','sections'. 'sections' is an array of objects with keys 'title','subtitle','paragraphs' (array of strings). Each section must include both 'title' and 'subtitle'. Do not include markdown fences.";
         $res = callGemini($prompt);
         if (isset($res['slug'])) $res['slug'] = slugify($res['slug']);
         echo json_encode($res);
@@ -89,7 +89,7 @@ if ($embed) {
 </style>
 
 <div class="row">
-  <div class="col-md-6">
+  <div class="col-md-4">
     <div class="mb-3">
       <label class="form-label">Write a content for:</label>
       <select id="pageType" class="form-select">
@@ -177,7 +177,11 @@ if ($embed) {
     </div>
   </div>
 
-  <div class="col-md-6">
+  <div class="col-md-8">
+    <button class="btn btn-success mb-3" onclick="exportDocx()">Export to DOCX</button>
+    <div id="loadingBar" class="progress mb-2" style="height:4px; display:none;">
+      <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
+    </div>
     <ul class="nav nav-tabs" id="outTabs" role="tablist">
       <li class="nav-item" role="presentation">
         <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#contentTab" type="button" role="tab">Generated Content</button>
@@ -198,12 +202,23 @@ if ($embed) {
         <div id="output" class="form-control" readonly></div>
       </div>
     </div>
-  </div>
+</div>
 </div>
 <textarea id="clipboardArea" style="position: absolute; left: -9999px; top: -9999px;"></textarea>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.2.1/docx.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script>
 let basePrompt = '';
+function autoResize(el){
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+function showLoading(){
+  document.getElementById('loadingBar').style.display = 'block';
+}
+function hideLoading(){
+  document.getElementById('loadingBar').style.display = 'none';
+}
 function addCountry(button) {
   const container = document.getElementById('countries');
   const group = button.closest('.input-group');
@@ -278,6 +293,7 @@ function generatePrompt() {
   basePrompt = prompt;
   document.getElementById('output').textContent = prompt;
 
+  showLoading();
   fetch('', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -285,7 +301,8 @@ function generatePrompt() {
   })
   .then(r => r.json())
   .then(renderContent)
-  .catch(() => alert('Failed to generate content'));
+  .catch(() => alert('Failed to generate content'))
+  .finally(hideLoading);
 }
 function renderContent(data){
   if(data.error){ alert(data.error); return; }
@@ -313,10 +330,11 @@ function renderContent(data){
   mdGroup.className = 'd-flex mb-2';
   const metaDesc = document.createElement('textarea');
   metaDesc.id = 'metaDescription';
-  metaDesc.rows = 3;
   metaDesc.className = 'form-control';
   metaDesc.placeholder = 'Meta Description';
   metaDesc.value = data.meta_description || '';
+  autoResize(metaDesc);
+  metaDesc.addEventListener('input', () => autoResize(metaDesc));
   const mdBtn = document.createElement('button');
   mdBtn.type = 'button';
   mdBtn.className = 'btn btn-sm btn-outline-secondary ms-2';
@@ -341,8 +359,8 @@ function renderContent(data){
   slugBtn.textContent = '\u21bb';
   slugBtn.addEventListener('click', () => regenMeta('slug'));
   slugGroup.append(slugInput, slugBtn);
-
-  meta.append(mtGroup, mtNote, mdGroup, mdNote, slugGroup);
+  const hr = document.createElement('hr');
+  meta.append(mtGroup, mtNote, mdGroup, mdNote, slugGroup, hr);
   metaTitle.addEventListener('input', checkMeta);
   metaDesc.addEventListener('input', checkMeta);
   checkMeta();
@@ -357,7 +375,7 @@ function renderContent(data){
     const header = document.createElement('div');
     header.className = 'd-flex justify-content-between align-items-center mb-2';
     const label = document.createElement('strong');
-    label.textContent = sec.title || 'Section ' + (idx+1);
+    label.textContent = 'Section ' + (idx+1);
     header.appendChild(label);
     const btnGroup = document.createElement('div');
     const regen = document.createElement('button');
@@ -383,13 +401,32 @@ function renderContent(data){
     subInput.type = 'text';
     subInput.className = 'form-control mb-2';
     subInput.id = 'sec-subtitle-' + idx;
-    subInput.value = sec.subtitle || '';
+    const subVal = sec.subtitle || sec.sub_title || sec.subTitle || sec.subheading || sec.sub_heading || '';
+    subInput.value = subVal;
 
     const txt = document.createElement('textarea');
     txt.className = 'form-control';
-    txt.rows = 5;
     txt.id = 'sec-content-' + idx;
-    txt.value = (sec.paragraphs || []).join('\n\n');
+    let contentText = (sec.paragraphs || []).join('\n\n').replace(/\*\*(.*?)\*\*/g,'$1');
+    if(sec.title && sec.title.toLowerCase().includes('faq')){
+      const divider = document.createElement('hr');
+      container.appendChild(divider);
+      let faqText = '';
+      if(Array.isArray(sec.faqs)){
+        sec.faqs.forEach(f => { faqText += `**${f.question}**\n${f.answer}\n\n`; });
+      } else {
+        for(let i=0;i<(sec.paragraphs||[]).length;i+=2){
+          const q = (sec.paragraphs[i]||'').replace(/\*\*(.*?)\*\*/g,'$1');
+          const a = sec.paragraphs[i+1]||'';
+          faqText += `**${q}**\n${a}\n\n`;
+        }
+      }
+      txt.value = faqText.trim();
+    } else {
+      txt.value = contentText;
+    }
+    autoResize(txt);
+    txt.addEventListener('input', () => autoResize(txt));
 
     wrap.append(header, titleInput, subInput, txt);
     container.appendChild(wrap);
@@ -400,13 +437,15 @@ function regenMeta(field, p=''){
   const current = document.getElementById(map[field]).value;
   const params = new URLSearchParams({ajax:'1', generate_meta:'1', field:field, prompt:basePrompt, current:current});
   if(p) params.append('userPrompt', p);
+  showLoading();
   fetch('', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: params})
     .then(r => r.json())
     .then(res => {
       if(res[field] !== undefined) document.getElementById(map[field]).value = res[field];
       else if(res.error) alert(res.error);
       checkMeta();
-    });
+    })
+    .finally(hideLoading);
 }
 function regenSection(i, p=''){
   const title = document.getElementById('sec-title-' + i).value;
@@ -414,13 +453,20 @@ function regenSection(i, p=''){
   const content = document.getElementById('sec-content-' + i).value;
   const params = new URLSearchParams({ajax:'1', generate_section:'1', prompt:basePrompt, title:title, subtitle:subtitle, content:content});
   if(p) params.append('userPrompt', p);
+  showLoading();
   fetch('', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: params})
     .then(r => r.json())
     .then(res => {
       if(res.title !== undefined) document.getElementById('sec-title-' + i).value = res.title;
-      if(res.subtitle !== undefined) document.getElementById('sec-subtitle-' + i).value = res.subtitle;
-      if(res.paragraphs) document.getElementById('sec-content-' + i).value = res.paragraphs.join('\n\n');
-    });
+      const sub = res.subtitle ?? res.sub_title ?? res.subTitle ?? res.subheading ?? res.sub_heading;
+      if(sub !== undefined) document.getElementById('sec-subtitle-' + i).value = sub;
+      if(res.paragraphs) {
+        const txt = document.getElementById('sec-content-' + i);
+        txt.value = res.paragraphs.join('\n\n').replace(/\*\*(.*?)\*\*/g,'$1');
+        autoResize(txt);
+      }
+    })
+    .finally(hideLoading);
 }
 function promptSection(i){
   const p = prompt('Additional instructions?');
@@ -441,6 +487,35 @@ function checkMeta(){
   const mdNote = document.getElementById('metaDescNote');
   if(mt && mtNote){ mtNote.textContent = mt.value.length > 60 ? 'Title exceeds 60 characters' : ''; }
   if(md && mdNote){ const len = md.value.length; mdNote.textContent = (len < 110 || len > 140) ? 'Description should be 110-140 characters' : ''; }
+}
+
+function exportDocx(){
+  const {Document, Packer, Paragraph, TextRun, HeadingLevel} = docx;
+  const children = [];
+  const mt = document.getElementById('metaTitle')?.value || '';
+  const md = document.getElementById('metaDescription')?.value || '';
+  const slug = document.getElementById('slug')?.value || '';
+  if(mt) children.push(new Paragraph({text: mt, heading: HeadingLevel.HEADING_1}));
+  if(md) children.push(new Paragraph(md));
+  if(slug) children.push(new Paragraph('Slug: ' + slug));
+  children.push(new Paragraph(''));
+  const wraps = document.querySelectorAll('#sectionsContainer .mb-3');
+  wraps.forEach((wrap, idx) => {
+    const title = document.getElementById('sec-title-' + idx).value;
+    const subtitle = document.getElementById('sec-subtitle-' + idx).value;
+    const content = document.getElementById('sec-content-' + idx).value.split(/\n+/);
+    if(title) children.push(new Paragraph({text:title, heading:HeadingLevel.HEADING_1}));
+    if(subtitle) children.push(new Paragraph({text:subtitle, heading:HeadingLevel.HEADING_2}));
+    content.forEach(p => {
+      if(!p.trim()) return;
+      const parts = p.split(/\*\*/);
+      const runs = parts.map((part,i) => new TextRun({text:part, bold:i%2===1}));
+      children.push(new Paragraph({children:runs}));
+    });
+    children.push(new Paragraph(''));
+  });
+  const doc = new Document({sections:[{children}]});
+  Packer.toBlob(doc).then(blob => saveAs(blob, 'content.docx'));
 }
 </script>
 <?php include 'footer.php'; ?>
