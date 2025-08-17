@@ -247,6 +247,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $metaInstr = metaInstr(['meta_title']);
         $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nMeta instructions:\n{$metaInstr}\nReturn JSON with key meta_title only.";
+        $current = trim($_POST['current'] ?? ($pageData[$page]['meta_title'] ?? ''));
+        if ($current !== '') {
+            $prompt .= "\nCurrent meta title:\n{$current}";
+        }
         $userPrompt = trim($_POST['prompt'] ?? '');
         if ($userPrompt !== '') {
             $prompt .= "\nAdditional instructions:\n{$userPrompt}";
@@ -310,6 +314,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $metaInstr = metaInstr(['meta_description']);
         $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nMeta instructions:\n{$metaInstr}\nReturn JSON with key meta_description only.";
+        $current = trim($_POST['current'] ?? ($pageData[$page]['meta_description'] ?? ''));
+        if ($current !== '') {
+            $prompt .= "\nCurrent meta description:\n{$current}";
+        }
         $userPrompt = trim($_POST['prompt'] ?? '');
         if ($userPrompt !== '') {
             $prompt .= "\nAdditional instructions:\n{$userPrompt}";
@@ -377,6 +385,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $metaInstr = metaInstr(['slug']);
         $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nMeta instructions:\n{$metaInstr}\nReturn JSON with key slug only.";
+        $current = trim($_POST['current'] ?? ($pageData[$page]['slug'] ?? ''));
+        if ($current !== '') {
+            $prompt .= "\nCurrent slug:\n{$current}";
+        }
         $userPrompt = trim($_POST['prompt'] ?? '');
         if ($userPrompt !== '') {
             $prompt .= "\nAdditional instructions:\n{$userPrompt}";
@@ -440,7 +452,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $openPage = $page;
         $sectionInstr = sectionInstr([$section]);
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-        $prompt = "Using the following source text:\n{$client['core_text']}\n\nSection: {$section}\n\nInstructions:\n{$sectionInstr}\nGenerate JSON with key 'content' containing HTML for the section using only <h3>, <h4>, and <p> tags. Provide non-empty content. Return JSON only.";
+        $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nSection: {$section}\n\nInstructions:\n{$sectionInstr}\nGenerate JSON with key 'content' containing HTML for the section using only <h3>, <h4>, and <p> tags. Provide non-empty content. Return JSON only.";
+        $current = trim($_POST['current'] ?? ($pageData[$page]['sections'][$section] ?? ''));
+        if ($current !== '') {
+            $prompt .= "\nCurrent content:\n{$current}";
+        }
         $userPrompt = trim($_POST['prompt'] ?? '');
         if ($userPrompt !== '') {
             $prompt .= "\nAdditional instructions:\n{$userPrompt}";
@@ -614,7 +630,7 @@ flattenPages($sitemap, $pages);
         </span>
         <span class="btn-group btn-group-sm d-none">
           <button type="button" class="btn btn-secondary generate-btn" data-bs-toggle="tooltip" data-bs-title="Generate">&#x21bb;</button>
-          <button type="button" class="btn btn-primary prompt-generate-btn" data-bs-toggle="tooltip" data-bs-title="Generate with prompt">&#x2728;</button>
+          <button type="button" class="btn btn-danger prompt-generate-btn" data-bs-toggle="tooltip" data-bs-title="Generate with prompt">&#x2728;</button>
           <button type="button" class="btn btn-success save-btn" data-bs-toggle="tooltip" data-bs-title="Save">&#x1f4be;</button>
         </span>
       </li>
@@ -752,6 +768,8 @@ function regenSection(section, prompt){
   const prog = document.getElementById('prog-' + section);
   if (prog) prog.classList.remove('d-none');
   const params = {ajax: '1', generate_section: '1', page: currentPage, section: section};
+  const currentDiv = document.querySelector('.section-field[data-section="' + section + '"]');
+  if (currentDiv) params.current = sanitizeHtml(currentDiv.innerHTML);
   if (prompt) params.prompt = prompt;
   return fetch('', {
     method: 'POST',
@@ -834,6 +852,9 @@ function regenMeta(field, prompt){
   const params = {ajax: '1', page: currentPage};
   params['generate_' + field] = '1';
   if (prompt) params.prompt = prompt;
+  if (field === 'meta_title') params.current = document.getElementById('metaTitle').value;
+  else if (field === 'meta_description') params.current = document.getElementById('metaDescription').value;
+  else if (field === 'slug') params.current = document.getElementById('slug').value;
   return fetch('', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
