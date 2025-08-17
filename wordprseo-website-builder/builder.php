@@ -70,7 +70,7 @@ $sectionInstructions = [
 'slider' => 'Full-width image slider with overlay 4–6-word title, and 6–10-word subtitle, minmum 3 slides and maxmuim 6 slides.',
 'tagslist' => 'Two-row, two-column grid with heading/subtitle listing selected tags from admin as service items.',
 'testimonial' => 'Full-width testimonials section with heading/subtitle that displays a chosen number of entries from single testimonial pages.',
-'verticaltabs' => 'loop of 4 or 5 tabs, 4 to 7 words titles and 5 to 10 subtitles with description for each tab'
+'verticaltabs' => 'starting with 4–6-word title, and 6–10-word subtitle, this section is a loop of 4 or 5 tabs, 4 to 7 words titles and 5 to 10 subtitles with description for each tab'
 ];
 
 // Instructions for meta fields.
