@@ -247,7 +247,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $metaInstr = metaInstr(['meta_title']);
         $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nMeta instructions:\n{$metaInstr}\nReturn JSON with key meta_title only.";
-        $current = trim($_POST['current'] ?? ($pageData[$page]['meta_title'] ?? ''));
+        $current = trim($_POST['current'] ?? '');
         if ($current !== '') {
             $prompt .= "\nCurrent meta title:\n{$current}";
         }
@@ -314,7 +314,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $metaInstr = metaInstr(['meta_description']);
         $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nMeta instructions:\n{$metaInstr}\nReturn JSON with key meta_description only.";
-        $current = trim($_POST['current'] ?? ($pageData[$page]['meta_description'] ?? ''));
+        $current = trim($_POST['current'] ?? '');
         if ($current !== '') {
             $prompt .= "\nCurrent meta description:\n{$current}";
         }
@@ -385,7 +385,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $metaInstr = metaInstr(['slug']);
         $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nMeta instructions:\n{$metaInstr}\nReturn JSON with key slug only.";
-        $current = trim($_POST['current'] ?? ($pageData[$page]['slug'] ?? ''));
+        $current = trim($_POST['current'] ?? '');
         if ($current !== '') {
             $prompt .= "\nCurrent slug:\n{$current}";
         }
@@ -453,7 +453,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sectionInstr = sectionInstr([$section]);
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nSection: {$section}\n\nInstructions:\n{$sectionInstr}\nGenerate JSON with key 'content' containing HTML for the section using only <h3>, <h4>, and <p> tags. Provide non-empty content. Return JSON only.";
-        $current = trim($_POST['current'] ?? ($pageData[$page]['sections'][$section] ?? ''));
+        $current = trim($_POST['current'] ?? '');
         if ($current !== '') {
             $prompt .= "\nCurrent content:\n{$current}";
         }
@@ -519,6 +519,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             exit;
         }
+    } elseif (isset($_POST['more_suggestions'])) {
+        $html = $_POST['html'] ?? '';
+        $media = suggestMedia($html);
+        header('Content-Type: application/json');
+        echo json_encode(['media' => $media]);
+        exit;
     } elseif (isset($_POST['save_meta'])) {
         $page = $_POST['page'] ?? '';
         $openPage = $page;
@@ -762,6 +768,34 @@ function updateSuggestions(section, html, media){
   addGroup('Recommended icons', media.icons);
   addGroup('Recommended images', media.images);
   addGroup('Recommended videos', media.videos);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn-sm btn-outline-secondary mt-1';
+  btn.textContent = 'More';
+  btn.addEventListener('click', () => moreSuggestions(section));
+  sugg.appendChild(btn);
+}
+
+function moreSuggestions(section){
+  const div = document.querySelector('.section-field[data-section="' + section + '"]');
+  if (!div) return;
+  const html = sanitizeHtml(div.innerHTML);
+  fetch('', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({ajax: '1', more_suggestions: '1', html: html})
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.media) {
+      updateSuggestions(section, html, res.media);
+      if (!pageData[currentPage]) pageData[currentPage] = {media:{}};
+      if (!pageData[currentPage].media) pageData[currentPage].media = {};
+      pageData[currentPage].media[section] = res.media;
+    } else if (res.error) {
+      alert(res.error);
+    }
+  });
 }
 
 function regenSection(section, prompt){
@@ -769,8 +803,10 @@ function regenSection(section, prompt){
   if (prog) prog.classList.remove('d-none');
   const params = {ajax: '1', generate_section: '1', page: currentPage, section: section};
   const currentDiv = document.querySelector('.section-field[data-section="' + section + '"]');
-  if (currentDiv) params.current = sanitizeHtml(currentDiv.innerHTML);
-  if (prompt) params.prompt = prompt;
+  if (prompt) {
+    if (currentDiv) params.current = sanitizeHtml(currentDiv.innerHTML);
+    params.prompt = prompt;
+  }
   return fetch('', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -851,10 +887,12 @@ function checkMeta(){
 function regenMeta(field, prompt){
   const params = {ajax: '1', page: currentPage};
   params['generate_' + field] = '1';
-  if (prompt) params.prompt = prompt;
-  if (field === 'meta_title') params.current = document.getElementById('metaTitle').value;
-  else if (field === 'meta_description') params.current = document.getElementById('metaDescription').value;
-  else if (field === 'slug') params.current = document.getElementById('slug').value;
+  if (prompt) {
+    params.prompt = prompt;
+    if (field === 'meta_title') params.current = document.getElementById('metaTitle').value;
+    else if (field === 'meta_description') params.current = document.getElementById('metaDescription').value;
+    else if (field === 'slug') params.current = document.getElementById('slug').value;
+  }
   return fetch('', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
