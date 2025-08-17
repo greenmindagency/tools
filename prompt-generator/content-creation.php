@@ -209,6 +209,9 @@ if ($embed) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script>
 let basePrompt = '';
+function sanitizeHtml(html){
+  return String(html || '').replace(/<(?!\/?(p|strong|b|em|i|ul|ol|li|br)\b)[^>]*>/gi, '');
+}
 function autoResize(el){
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
@@ -404,31 +407,30 @@ function renderContent(data){
     const subVal = sec.subtitle || sec.sub_title || sec.subTitle || sec.subheading || sec.sub_heading || '';
     subInput.value = subVal;
 
-    const txt = document.createElement('textarea');
-    txt.className = 'form-control';
-    txt.id = 'sec-content-' + idx;
-    let contentText = (sec.paragraphs || []).join('\n\n').replace(/\*\*(.*?)\*\*/g,'$1');
+    const div = document.createElement('div');
+    div.className = 'form-control section-field';
+    div.id = 'sec-content-' + idx;
+    div.contentEditable = 'true';
+    div.style.minHeight = '6em';
+    let html = '';
     if(sec.title && sec.title.toLowerCase().includes('faq')){
       const divider = document.createElement('hr');
       container.appendChild(divider);
-      let faqText = '';
       if(Array.isArray(sec.faqs)){
-        sec.faqs.forEach(f => { faqText += `**${f.question}**\n${f.answer}\n\n`; });
+        sec.faqs.forEach(f => { html += `<p><strong>${f.question}</strong><br>${f.answer}</p>`; });
       } else {
         for(let i=0;i<(sec.paragraphs||[]).length;i+=2){
           const q = (sec.paragraphs[i]||'').replace(/\*\*(.*?)\*\*/g,'$1');
           const a = sec.paragraphs[i+1]||'';
-          faqText += `**${q}**\n${a}\n\n`;
+          html += `<p><strong>${q}</strong><br>${a}</p>`;
         }
       }
-      txt.value = faqText.trim();
     } else {
-      txt.value = contentText;
+      html = (sec.paragraphs || []).map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('');
     }
-    autoResize(txt);
-    txt.addEventListener('input', () => autoResize(txt));
+    div.innerHTML = sanitizeHtml(html);
 
-    wrap.append(header, titleInput, subInput, txt);
+    wrap.append(header, titleInput, subInput, div);
     container.appendChild(wrap);
   });
 }
@@ -441,8 +443,10 @@ function regenMeta(field, p=''){
   fetch('', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: params})
     .then(r => r.json())
     .then(res => {
-      if(res[field] !== undefined) document.getElementById(map[field]).value = res[field];
-      else if(res.error) alert(res.error);
+      if(res[field] !== undefined) {
+        document.getElementById(map[field]).value = res[field];
+        if(field === 'meta_description') autoResize(document.getElementById('metaDescription'));
+      } else if(res.error) alert(res.error);
       checkMeta();
     })
     .finally(hideLoading);
@@ -450,7 +454,8 @@ function regenMeta(field, p=''){
 function regenSection(i, p=''){
   const title = document.getElementById('sec-title-' + i).value;
   const subtitle = document.getElementById('sec-subtitle-' + i).value;
-  const content = document.getElementById('sec-content-' + i).value;
+  const div = document.getElementById('sec-content-' + i);
+  const content = sanitizeHtml(div.innerHTML);
   const params = new URLSearchParams({ajax:'1', generate_section:'1', prompt:basePrompt, title:title, subtitle:subtitle, content:content});
   if(p) params.append('userPrompt', p);
   showLoading();
@@ -460,10 +465,12 @@ function regenSection(i, p=''){
       if(res.title !== undefined) document.getElementById('sec-title-' + i).value = res.title;
       const sub = res.subtitle ?? res.sub_title ?? res.subTitle ?? res.subheading ?? res.sub_heading;
       if(sub !== undefined) document.getElementById('sec-subtitle-' + i).value = sub;
-      if(res.paragraphs) {
-        const txt = document.getElementById('sec-content-' + i);
-        txt.value = res.paragraphs.join('\n\n').replace(/\*\*(.*?)\*\*/g,'$1');
-        autoResize(txt);
+      if(res.faqs){
+        const html = res.faqs.map(f => `<p><strong>${f.question}</strong><br>${f.answer}</p>`).join('');
+        div.innerHTML = sanitizeHtml(html);
+      } else if(res.paragraphs) {
+        const html = res.paragraphs.map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('');
+        div.innerHTML = sanitizeHtml(html);
       }
     })
     .finally(hideLoading);
@@ -503,10 +510,15 @@ function exportDocx(){
   wraps.forEach((wrap, idx) => {
     const title = document.getElementById('sec-title-' + idx).value;
     const subtitle = document.getElementById('sec-subtitle-' + idx).value;
-    const content = document.getElementById('sec-content-' + idx).value.split(/\n+/);
+    const html = document.getElementById('sec-content-' + idx).innerHTML;
     if(title) children.push(new Paragraph({text:title, heading:HeadingLevel.HEADING_1}));
     if(subtitle) children.push(new Paragraph({text:subtitle, heading:HeadingLevel.HEADING_2}));
-    content.forEach(p => {
+    const text = html
+      .replace(/<strong>(.*?)<\/strong>/gi,'**$1**')
+      .replace(/<br\s*\/?>/gi,'\n')
+      .replace(/<\/p>\s*<p>/gi,'\n\n')
+      .replace(/<[^>]+>/g,'');
+    text.split(/\n+/).forEach(p => {
       if(!p.trim()) return;
       const parts = p.split(/\*\*/);
       const runs = parts.map((part,i) => new TextRun({text:part, bold:i%2===1}));
