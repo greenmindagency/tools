@@ -112,7 +112,7 @@ function slugify(string $text): string {
 
 function suggestMedia(string $html): array {
     $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-    $prompt = "Analyze the following HTML section and suggest relevant media.\n{$html}\nReturn JSON with keys 'icons', 'images', and 'videos'. 'icons' should list three Font Awesome icon class names, 'images' three 2-3 word stock photo keywords, and 'videos' three 2-3 word stock footage keywords. Avoid duplicates and relate suggestions to the content. Return JSON only.";
+    $prompt = "Analyze the following HTML section and suggest relevant media.\n{$html}\nReturn JSON with keys 'icons', 'images', and 'videos'. 'icons' should list three Font Awesome icon names just the names, 'images' three 2-3 word stock photo keywords, and 'videos' three 2-3 word stock footage keywords. Avoid duplicates and relate suggestions to the content. Return JSON only.";
     $payload = json_encode([
         'contents' => [[ 'parts' => [['text' => $prompt]] ]]
     ]);
