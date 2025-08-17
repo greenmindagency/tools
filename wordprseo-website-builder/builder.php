@@ -110,6 +110,38 @@ function slugify(string $text): string {
     return trim($text, '-');
 }
 
+function relatedSource(string $source, string $page): string {
+    $page = strtolower($page);
+    $parts = preg_split('/\n{2,}/', $source);
+    $keywords = preg_split('/\s+/', $page);
+    $matches = [];
+    foreach ($parts as $p) {
+        $score = 0;
+        $plower = strtolower($p);
+        foreach ($keywords as $w) {
+            $w = trim($w);
+            if ($w !== '' && strpos($plower, $w) !== false) {
+                $score++;
+            }
+        }
+        if ($score > 0) {
+            $matches[$score][] = $p;
+        }
+    }
+    if ($matches) {
+        krsort($matches);
+        $selected = [];
+        foreach ($matches as $list) {
+            foreach ($list as $p) {
+                $selected[] = $p;
+                if (strlen(implode("\n", $selected)) > 2000) break 2;
+            }
+        }
+        return trim(implode("\n", $selected));
+    }
+    return substr($source, 0, 2000);
+}
+
 function suggestMedia(string $html): array {
     $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
     $prompt = "Analyze the following HTML section and suggest relevant media.\n{$html}\nReturn JSON with keys 'icons', 'images', and 'videos'. 'icons' should list three Font Awesome icon names just the names insure that you didn't get the class name, 'images' three 2-3 word stock photo keywords, and 'videos' three 2-3 word stock footage keywords. Avoid duplicates and relate suggestions to the content. Return JSON only.";
@@ -166,7 +198,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $metaInstr = metaInstr(['meta_title','meta_description','slug']);
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $sectionList = implode(', ', $sections);
-        $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nSections: {$sectionList}\n\nSection instructions:\n{$sectionInstr}\nMeta instructions:\n{$metaInstr}\nGenerate JSON with keys: meta_title, meta_description, slug, and sections (object mapping section name to HTML content using only <h3>, <h4>, and <p> tags). Provide non-empty content for every listed section. If unsure, add a brief placeholder paragraph. Return JSON only.";
+        $sourceText = relatedSource($client['core_text'] ?? '', $page);
+        $prompt = "Using the following source text related to the {$page} page:\n{$sourceText}\n\nPage name: {$page}\nSections: {$sectionList}\n\nSection instructions:\n{$sectionInstr}\nMeta instructions:\n{$metaInstr}\nGenerate JSON with keys: meta_title, meta_description, slug, and sections (object mapping section name to HTML content using only <h3>, <h4>, and <p> tags). Provide non-empty content for every listed section. If unsure, add a brief placeholder paragraph. Return JSON only.";
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -246,7 +279,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $openPage = $page;
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $metaInstr = metaInstr(['meta_title']);
-        $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nMeta instructions:\n{$metaInstr}\nReturn JSON with key meta_title only.";
+        $sourceText = relatedSource($client['core_text'] ?? '', $page);
+        $prompt = "Using the following source text related to the {$page} page:\n{$sourceText}\n\nPage name: {$page}\nMeta instructions:\n{$metaInstr}\nReturn JSON with key meta_title only.";
         $current = trim($_POST['current'] ?? '');
         if ($current !== '') {
             $prompt .= "\nCurrent meta title:\n{$current}";
@@ -313,7 +347,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $openPage = $page;
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $metaInstr = metaInstr(['meta_description']);
-        $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nMeta instructions:\n{$metaInstr}\nReturn JSON with key meta_description only.";
+        $sourceText = relatedSource($client['core_text'] ?? '', $page);
+        $prompt = "Using the following source text related to the {$page} page:\n{$sourceText}\n\nPage name: {$page}\nMeta instructions:\n{$metaInstr}\nReturn JSON with key meta_description only.";
         $current = trim($_POST['current'] ?? '');
         if ($current !== '') {
             $prompt .= "\nCurrent meta description:\n{$current}";
@@ -384,7 +419,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $openPage = $page;
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
         $metaInstr = metaInstr(['slug']);
-        $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nMeta instructions:\n{$metaInstr}\nReturn JSON with key slug only.";
+        $sourceText = relatedSource($client['core_text'] ?? '', $page);
+        $prompt = "Using the following source text related to the {$page} page:\n{$sourceText}\n\nPage name: {$page}\nMeta instructions:\n{$metaInstr}\nReturn JSON with key slug only.";
         $current = trim($_POST['current'] ?? '');
         if ($current !== '') {
             $prompt .= "\nCurrent slug:\n{$current}";
@@ -452,7 +488,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $openPage = $page;
         $sectionInstr = sectionInstr([$section]);
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-        $prompt = "Using the following source text:\n{$client['core_text']}\n\nPage name: {$page}\nSection: {$section}\n\nInstructions:\n{$sectionInstr}\nGenerate JSON with key 'content' containing HTML for the section using only <h3>, <h4>, and <p> tags. Provide non-empty content. Return JSON only.";
+        $sourceText = relatedSource($client['core_text'] ?? '', $page);
+        $prompt = "Using the following source text related to the {$page} page:\n{$sourceText}\n\nPage name: {$page}\nSection: {$section}\n\nInstructions:\n{$sectionInstr}\nGenerate JSON with key 'content' containing HTML for the section using only <h3>, <h4>, and <p> tags. Provide non-empty content. Return JSON only.";
         $current = trim($_POST['current'] ?? '');
         if ($current !== '') {
             $prompt .= "\nCurrent content:\n{$current}";
