@@ -57,6 +57,14 @@ function buildTree(array $items, int &$count, int $max, array &$seen): array {
     return $result;
 }
 
+function flattenTitles(array $items, array &$list): void {
+    foreach ($items as $it) {
+        $title = $it['title'] ?? '';
+        if ($title !== '') $list[] = $title;
+        if (!empty($it['children'])) flattenTitles($it['children'], $list);
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['save_core'])) {
         $text = $_POST['core_text'] ?? '';
@@ -79,8 +87,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $activeTab = 'source';
     } elseif (isset($_POST['save_sitemap'])) {
         $json = $_POST['sitemap_json'] ?? '[]';
+        $newMap = json_decode($json, true) ?: [];
+        $oldPages = [];
+        flattenTitles($sitemap, $oldPages);
+        $newPages = [];
+        flattenTitles($newMap, $newPages);
+        $removed = array_diff($oldPages, $newPages);
+        if ($removed) {
+            $placeholders = implode(',', array_fill(0, count($removed), '?'));
+            $params = array_merge([$client_id], array_values($removed));
+            $pdo->prepare("DELETE FROM client_structures WHERE client_id = ? AND page IN ($placeholders)")->execute($params);
+            $pdo->prepare("DELETE FROM client_pages WHERE client_id = ? AND page IN ($placeholders)")->execute($params);
+        }
         $pdo->prepare('UPDATE clients SET sitemap = ? WHERE id = ?')->execute([$json, $client_id]);
-        $sitemap = json_decode($json, true);
+        $sitemap = $newMap;
         $saved = 'Sitemap saved.';
         $activeTab = 'sitemap';
     } elseif (isset($_POST['regenerate'])) {

@@ -134,10 +134,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (isset($_POST['save_structure'])) {
         $page = $_POST['page'] ?? '';
         $openPage = $page;
-        $structure = $_POST['page_structure'] ?? '[]';
+        $structureJson = $_POST['page_structure'] ?? '[]';
         $stmt = $pdo->prepare('INSERT INTO client_structures (client_id, page, structure) VALUES (?,?,?) ON DUPLICATE KEY UPDATE structure=VALUES(structure)');
-        $stmt->execute([$client_id, $page, $structure]);
-        $pageData[$page] = json_decode($structure, true) ?: [];
+        $stmt->execute([$client_id, $page, $structureJson]);
+        $sections = json_decode($structureJson, true) ?: [];
+        $pageData[$page] = $sections;
+        $stmt = $pdo->prepare('SELECT content FROM client_pages WHERE client_id = ? AND page = ?');
+        $stmt->execute([$client_id, $page]);
+        if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $contentArr = json_decode($row['content'], true) ?: [];
+            $keep = array_flip($sections);
+            if (isset($contentArr['sections'])) {
+                $contentArr['sections'] = array_intersect_key($contentArr['sections'], $keep);
+            }
+            if (isset($contentArr['media'])) {
+                $contentArr['media'] = array_intersect_key($contentArr['media'], $keep);
+            }
+            $pdo->prepare('UPDATE client_pages SET content = ? WHERE client_id = ? AND page = ?')->execute([json_encode($contentArr), $client_id, $page]);
+        }
         $saved = 'Page structure saved.';
     }
 }
