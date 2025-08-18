@@ -88,7 +88,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         $prompt = $base . "\n\nExisting content:\n" . strip_tags($current);
         $prompt .= "\n\nCreate one additional section that continues the flow without repeating previous sections. Return JSON with keys 'title','subtitle','paragraphs' (array of strings). Do not include markdown fences or extra keys.";
         $res = callGemini($prompt);
-        if (isset($res['sections'][0])) $res = $res['sections'][0];
         echo json_encode($res);
     } elseif (isset($_POST['media_suggestions'])) {
         $html = $_POST['html'] ?? '';
@@ -226,10 +225,11 @@ if ($embed) {
       <div class="tab-pane fade show active" id="contentTab" role="tabpanel">
         <div id="metaSection"></div>
         <div id="sectionsContainer"></div>
-        <div id="mediaSuggestions" class="small float-start"></div>
         <div class="mb-3">
-          <button class="btn btn-sm btn-outline-success" onclick="addSectionAuto()">+</button>
+          <button class="btn btn-sm btn-outline-success" onclick="addSection()">+</button>
         </div>
+        <hr>
+        <div id="mediaSuggestions" class="small float-start"></div>
       </div>
       <div class="tab-pane fade" id="promptTab" role="tabpanel">
         <div class="d-flex align-items-center mb-2">
@@ -321,10 +321,9 @@ function initTooltips(){
   const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
   tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
 }
-function addSection(html='', i, skipSave=false, auto=false){
+function addSection(html='', i, skipSave=false){
   const container = document.getElementById('sectionsContainer');
   const idx = typeof i === 'number' ? i : container.querySelectorAll('.mb-3').length;
-  const existing = container.innerHTML;
   const wrap = document.createElement('div');
   wrap.className = 'mb-3';
   wrap.dataset.index = idx;
@@ -379,11 +378,7 @@ function addSection(html='', i, skipSave=false, auto=false){
   wrap.append(header, div);
   container.appendChild(wrap);
   initTooltips();
-  if(auto) generateAdditionalSection(idx, existing);
   if(!skipSave) saveAll(true);
-}
-function addSectionAuto(){
-  addSection('', undefined, false, true);
 }
 function removeSection(i){
   const wrap = document.querySelector(`#sectionsContainer .mb-3[data-index="${i}"]`);
@@ -687,28 +682,6 @@ function regenSection(i, p=''){
 async function promptSection(i){
   const p = await askPrompt('Regenerate section '+(i+1));
   if(p) regenSection(i, p);
-}
-function generateAdditionalSection(i, existing){
-  const meta = document.getElementById('metaSection').innerHTML;
-  const sections = existing !== undefined ? existing : document.getElementById('sectionsContainer').innerHTML;
-  const params = new URLSearchParams({ajax:'1', generate_new_section:'1', prompt:basePrompt, current: meta + sections});
-  showProgress();
-  showToast('Generating section '+(i+1)+'...', 'info');
-  fetch('', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: params})
-    .then(r => r.json())
-    .then(res => {
-      let html = '';
-      if(res.title) html += `<h3>${res.title}</h3>`;
-      if(res.subtitle) html += `<h4>${res.subtitle}</h4>`;
-      if(res.paragraphs) html += res.paragraphs.map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('');
-      const div = document.getElementById('sec-content-' + i);
-      if(div){
-        div.innerHTML = sanitizeHtml(html);
-        saveSection(i, true);
-        updateMediaSuggestions();
-      }
-    })
-    .finally(() => { hideProgress(); showToast('Section '+(i+1)+' generated', 'success'); });
 }
 function saveMeta(field, silent=false){
   const map = {meta_title:'metaTitle', meta_description:'metaDescription', slug:'slug'};
