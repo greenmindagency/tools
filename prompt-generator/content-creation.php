@@ -208,10 +208,10 @@ if ($embed) {
       <div class="tab-pane fade show active" id="contentTab" role="tabpanel">
         <div id="metaSection"></div>
         <div id="sectionsContainer"></div>
+        <div id="mediaSuggestions" class="small float-start"></div>
         <div class="mb-3">
           <button class="btn btn-sm btn-outline-success" onclick="addSection()">+</button>
         </div>
-        <div id="mediaSuggestions" class="text-end small"></div>
       </div>
       <div class="tab-pane fade" id="promptTab" role="tabpanel">
         <div class="d-flex align-items-center mb-2">
@@ -407,7 +407,7 @@ function loadSaved(){
     .sort((a,b) => parseInt(a.split('_').pop()) - parseInt(b.split('_').pop()));
   if(!metaExists && !sectionKeys.length) return;
   const sections = sectionKeys.map(k => localStorage.getItem(k) || '');
-  renderContent({sections:[]});
+  renderContent({sections:[]}, true);
   sections.forEach((html, idx) => addSection(html, idx, true));
   saveAll(true);
 }
@@ -488,7 +488,7 @@ function generatePrompt() {
   .catch(() => alert('Failed to generate content'))
   .finally(() => { hideProgress(); showToast('Content generated', 'success'); });
 }
-function renderContent(data){
+function renderContent(data, skipMedia=false){
   if(data.error){ alert(data.error); return; }
   const meta = document.getElementById('metaSection');
   meta.innerHTML = '';
@@ -601,6 +601,7 @@ function renderContent(data){
   });
   initTooltips();
   saveAll(true);
+  if(!skipMedia) updateMediaSuggestions();
 }
 function regenMeta(field, p=''){
   const map = {meta_title:'metaTitle', meta_description:'metaDescription', slug:'slug'};
@@ -683,7 +684,6 @@ function saveAll(silent=false){
     saveSection(idx, silent);
   });
   if(!silent) showToast('All content saved', 'success');
-  updateMediaSuggestions();
 }
 function copyPrompt() {
   const text = document.getElementById('output').textContent;
@@ -705,7 +705,7 @@ function checkMeta(){
 function mediaSuggestions(html){
   const text = String(html || '').replace(/<[^>]+>/g, ' ');
   const words = Array.from(new Set(text.toLowerCase().split(/\W+/).filter(w => w.length > 3)));
-  const icons = words.slice(0,5).map(w => '' + w.replace(/[^a-z0-9]+/g,'-'));
+  const icons = words.slice(0,5).map(w => 'fa-' + w.replace(/[^a-z0-9]+/g,'-'));
   const phrases = [];
   for(let i=0;i<words.length-1 && phrases.length<10;i++){
     phrases.push(words[i] + ' ' + words[i+1]);
