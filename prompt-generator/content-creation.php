@@ -439,6 +439,193 @@ function generatePrompt() {
   // clear cached meta and sections before generating new content
   ['meta_title','meta_description','slug'].forEach(f => localStorage.removeItem('content_'+f));
   Object.keys(localStorage).forEach(k => { if(k.startsWith('content_section_')) localStorage.removeItem(k); });
+  localStorage.removeItem('content_media');
+  document.getElementById('metaSection').innerHTML = '';
+  document.getElementById('sectionsContainer').innerHTML = '';
+  const type = document.getElementById('pageType').value;
+  const keyword = document.getElementById('keyword').value.trim();
+  const lang = document.getElementById('outputLanguage').value.trim();
+  const website = document.getElementById('website').value.trim();
+  const company = document.getElementById('companyName').value.trim();
+  const keywords = document.getElementById('keywords').value.trim();
+  const auto = document.getElementById('autoSelectKeywords').checked;
+  const docFlag = document.getElementById('includeDoc').checked;
+  const emojis = document.getElementById('includeEmojis').checked;
+  const old = document.getElementById('oldContent').value.trim();
+  const refine = document.getElementById('refineLevel').value;
+  const faq = document.getElementById('includeFAQ').checked;
+  const countries = Array.from(document.querySelectorAll('input[name="country[]"]')).map(c => c.value.trim()).filter(Boolean);
+  let prompt = "";
+  if (docFlag) prompt += "/doc Please open a doc for edit\n\n";
+  prompt += `Write a content for a ${type === "Social Media" ? "social media post" : `${type} page`} in ${lang || 'English'}\n\n`;
+  prompt += "Please act as a content writer, a very proficient SEO writer who writes fluently.\n\n";
+
+  if (type === "Social Media") {
+    prompt += `Please write a creative and engaging social media post for ${company}, focusing on the keyword: ${keyword}.\n`;
+    prompt += "Make the tone appealing, human, and valuable.\nInclude hooks or calls to action and avoid robotic language.\nDo research for top SERP performing social media posts about this topic.\n";
+    if (emojis) prompt += "Include relevant emojis naturally in the post.\n";
+    prompt += "Add the most relevant hashtags at the end.\n\n";
+  } else {
+    prompt += `– Focused keyword – ${keyword}\n`;
+    prompt += "– Use the above keyword in title, description, slug, keywords, first paragraph, and one time on any heading tag\n";
+    prompt += "– Article content: 500 words minimum\n";
+    prompt += "– Slug length: 60 characters\n";
+    prompt += "– Please provide: Meta Title: 60 characters max including the targeted keyword\n";
+    prompt += "– Please provide: Meta Descriptions: 140 characters max including the target keyword, keep it within 110 to 140 characters\n";
+    prompt += "– Headings: the hierarchy must be formed well – starting with H3, the subheadings will be H4 please avoid of adding the H1,2,3,4 as a text in the output just make the tag in the code not as an actual text\n";
+    prompt += "– Please make the content follow Yoast SEO guidelines\n";
+    prompt += "– Please make a quick search for SERP and understand why these pages are ranking and give the best SEO content to compete with them\n";
+    prompt += "– please don't bold the keywords that you are using within the content; only bold the text needing emphasis, andplease in the doc don't add any data classes or classes for easy copy paste.\n";
+    prompt += "– focused Keyphrase density is important to not to use it too mush YOAST SEO usually recommend to not repeate the focused keywords too much. \n";
+    prompt += "– please don't add <hr> between each section no need it i need the content seamlesly typed. \n";
+    prompt += "– I need to make a deep research online to give some new ideas or a numbers average related to content if needed i need the content to be like i really spent alot of time humen writing it, content that realy rank and give a better values to SEO \n\n";
+
+    prompt += `Please write a ${type.toLowerCase()} page content for the website ${website} (${company})\n\n`;
+  }
+  const list = keywords.split('\n').map(k => k.trim()).filter(k => k && k !== keyword);
+  if (keywords && auto) {
+    prompt += `Please choose the most suitable keywords based on the selected page type (${type}).\n`;
+    prompt += "Please select the related keywords from the below list:\n\n" + keywords.split('\n').map(k => `- ${k}`).join('\n') + '\n\n';
+    prompt += `Keywords: ${keyword}|${list.join('|')}\n\n`;
+  } else if (keywords) {
+    prompt += "Please you must use the below keywords, in the headings and within the content:\n\n" + keywords.split('\n').map(k => `- ${k}`).join('\n') + '\n\n';
+    prompt += `Keywords: ${keyword}|${list.join('|')}\n\n`;
+  }
+  if (countries[0]) prompt += `Localize the main content to ${countries[0]}.\n`;
+  if (countries.length > 1) {
+    prompt += "At the end of the main content, add sections localized for:\n" + countries.slice(1).map(c => `- ${c}`).join('\n') + '\n\n';
+  }
+  if (old) prompt += `Refine the following old content with intensity '${refine}':\n\n${old}\n\n`;
+  prompt += "Please don’t give me an outline, give me the content directly.";
+  if (faq) prompt += " Add a FAQ section at the end.";
+  basePrompt = prompt;
+  document.getElementById('output').textContent = prompt;
+
+  showProgress();
+  showToast('Generating content...', 'info');
+  fetch('', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({ajax: '1', generate_content: '1', prompt: prompt})
+  })
+  .then(r => r.json())
+  .then(renderContent)
+  .catch(() => alert('Failed to generate content'))
+  .finally(() => { hideProgress(); showToast('Content generated', 'success'); });
+}
+function renderContent(data, skipMedia=false){
+  if(data.error){ alert(data.error); return; }
+  const meta = document.getElementById('metaSection');
+  meta.innerHTML = '';
+  const idMap = {meta_title:'metaTitle', meta_description:'metaDescription', slug:'slug'};
+  function addMetaField(field, label, value){
+    const wrap = document.createElement('div');
+    wrap.className = 'mb-2';
+    const header = document.createElement('div');
+    header.className = 'd-flex justify-content-between align-items-center mb-1';
+    const lab = document.createElement('strong');
+    lab.textContent = label;
+    header.appendChild(lab);
+    const btns = document.createElement('div');
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'btn btn-sm btn-outline-success me-2';
+    save.textContent = '\ud83d\udcbe';
+    save.setAttribute('data-bs-toggle','tooltip');
+    save.setAttribute('data-bs-title','Save '+label.toLowerCase());
+    save.addEventListener('click', () => saveMeta(field));
+    const regen = document.createElement('button');
+    regen.type = 'button';
+    regen.className = 'btn btn-sm btn-outline-secondary me-2';
+    regen.textContent = '\u21bb';
+    regen.setAttribute('data-bs-toggle','tooltip');
+    regen.setAttribute('data-bs-title','Regenerate '+label.toLowerCase());
+    regen.addEventListener('click', () => regenMeta(field));
+    const promptBtn = document.createElement('button');
+    promptBtn.type = 'button';
+    promptBtn.className = 'btn btn-sm btn-outline-primary';
+    promptBtn.textContent = '\u2728';
+    promptBtn.setAttribute('data-bs-toggle','tooltip');
+    promptBtn.setAttribute('data-bs-title','Regenerate with prompt');
+    promptBtn.addEventListener('click', () => promptMeta(field));
+    btns.append(save, regen, promptBtn);
+    header.appendChild(btns);
+    const div = document.createElement('div');
+    const id = idMap[field];
+    div.id = id;
+    div.className = 'form-control';
+    div.contentEditable = 'true';
+    div.style.minHeight = '2.5rem';
+    const saved = localStorage.getItem('content_'+field);
+    div.textContent = saved || value || '';
+    wrap.append(header, div);
+    if(field !== 'slug'){
+      const note = document.createElement('div');
+      note.id = id + 'Note';
+      note.className = 'form-text text-danger';
+      wrap.appendChild(note);
+    }
+    meta.appendChild(wrap);
+    if(field === 'meta_description'){
+      autoResize(div);
+      div.addEventListener('input', () => {autoResize(div); checkMeta();});
+    }
+    if(field === 'meta_title'){
+      div.addEventListener('input', checkMeta);
+    }
+  }
+  addMetaField('meta_title', 'Meta Title', data.meta_title || '');
+  addMetaField('meta_description', 'Meta Description', data.meta_description || '');
+  addMetaField('slug', 'Slug', data.slug || '');
+  const focus = document.getElementById('keyword').value.trim();
+  const kwLines = document.getElementById('keywords').value.split('\n').map(k => k.trim()).filter(Boolean);
+  const kw = [focus, ...kwLines].filter(Boolean).join('|');
+  if(kw){
+    const kwDiv = document.createElement('div');
+    kwDiv.className = 'mb-2';
+    kwDiv.id = 'keywordsUsed';
+    kwDiv.innerHTML = `<strong>Keywords Used:</strong> ${kw}`;
+    meta.appendChild(kwDiv);
+  }
+  const hr = document.createElement('hr');
+  meta.appendChild(hr);
+  checkMeta();
+
+  const container = document.getElementById('sectionsContainer');
+  container.innerHTML = '';
+  const faqAllowed = document.getElementById('includeFAQ').checked;
+  let faqAdded = false;
+  (data.sections || []).forEach((sec, idx) => {
+    if(sec.title && sec.title.toLowerCase().includes('faq')){
+      if(!faqAllowed || faqAdded) return;
+      faqAdded = true;
+      let html = '';
+      if(sec.title) html += `<h3>${sec.title}</h3>`;
+      const subVal = sec.subtitle || sec.sub_title || sec.subTitle || sec.subheading || sec.sub_heading || '';
+      if(subVal) html += `<h4>${subVal}</h4>`;
+      if(Array.isArray(sec.faqs)){
+        sec.faqs.forEach(f => { html += `<h4>${f.question}</h4><p>${f.answer}</p>`; });
+      } else {
+        for(let i=0;i<(sec.paragraphs||[]).length;i+=2){
+          const q = (sec.paragraphs[i]||'').replace(/\*\*(.*?)\*\*/g,'$1');
+          const a = sec.paragraphs[i+1]||'';
+          html += `<h4>${q}</h4><p>${a}</p>`;
+        }
+      }
+      const saved = localStorage.getItem('content_section_'+idx);
+      addSection(saved || sanitizeHtml(html));
+    } else {
+      let html = '';
+      const subVal = sec.subtitle || sec.sub_title || sec.subTitle || sec.subheading || sec.sub_heading || '';
+      if(sec.title) html += `<h3>${sec.title}</h3>`;
+      if(subVal) html += `<h4>${subVal}</h4>`;
+      html += (sec.paragraphs || []).map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('');
+      const saved = localStorage.getItem('content_section_'+idx);
+      addSection(saved || sanitizeHtml(html));
+    }
+  });
+  initTooltips();
+  saveAll(true);
   if(!skipMedia) updateMediaSuggestions(true);
 }
 function regenMeta(field, p=''){
