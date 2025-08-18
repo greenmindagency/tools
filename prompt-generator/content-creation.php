@@ -179,7 +179,7 @@ if ($embed) {
 
   <div class="col-md-8">
     <button class="btn btn-success mb-3" onclick="exportDocx()">Export to DOCX</button>
-    <div id="loadingBar" class="progress mb-2" style="height:4px; display:none;">
+    <div id="genProgress" class="progress mb-2 d-none">
       <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
     </div>
     <ul class="nav nav-tabs" id="outTabs" role="tablist">
@@ -205,10 +205,12 @@ if ($embed) {
 </div>
 </div>
 <textarea id="clipboardArea" style="position: absolute; left: -9999px; top: -9999px;"></textarea>
+<div class="toast-container position-fixed top-0 end-0 p-3"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.2.1/docx.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script>
 let basePrompt = '';
+const toastContainer = document.querySelector('.toast-container');
 function sanitizeHtml(html){
   return String(html || '').replace(/<(?!\/?(p|strong|b|em|i|ul|ol|li|br)\b)[^>]*>/gi, '');
 }
@@ -216,11 +218,22 @@ function autoResize(el){
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
 }
-function showLoading(){
-  document.getElementById('loadingBar').style.display = 'block';
+function showProgress(){
+  document.getElementById('genProgress').classList.remove('d-none');
 }
-function hideLoading(){
-  document.getElementById('loadingBar').style.display = 'none';
+function hideProgress(){
+  document.getElementById('genProgress').classList.add('d-none');
+}
+function showToast(msg, type){
+  const toast = document.createElement('div');
+  const cls = type || 'secondary';
+  toast.className = 'toast align-items-center text-bg-' + cls + ' border-0';
+  toast.role = 'alert';
+  toast.innerHTML = '<div class="d-flex"><div class="toast-body">'+msg+'</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+  toastContainer.appendChild(toast);
+  const t = new bootstrap.Toast(toast);
+  t.show();
+  toast.addEventListener('hidden.bs.toast', () => toast.remove());
 }
 function addCountry(button) {
   const container = document.getElementById('countries');
@@ -296,7 +309,8 @@ function generatePrompt() {
   basePrompt = prompt;
   document.getElementById('output').textContent = prompt;
 
-  showLoading();
+  showProgress();
+  showToast('Generating content...', 'info');
   fetch('', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -305,7 +319,7 @@ function generatePrompt() {
   .then(r => r.json())
   .then(renderContent)
   .catch(() => alert('Failed to generate content'))
-  .finally(hideLoading);
+  .finally(() => { hideProgress(); showToast('Content generated', 'success'); });
 }
 function renderContent(data){
   if(data.error){ alert(data.error); return; }
@@ -323,6 +337,8 @@ function renderContent(data){
   mtBtn.type = 'button';
   mtBtn.className = 'btn btn-sm btn-outline-secondary ms-2';
   mtBtn.textContent = '\u21bb';
+  mtBtn.setAttribute('data-bs-toggle','tooltip');
+  mtBtn.setAttribute('data-bs-title','Regenerate meta title');
   mtBtn.addEventListener('click', () => regenMeta('meta_title'));
   mtGroup.append(metaTitle, mtBtn);
   const mtNote = document.createElement('div');
@@ -342,6 +358,8 @@ function renderContent(data){
   mdBtn.type = 'button';
   mdBtn.className = 'btn btn-sm btn-outline-secondary ms-2';
   mdBtn.textContent = '\u21bb';
+  mdBtn.setAttribute('data-bs-toggle','tooltip');
+  mdBtn.setAttribute('data-bs-title','Regenerate meta description');
   mdBtn.addEventListener('click', () => regenMeta('meta_description'));
   mdGroup.append(metaDesc, mdBtn);
   const mdNote = document.createElement('div');
@@ -360,6 +378,8 @@ function renderContent(data){
   slugBtn.type = 'button';
   slugBtn.className = 'btn btn-sm btn-outline-secondary ms-2';
   slugBtn.textContent = '\u21bb';
+  slugBtn.setAttribute('data-bs-toggle','tooltip');
+  slugBtn.setAttribute('data-bs-title','Regenerate slug');
   slugBtn.addEventListener('click', () => regenMeta('slug'));
   slugGroup.append(slugInput, slugBtn);
   const hr = document.createElement('hr');
@@ -385,34 +405,28 @@ function renderContent(data){
     regen.type = 'button';
     regen.className = 'btn btn-sm btn-outline-secondary me-2';
     regen.textContent = '\u21bb';
+    regen.setAttribute('data-bs-toggle','tooltip');
+    regen.setAttribute('data-bs-title','Regenerate section');
     regen.addEventListener('click', () => regenSection(idx));
     const promptBtn = document.createElement('button');
     promptBtn.type = 'button';
     promptBtn.className = 'btn btn-sm btn-outline-primary';
     promptBtn.textContent = '\u2728';
+    promptBtn.setAttribute('data-bs-toggle','tooltip');
+    promptBtn.setAttribute('data-bs-title','Regenerate with prompt');
     promptBtn.addEventListener('click', () => promptSection(idx));
     btnGroup.append(regen, promptBtn);
     header.appendChild(btnGroup);
-
-    const titleInput = document.createElement('input');
-    titleInput.type = 'text';
-    titleInput.className = 'form-control mb-2';
-    titleInput.id = 'sec-title-' + idx;
-    titleInput.value = sec.title || '';
-
-    const subInput = document.createElement('input');
-    subInput.type = 'text';
-    subInput.className = 'form-control mb-2';
-    subInput.id = 'sec-subtitle-' + idx;
-    const subVal = sec.subtitle || sec.sub_title || sec.subTitle || sec.subheading || sec.sub_heading || '';
-    subInput.value = subVal;
 
     const div = document.createElement('div');
     div.className = 'form-control section-field';
     div.id = 'sec-content-' + idx;
     div.contentEditable = 'true';
     div.style.minHeight = '6em';
+    const subVal = sec.subtitle || sec.sub_title || sec.subTitle || sec.subheading || sec.sub_heading || '';
     let html = '';
+    if(sec.title) html += `<p><strong>${sec.title}</strong></p>`;
+    if(subVal) html += `<p>${subVal}</p>`;
     if(sec.title && sec.title.toLowerCase().includes('faq')){
       const divider = document.createElement('hr');
       container.appendChild(divider);
@@ -426,20 +440,23 @@ function renderContent(data){
         }
       }
     } else {
-      html = (sec.paragraphs || []).map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('');
+      html += (sec.paragraphs || []).map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('');
     }
     div.innerHTML = sanitizeHtml(html);
 
-    wrap.append(header, titleInput, subInput, div);
+    wrap.append(header, div);
     container.appendChild(wrap);
   });
+  const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
 }
 function regenMeta(field, p=''){
   const map = {meta_title:'metaTitle', meta_description:'metaDescription', slug:'slug'};
   const current = document.getElementById(map[field]).value;
   const params = new URLSearchParams({ajax:'1', generate_meta:'1', field:field, prompt:basePrompt, current:current});
   if(p) params.append('userPrompt', p);
-  showLoading();
+  showProgress();
+  showToast('Regenerating '+field.replace('_',' ')+"...", 'info');
   fetch('', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: params})
     .then(r => r.json())
     .then(res => {
@@ -449,31 +466,36 @@ function regenMeta(field, p=''){
       } else if(res.error) alert(res.error);
       checkMeta();
     })
-    .finally(hideLoading);
+    .finally(() => { hideProgress(); showToast(field.replace('_',' ')+' updated', 'success'); });
 }
 function regenSection(i, p=''){
-  const title = document.getElementById('sec-title-' + i).value;
-  const subtitle = document.getElementById('sec-subtitle-' + i).value;
   const div = document.getElementById('sec-content-' + i);
-  const content = sanitizeHtml(div.innerHTML);
+  const html = sanitizeHtml(div.innerHTML);
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const parts = Array.from(tmp.querySelectorAll('p')).map(p => p.innerHTML.trim()).filter(Boolean);
+  const title = parts.shift() || '';
+  const subtitle = parts.shift() || '';
+  const content = parts.join('\n');
   const params = new URLSearchParams({ajax:'1', generate_section:'1', prompt:basePrompt, title:title, subtitle:subtitle, content:content});
   if(p) params.append('userPrompt', p);
-  showLoading();
+  showProgress();
+  showToast('Regenerating section '+(i+1)+'...', 'info');
   fetch('', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: params})
     .then(r => r.json())
     .then(res => {
-      if(res.title !== undefined) document.getElementById('sec-title-' + i).value = res.title;
+      let html = '';
+      if(res.title) html += `<p><strong>${res.title}</strong></p>`;
       const sub = res.subtitle ?? res.sub_title ?? res.subTitle ?? res.subheading ?? res.sub_heading;
-      if(sub !== undefined) document.getElementById('sec-subtitle-' + i).value = sub;
+      if(sub) html += `<p>${sub}</p>`;
       if(res.faqs){
-        const html = res.faqs.map(f => `<p><strong>${f.question}</strong><br>${f.answer}</p>`).join('');
-        div.innerHTML = sanitizeHtml(html);
+        html += res.faqs.map(f => `<p><strong>${f.question}</strong><br>${f.answer}</p>`).join('');
       } else if(res.paragraphs) {
-        const html = res.paragraphs.map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('');
-        div.innerHTML = sanitizeHtml(html);
+        html += res.paragraphs.map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('');
       }
+      div.innerHTML = sanitizeHtml(html);
     })
-    .finally(hideLoading);
+    .finally(() => { hideProgress(); showToast('Section '+(i+1)+' updated', 'success'); });
 }
 function promptSection(i){
   const p = prompt('Additional instructions?');
@@ -497,7 +519,7 @@ function checkMeta(){
 }
 
 function exportDocx(){
-  const {Document, Packer, Paragraph, TextRun, HeadingLevel} = docx;
+  const {Document, Packer, Paragraph, TextRun, HeadingLevel} = window.docx;
   const children = [];
   const mt = document.getElementById('metaTitle')?.value || '';
   const md = document.getElementById('metaDescription')?.value || '';
@@ -507,27 +529,31 @@ function exportDocx(){
   if(slug) children.push(new Paragraph('Slug: ' + slug));
   children.push(new Paragraph(''));
   const wraps = document.querySelectorAll('#sectionsContainer .mb-3');
-  wraps.forEach((wrap, idx) => {
-    const title = document.getElementById('sec-title-' + idx).value;
-    const subtitle = document.getElementById('sec-subtitle-' + idx).value;
-    const html = document.getElementById('sec-content-' + idx).innerHTML;
-    if(title) children.push(new Paragraph({text:title, heading:HeadingLevel.HEADING_1}));
-    if(subtitle) children.push(new Paragraph({text:subtitle, heading:HeadingLevel.HEADING_2}));
-    const text = html
-      .replace(/<strong>(.*?)<\/strong>/gi,'**$1**')
-      .replace(/<br\s*\/?>/gi,'\n')
-      .replace(/<\/p>\s*<p>/gi,'\n\n')
-      .replace(/<[^>]+>/g,'');
-    text.split(/\n+/).forEach(p => {
-      if(!p.trim()) return;
-      const parts = p.split(/\*\*/);
-      const runs = parts.map((part,i) => new TextRun({text:part, bold:i%2===1}));
-      children.push(new Paragraph({children:runs}));
-    });
+  wraps.forEach(wrap => {
+    const html = wrap.querySelector('.section-field').innerHTML;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const ps = Array.from(tmp.querySelectorAll('p'));
+    if(ps[0]) children.push(new Paragraph({text: ps[0].textContent, heading: HeadingLevel.HEADING_1}));
+    let start = 1;
+    if(ps[1]) { children.push(new Paragraph({text: ps[1].textContent, heading: HeadingLevel.HEADING_2})); start = 2; }
+    for(let i=start;i<ps.length;i++){
+      const text = ps[i].innerHTML
+        .replace(/<strong>(.*?)<\/strong>/gi,'**$1**')
+        .replace(/<br\s*\/?>/gi,'\n')
+        .replace(/<\/p>\s*<p>/gi,'\n\n')
+        .replace(/<[^>]+>/g,'');
+      text.split(/\n+/).forEach(p => {
+        if(!p.trim()) return;
+        const parts = p.split(/\*\*/);
+        const runs = parts.map((part,j) => new TextRun({text:part, bold:j%2===1}));
+        children.push(new Paragraph({children:runs}));
+      });
+    }
     children.push(new Paragraph(''));
   });
   const doc = new Document({sections:[{children}]});
-  Packer.toBlob(doc).then(blob => saveAs(blob, 'content.docx'));
+  Packer.toBlob(doc).then(blob => window.saveAs(blob, 'content.docx'));
 }
 </script>
 <?php include 'footer.php'; ?>
