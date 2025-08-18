@@ -411,6 +411,11 @@ function loadSaved(){
   saveAll(true);
 }
 function generatePrompt() {
+  // clear cached meta and sections before generating new content
+  ['meta_title','meta_description','slug'].forEach(f => localStorage.removeItem('content_'+f));
+  Object.keys(localStorage).forEach(k => { if(k.startsWith('content_section_')) localStorage.removeItem(k); });
+  document.getElementById('metaSection').innerHTML = '';
+  document.getElementById('sectionsContainer').innerHTML = '';
   const type = document.getElementById('pageType').value;
   const keyword = document.getElementById('keyword').value.trim();
   const lang = document.getElementById('outputLanguage').value.trim();
@@ -546,6 +551,16 @@ function renderContent(data){
   addMetaField('meta_title', 'Meta Title', data.meta_title || '');
   addMetaField('meta_description', 'Meta Description', data.meta_description || '');
   addMetaField('slug', 'Slug', data.slug || '');
+  const focus = document.getElementById('keyword').value.trim();
+  const kwLines = document.getElementById('keywords').value.split('\n').map(k => k.trim()).filter(Boolean);
+  const kw = [focus, ...kwLines].filter(Boolean).join('|');
+  if(kw){
+    const kwDiv = document.createElement('div');
+    kwDiv.className = 'mb-2';
+    kwDiv.id = 'keywordsUsed';
+    kwDiv.innerHTML = `<strong>Keywords Used:</strong> ${kw}`;
+    meta.appendChild(kwDiv);
+  }
   const hr = document.createElement('hr');
   meta.appendChild(hr);
   checkMeta();
@@ -699,7 +714,7 @@ function exportDoc(){
   if(mt) body += `<p><strong>Meta Title:</strong> ${mt}</p>`;
   if(md) body += `<p><strong>Meta Description:</strong> ${md}</p>`;
   if(slug) body += `<p><strong>Slug:</strong> ${slug}</p>`;
-  if(kw) body += `<p><strong>Keywords:</strong> ${kw}</p>`;
+  if(kw) body += `<p><strong>Keywords Used:</strong> ${kw}</p>`;
   body += '<hr />';
   body += sections;
   const title = mt || 'content';
