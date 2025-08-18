@@ -5,6 +5,24 @@ $presetKeywords = isset($_GET['keywords']) ? trim($_GET['keywords']) : '';
 $presetFocus = isset($_GET['focus']) ? trim($_GET['focus']) : '';
 $embed = isset($_GET['embed']);
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['export_doc'])) {
+    function rtf_escape($text){
+        $text = str_replace(["\\", "{", "}"], ["\\\\", "\\{", "\\}"], $text);
+        return str_replace(["\r\n", "\n", "\r"], "\\par ", $text);
+    }
+    $title = trim($_POST['title'] ?? 'document');
+    $body  = $_POST['body'] ?? '';
+    $rtf  = "{\\rtf1\\ansi\\deff0\n";
+    $rtf .= "{\\fonttbl{\\f0 Arial;}}\n";
+    $rtf .= "\\fs22\\f0 ".rtf_escape($body)."\n";
+    $rtf .= "}";
+    $filename = preg_replace('/[^A-Za-z0-9_-]+/', '_', $title) ?: 'document';
+    header('Content-Type: application/msword; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="'.$filename.'.doc"');
+    echo $rtf;
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     header('Content-Type: application/json');
     function slugify($text){
@@ -180,7 +198,7 @@ if ($embed) {
   </div>
 
   <div class="col-md-8">
-    <button class="btn btn-success mb-3" onclick="exportDocx()">Export to DOCX</button>
+    <button class="btn btn-success mb-3" onclick="exportDoc()">Export to DOC</button>
     <button class="btn btn-outline-primary mb-3 ms-2" onclick="saveAll()">Save All</button>
     <div id="genProgress" class="progress mb-2 d-none">
       <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
@@ -674,85 +692,34 @@ function checkMeta(){
   if(md && mdNote){ const len = md.textContent.trim().length; mdNote.textContent = (len < 110 || len > 140) ? 'Description should be 110-140 characters' : ''; }
 }
 
-function loadScript(src){
-  return new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = resolve;
-    s.onerror = () => reject(new Error('Failed to load '+src));
-    document.head.appendChild(s);
-  });
-}
-
-async function ensureDocxLib(){
-  async function attempt(urls, name){
-    for(const u of urls){
-      try { await loadScript(u); return; } catch(e){ console.error(e); }
-    }
-    throw new Error(name+' library failed to load');
-  }
-  if(!window.docx){
-    await attempt([
-      'https://cdnjs.cloudflare.com/ajax/libs/docx/8.2.1/docx.min.js',
-      'https://cdn.jsdelivr.net/npm/docx@8.2.1/build/index.js'
-    ], 'DOCX');
-  }
-  if(typeof window.saveAs !== 'function'){
-    await attempt([
-      'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js',
-      'https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js'
-    ], 'FileSaver');
-  }
-}
-
-async function exportDocx(){
-  try {
-    await ensureDocxLib();
-    if(!window.docx || typeof window.saveAs !== 'function'){
-      alert('DOCX library not loaded');
-      return;
-    }
-    const {Document, Packer, Paragraph, TextRun, HeadingLevel} = window.docx;
-    const children = [];
-    const mt = document.getElementById('metaTitle')?.textContent || '';
-    const md = document.getElementById('metaDescription')?.textContent || '';
-    const slug = document.getElementById('slug')?.textContent || '';
-    if(mt) children.push(new Paragraph({text: mt, heading: HeadingLevel.HEADING_1}));
-    if(md) children.push(new Paragraph(md));
-    if(slug) children.push(new Paragraph('Slug: ' + slug));
-    children.push(new Paragraph(''));
-    const wraps = document.querySelectorAll('#sectionsContainer .mb-3');
-    wraps.forEach(wrap => {
-      const html = wrap.querySelector('.section-field').innerHTML;
-      const tmp = document.createElement('div');
-      tmp.innerHTML = html;
-      const ps = Array.from(tmp.querySelectorAll('p'));
-      if(ps[0]) children.push(new Paragraph({text: ps[0].textContent, heading: HeadingLevel.HEADING_1}));
-      let start = 1;
-      if(ps[1]) { children.push(new Paragraph({text: ps[1].textContent, heading: HeadingLevel.HEADING_2})); start = 2; }
-      for(let i=start;i<ps.length;i++){
-        const text = ps[i].innerHTML
-          .replace(/<strong>(.*?)<\/strong>/gi,'**$1**')
-          .replace(/<br\s*\/?>/gi,'\n')
-          .replace(/<\/p>\s*<p>/gi,'\n\n')
-          .replace(/<[^>]+>/g,'');
-        text.split(/\n+/).forEach(p => {
-          if(!p.trim()) return;
-          const parts = p.split(/\*\*/);
-          const runs = parts.map((part,j) => new TextRun({text:part, bold:j%2===1}));
-          children.push(new Paragraph({children:runs}));
-        });
-      }
-      children.push(new Paragraph(''));
-    });
-    const doc = new Document({sections:[{children}]});
-    Packer.toBlob(doc)
-      .then(blob => window.saveAs(blob, 'content.docx'))
-      .catch(err => { console.error(err); alert('Failed to export DOCX: '+(err && err.message ? err.message : err)); });
-  } catch(e){
-    console.error(e);
-    alert('Failed to export DOCX: '+(e && e.message ? e.message : e));
-  }
+function exportDoc(){
+  const mt = document.getElementById('metaTitle')?.textContent.trim() || '';
+  const md = document.getElementById('metaDescription')?.textContent.trim() || '';
+  const slug = document.getElementById('slug')?.textContent.trim() || '';
+  const sections = Array.from(document.querySelectorAll('#sectionsContainer .mb-3'))
+    .map(w => w.querySelector('.section-field').innerText.trim())
+    .filter(Boolean)
+    .join('\n\n');
+  const parts = [];
+  if(mt) parts.push(mt);
+  if(md) parts.push(md);
+  if(slug) parts.push('Slug: ' + slug);
+  if(sections) parts.push(sections);
+  const body = parts.join('\n\n');
+  const title = mt || 'content';
+  const params = new URLSearchParams({export_doc:'1', title:title, body:body});
+  fetch('', {method:'POST', body:params})
+    .then(r => { if(!r.ok) throw new Error('Server error'); return r.blob(); })
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (title.replace(/[^A-Za-z0-9_-]+/g,'_') || 'document') + '.doc';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
+    })
+    .catch(e => alert('Failed to export DOC: ' + (e && e.message ? e.message : e)));
 }
 </script>
 <?php include 'footer.php'; ?>
