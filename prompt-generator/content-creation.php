@@ -471,7 +471,7 @@ function generatePrompt() {
   }
   if (old) prompt += `Refine the following old content with intensity '${refine}':\n\n${old}\n\n`;
   prompt += "Please don’t give me an outline, give me the content directly.";
-  if (faq) prompt += " Add a FAQ section at the end.";
+  if (faq) prompt += " Add a FAQ section at the end, make the question and answer in a diffrent lines and keep the question bold in p tag and answer in normal p tag";
   basePrompt = prompt;
   document.getElementById('output').textContent = prompt;
 
