@@ -87,6 +87,7 @@ if ($embed) {
 ?>
 <style>
   #output { white-space: pre-wrap; background: #f8f9fa; border: 1px solid #ced4da; padding:20px; border-radius:5px; min-height:200px; }
+  #sectionsContainer .mb-3 { cursor: move; }
 </style>
 
 <div class="row">
@@ -227,8 +228,6 @@ if ($embed) {
     </div>
   </div>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.2.1/docx.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script>
 let basePrompt = '';
 const toastContainer = document.querySelector('.toast-container');
@@ -298,6 +297,11 @@ function addSection(html='', i){
   const wrap = document.createElement('div');
   wrap.className = 'mb-3';
   wrap.dataset.index = idx;
+  wrap.draggable = true;
+  wrap.addEventListener('dragstart', handleDragStart);
+  wrap.addEventListener('dragover', handleDragOver);
+  wrap.addEventListener('drop', handleDrop);
+  wrap.addEventListener('dragend', handleDragEnd);
   const header = document.createElement('div');
   header.className = 'd-flex justify-content-between align-items-center mb-2';
   const label = document.createElement('strong');
@@ -310,28 +314,28 @@ function addSection(html='', i){
   save.textContent = '\ud83d\udcbe';
   save.setAttribute('data-bs-toggle','tooltip');
   save.setAttribute('data-bs-title','Save section');
-  save.addEventListener('click', () => saveSection(idx));
+  save.addEventListener('click', () => saveSection(wrap.dataset.index));
   const regen = document.createElement('button');
   regen.type = 'button';
   regen.className = 'btn btn-sm btn-outline-secondary me-2';
   regen.textContent = '\u21bb';
   regen.setAttribute('data-bs-toggle','tooltip');
   regen.setAttribute('data-bs-title','Regenerate section');
-  regen.addEventListener('click', () => regenSection(idx));
+  regen.addEventListener('click', () => regenSection(wrap.dataset.index));
   const promptBtn = document.createElement('button');
   promptBtn.type = 'button';
   promptBtn.className = 'btn btn-sm btn-outline-primary me-2';
   promptBtn.textContent = '\u2728';
   promptBtn.setAttribute('data-bs-toggle','tooltip');
   promptBtn.setAttribute('data-bs-title','Regenerate with prompt');
-  promptBtn.addEventListener('click', () => promptSection(idx));
+  promptBtn.addEventListener('click', () => promptSection(wrap.dataset.index));
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.className = 'btn btn-sm btn-outline-danger';
   remove.textContent = '-';
   remove.setAttribute('data-bs-toggle','tooltip');
   remove.setAttribute('data-bs-title','Remove section');
-  remove.addEventListener('click', () => removeSection(idx));
+  remove.addEventListener('click', () => removeSection(wrap.dataset.index));
   btnGroup.append(save, regen, promptBtn, remove);
   header.appendChild(btnGroup);
   const div = document.createElement('div');
@@ -350,11 +354,37 @@ function removeSection(i){
   if(!wrap) return;
   wrap.remove();
   localStorage.removeItem('content_section_'+i);
+  renumberSections();
+  saveAll(true);
+}
+function renumberSections(){
   document.querySelectorAll('#sectionsContainer .mb-3').forEach((w, idx) => {
     w.dataset.index = idx;
     w.querySelector('strong').textContent = 'Section ' + (idx+1);
     w.querySelector('.section-field').id = 'sec-content-' + idx;
   });
+}
+
+let dragSrc = null;
+function handleDragStart(e){
+  dragSrc = this;
+  this.classList.add('opacity-50');
+}
+function handleDragOver(e){
+  e.preventDefault();
+  const target = this;
+  if(!dragSrc || dragSrc === target) return;
+  const container = document.getElementById('sectionsContainer');
+  const rect = target.getBoundingClientRect();
+  const next = (e.clientY - rect.top) > rect.height/2;
+  container.insertBefore(dragSrc, next ? target.nextSibling : target);
+}
+function handleDrop(e){
+  e.preventDefault();
+}
+function handleDragEnd(){
+  this.classList.remove('opacity-50');
+  renumberSections();
   saveAll(true);
 }
 function loadSaved(){
@@ -620,8 +650,9 @@ function saveSection(i, silent=false){
 }
 function saveAll(silent=false){
   ['meta_title','meta_description','slug'].forEach(f => saveMeta(f, silent));
-  document.querySelectorAll('#sectionsContainer .mb-3').forEach(w => {
-    const idx = parseInt(w.dataset.index, 10);
+  Object.keys(localStorage).forEach(k => { if(k.startsWith('content_section_')) localStorage.removeItem(k); });
+  document.querySelectorAll('#sectionsContainer .mb-3').forEach((w, idx) => {
+    w.dataset.index = idx;
     saveSection(idx, silent);
   });
   if(!silent) showToast('All content saved', 'success');
@@ -654,10 +685,24 @@ function loadScript(src){
 }
 
 async function ensureDocxLib(){
-  const tasks = [];
-  if(!window.docx) tasks.push(loadScript('https://cdnjs.cloudflare.com/ajax/libs/docx/8.2.1/docx.min.js'));
-  if(typeof window.saveAs !== 'function') tasks.push(loadScript('https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js'));
-  if(tasks.length) await Promise.all(tasks);
+  async function attempt(urls, name){
+    for(const u of urls){
+      try { await loadScript(u); return; } catch(e){ console.error(e); }
+    }
+    throw new Error(name+' library failed to load');
+  }
+  if(!window.docx){
+    await attempt([
+      'https://cdnjs.cloudflare.com/ajax/libs/docx/8.2.1/docx.min.js',
+      'https://cdn.jsdelivr.net/npm/docx@8.2.1/build/index.js'
+    ], 'DOCX');
+  }
+  if(typeof window.saveAs !== 'function'){
+    await attempt([
+      'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js',
+      'https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js'
+    ], 'FileSaver');
+  }
 }
 
 async function exportDocx(){
