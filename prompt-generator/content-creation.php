@@ -82,6 +82,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         $res = callGemini($prompt);
         if (isset($res['sections'][0])) $res = $res['sections'][0];
         echo json_encode($res);
+    } elseif (isset($_POST['generate_new_section'])) {
+        $base = $_POST['prompt'] ?? '';
+        $current = $_POST['current'] ?? '';
+        $prompt = $base . "\n\nExisting content:\n" . strip_tags($current);
+        $prompt .= "\n\nCreate one additional section that continues the flow without repeating previous sections. Return JSON with keys 'title','subtitle','paragraphs' (array of strings). Do not include markdown fences or extra keys.";
+        $res = callGemini($prompt);
+        if (isset($res['sections'][0])) $res = $res['sections'][0];
+        echo json_encode($res);
+    } elseif (isset($_POST['media_suggestions'])) {
+        $html = $_POST['html'] ?? '';
+        $prompt = "Analyze the following HTML content and suggest relevant media.\n{$html}\nReturn JSON with keys 'icons','images','videos'. 'icons' should list five Font Awesome icon names without the 'fa-' prefix. 'images' should list five 2-3 word stock photo keywords. 'videos' should list five 2-3 word stock footage keywords. Avoid duplicates and relate suggestions to the content. Return JSON only.";
+        $res = callGemini($prompt);
+        $out = [
+            'icons' => $res['icons'] ?? [],
+            'images' => $res['images'] ?? [],
+            'videos' => $res['videos'] ?? [],
+        ];
+        echo json_encode($out);
     } else {
         echo json_encode(['error'=>'Invalid request']);
     }
@@ -210,7 +228,7 @@ if ($embed) {
         <div id="sectionsContainer"></div>
         <div id="mediaSuggestions" class="small float-start"></div>
         <div class="mb-3">
-          <button class="btn btn-sm btn-outline-success" onclick="addSection()">+</button>
+          <button class="btn btn-sm btn-outline-success" onclick="addSectionAuto()">+</button>
         </div>
       </div>
       <div class="tab-pane fade" id="promptTab" role="tabpanel">
@@ -303,9 +321,10 @@ function initTooltips(){
   const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
   tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
 }
-function addSection(html='', i, skipSave=false){
+function addSection(html='', i, skipSave=false, auto=false){
   const container = document.getElementById('sectionsContainer');
   const idx = typeof i === 'number' ? i : container.querySelectorAll('.mb-3').length;
+  const existing = container.innerHTML;
   const wrap = document.createElement('div');
   wrap.className = 'mb-3';
   wrap.dataset.index = idx;
@@ -360,7 +379,11 @@ function addSection(html='', i, skipSave=false){
   wrap.append(header, div);
   container.appendChild(wrap);
   initTooltips();
+  if(auto) generateAdditionalSection(idx, existing);
   if(!skipSave) saveAll(true);
+}
+function addSectionAuto(){
+  addSection('', undefined, false, true);
 }
 function removeSection(i){
   const wrap = document.querySelector(`#sectionsContainer .mb-3[data-index="${i}"]`);
@@ -369,6 +392,7 @@ function removeSection(i){
   localStorage.removeItem('content_section_'+i);
   renumberSections();
   saveAll(true);
+  updateMediaSuggestions();
 }
 function renumberSections(){
   document.querySelectorAll('#sectionsContainer .mb-3').forEach((w, idx) => {
@@ -399,6 +423,7 @@ function handleDragEnd(){
   this.classList.remove('opacity-50');
   renumberSections();
   saveAll(true);
+  updateMediaSuggestions();
 }
 function loadSaved(){
   const metaExists = ['meta_title','meta_description','slug'].some(f => localStorage.getItem('content_'+f));
@@ -410,6 +435,7 @@ function loadSaved(){
   renderContent({sections:[]}, true);
   sections.forEach((html, idx) => addSection(html, idx, true));
   saveAll(true);
+  updateMediaSuggestions();
 }
 function generatePrompt() {
   // clear cached meta and sections before generating new content
@@ -620,7 +646,7 @@ function regenMeta(field, p=''){
       } else if(res.error) alert(res.error);
       checkMeta();
     })
-    .finally(() => { hideProgress(); showToast(field.replace('_',' ')+' updated', 'success'); });
+    .finally(() => { hideProgress(); showToast(field.replace('_',' ')+' updated', 'success'); updateMediaSuggestions(); });
 }
 async function promptMeta(field){
   const label = field.replace('_',' ');
@@ -653,6 +679,7 @@ function regenSection(i, p=''){
         html += res.paragraphs.map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('');
       }
       div.innerHTML = sanitizeHtml(html);
+      saveSection(i, true);
       updateMediaSuggestions();
     })
     .finally(() => { hideProgress(); showToast('Section '+(i+1)+' updated', 'success'); });
@@ -661,29 +688,60 @@ async function promptSection(i){
   const p = await askPrompt('Regenerate section '+(i+1));
   if(p) regenSection(i, p);
 }
+function generateAdditionalSection(i, existing){
+  const meta = document.getElementById('metaSection').innerHTML;
+  const sections = existing !== undefined ? existing : document.getElementById('sectionsContainer').innerHTML;
+  const params = new URLSearchParams({ajax:'1', generate_new_section:'1', prompt:basePrompt, current: meta + sections});
+  showProgress();
+  showToast('Generating section '+(i+1)+'...', 'info');
+  fetch('', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: params})
+    .then(r => r.json())
+    .then(res => {
+      let html = '';
+      if(res.title) html += `<h3>${res.title}</h3>`;
+      if(res.subtitle) html += `<h4>${res.subtitle}</h4>`;
+      if(res.paragraphs) html += res.paragraphs.map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('');
+      const div = document.getElementById('sec-content-' + i);
+      if(div){
+        div.innerHTML = sanitizeHtml(html);
+        saveSection(i, true);
+        updateMediaSuggestions();
+      }
+    })
+    .finally(() => { hideProgress(); showToast('Section '+(i+1)+' generated', 'success'); });
+}
 function saveMeta(field, silent=false){
   const map = {meta_title:'metaTitle', meta_description:'metaDescription', slug:'slug'};
   const el = document.getElementById(map[field]);
   if(el){
     localStorage.setItem('content_'+field, el.textContent.trim());
-    if(!silent) showToast(field.replace('_',' ')+' saved', 'success');
+    if(!silent) {
+      showToast(field.replace('_',' ')+' saved', 'success');
+      updateMediaSuggestions();
+    }
   }
 }
 function saveSection(i, silent=false){
   const div = document.getElementById('sec-content-' + i);
   if(div){
     localStorage.setItem('content_section_'+i, div.innerHTML);
-    if(!silent) showToast('Section '+(i+1)+' saved', 'success');
+    if(!silent) {
+      showToast('Section '+(i+1)+' saved', 'success');
+      updateMediaSuggestions();
+    }
   }
 }
 function saveAll(silent=false){
-  ['meta_title','meta_description','slug'].forEach(f => saveMeta(f, silent));
+  ['meta_title','meta_description','slug'].forEach(f => saveMeta(f, true));
   Object.keys(localStorage).forEach(k => { if(k.startsWith('content_section_')) localStorage.removeItem(k); });
   document.querySelectorAll('#sectionsContainer .mb-3').forEach((w, idx) => {
     w.dataset.index = idx;
-    saveSection(idx, silent);
+    saveSection(idx, true);
   });
-  if(!silent) showToast('All content saved', 'success');
+  if(!silent) {
+    showToast('All content saved', 'success');
+    updateMediaSuggestions();
+  }
 }
 function copyPrompt() {
   const text = document.getElementById('output').textContent;
@@ -702,47 +760,42 @@ function checkMeta(){
   if(md && mdNote){ const len = md.textContent.trim().length; mdNote.textContent = (len < 110 || len > 140) ? 'Description should be 110-140 characters' : ''; }
 }
 
-function mediaSuggestions(html){
-  const text = String(html || '').replace(/<[^>]+>/g, ' ');
-  const words = Array.from(new Set(text.toLowerCase().split(/\W+/).filter(w => w.length > 3)));
-  const icons = words.slice(0,5).map(w => 'fa-' + w.replace(/[^a-z0-9]+/g,'-'));
-  const phrases = [];
-  for(let i=0;i<words.length-1 && phrases.length<10;i++){
-    phrases.push(words[i] + ' ' + words[i+1]);
-  }
-  return {icons: icons, images: phrases.slice(0,5), videos: phrases.slice(5,10)};
-}
-
 function updateMediaSuggestions(){
   const box = document.getElementById('mediaSuggestions');
   if(!box) return;
   const meta = document.getElementById('metaSection').innerHTML;
   const sections = document.getElementById('sectionsContainer').innerHTML;
-  const media = mediaSuggestions(meta + sections);
-  box.innerHTML = '';
-  function addGroup(label, items){
-    if(!items || !items.length) return;
-    const p = document.createElement('p');
-    p.className = 'mb-1';
-    p.append(label + ': ');
-    items.forEach((item, idx) => {
-      const span = document.createElement('span');
-      span.className = 'text-primary';
-      span.style.cursor = 'pointer';
-      span.textContent = item;
-      span.addEventListener('click', () => {
-        navigator.clipboard.writeText(item).then(() => {
-          showToast('Copied to clipboard', 'info');
+  const params = new URLSearchParams({ajax:'1', media_suggestions:'1', html: meta + sections});
+  fetch('', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: params})
+    .then(r => r.json())
+    .then(media => {
+      media.icons = (media.icons || []).map(i => i.replace(/^fa[-\s]?/,''));
+      box.innerHTML = '';
+      function addGroup(label, items){
+        if(!items || !items.length) return;
+        const p = document.createElement('p');
+        p.className = 'mb-1';
+        p.append(label + ': ');
+        items.forEach((item, idx) => {
+          const span = document.createElement('span');
+          span.className = 'text-primary';
+          span.style.cursor = 'pointer';
+          span.textContent = item;
+          span.addEventListener('click', () => {
+            navigator.clipboard.writeText(item).then(() => {
+              showToast('Copied to clipboard', 'info');
+            });
+          });
+          p.appendChild(span);
+          if(idx < items.length - 1) p.append(', ');
         });
-      });
-      p.appendChild(span);
-      if(idx < items.length - 1) p.append(', ');
-    });
-    box.appendChild(p);
-  }
-  addGroup('Recommended icons', media.icons);
-  addGroup('Recommended images', media.images);
-  addGroup('Recommended videos', media.videos);
+        box.appendChild(p);
+      }
+      addGroup('Recommended icons', media.icons);
+      addGroup('Recommended images', media.images);
+      addGroup('Recommended videos', media.videos);
+    })
+    .catch(() => { box.innerHTML = ''; });
 }
 
 function exportDoc(){
