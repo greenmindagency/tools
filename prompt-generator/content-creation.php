@@ -439,7 +439,6 @@ function generatePrompt() {
   // clear cached meta and sections before generating new content
   ['meta_title','meta_description','slug'].forEach(f => localStorage.removeItem('content_'+f));
   Object.keys(localStorage).forEach(k => { if(k.startsWith('content_section_')) localStorage.removeItem(k); });
-  localStorage.removeItem('content_media');
   document.getElementById('metaSection').innerHTML = '';
   document.getElementById('sectionsContainer').innerHTML = '';
   const type = document.getElementById('pageType').value;
@@ -626,7 +625,7 @@ function renderContent(data, skipMedia=false){
   });
   initTooltips();
   saveAll(true);
-  if(!skipMedia) updateMediaSuggestions(true);
+  if(!skipMedia) updateMediaSuggestions();
 }
 function regenMeta(field, p=''){
   const map = {meta_title:'metaTitle', meta_description:'metaDescription', slug:'slug'};
@@ -751,57 +750,40 @@ function checkMeta(){
   if(md && mdNote){ const len = md.textContent.trim().length; mdNote.textContent = (len < 110 || len > 140) ? 'Description should be 110-140 characters' : ''; }
 }
 
-function updateMediaSuggestions(force=false){
+function updateMediaSuggestions(){
   const box = document.getElementById('mediaSuggestions');
   if(!box) return;
-  function render(media){
-    media.icons = (media.icons || []).map(i => i.replace(/^fa[-\s]?/,''));
-    box.innerHTML = '';
-    function addGroup(label, items){
-      if(!items || !items.length) return;
-      const p = document.createElement('p');
-      p.className = 'mb-1';
-      p.append(label + ': ');
-      items.forEach((item, idx) => {
-        const span = document.createElement('span');
-        span.className = 'text-primary';
-        span.style.cursor = 'pointer';
-        span.textContent = item;
-        span.addEventListener('click', () => {
-          navigator.clipboard.writeText(item).then(() => {
-            showToast('Copied to clipboard', 'info');
-          });
-        });
-        p.appendChild(span);
-        if(idx < items.length - 1) p.append(', ');
-      });
-      box.appendChild(p);
-    }
-    addGroup('Recommended icons', media.icons);
-    addGroup('Recommended images', media.images);
-    addGroup('Recommended videos', media.videos);
-    const reloadP = document.createElement('p');
-    const reloadA = document.createElement('a');
-    reloadA.href = '#';
-    reloadA.textContent = 'Reload';
-    reloadA.addEventListener('click', e => { e.preventDefault(); updateMediaSuggestions(true); });
-    reloadP.appendChild(reloadA);
-    box.appendChild(reloadP);
-  }
-  if(!force){
-    const saved = localStorage.getItem('content_media');
-    if(saved){
-      try{ render(JSON.parse(saved)); return; }catch(e){ localStorage.removeItem('content_media'); }
-    }
-  }
   const meta = document.getElementById('metaSection').innerHTML;
   const sections = document.getElementById('sectionsContainer').innerHTML;
   const params = new URLSearchParams({ajax:'1', media_suggestions:'1', html: meta + sections});
   fetch('', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: params})
     .then(r => r.json())
     .then(media => {
-      localStorage.setItem('content_media', JSON.stringify(media));
-      render(media);
+      media.icons = (media.icons || []).map(i => i.replace(/^fa[-\s]?/,''));
+      box.innerHTML = '';
+      function addGroup(label, items){
+        if(!items || !items.length) return;
+        const p = document.createElement('p');
+        p.className = 'mb-1';
+        p.append(label + ': ');
+        items.forEach((item, idx) => {
+          const span = document.createElement('span');
+          span.className = 'text-primary';
+          span.style.cursor = 'pointer';
+          span.textContent = item;
+          span.addEventListener('click', () => {
+            navigator.clipboard.writeText(item).then(() => {
+              showToast('Copied to clipboard', 'info');
+            });
+          });
+          p.appendChild(span);
+          if(idx < items.length - 1) p.append(', ');
+        });
+        box.appendChild(p);
+      }
+      addGroup('Recommended icons', media.icons);
+      addGroup('Recommended images', media.images);
+      addGroup('Recommended videos', media.videos);
     })
     .catch(() => { box.innerHTML = ''; });
 }
