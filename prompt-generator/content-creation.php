@@ -273,6 +273,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(promptResolve) promptResolve(promptInput.value.trim());
   });
   loadSaved();
+  updateMediaSuggestions();
 });
 function sanitizeHtml(html){
   return String(html || '').replace(/<(?!\/?(h3|h4|p|strong|b|em|i|ul|ol|li|br)\b)[^>]*>/gi, '');
@@ -433,12 +434,12 @@ function loadSaved(){
   renderContent({sections:[]}, true);
   sections.forEach((html, idx) => addSection(html, idx, true));
   saveAll(true);
-  updateMediaSuggestions();
 }
 function generatePrompt() {
-  // clear cached meta and sections before generating new content
+  // clear cached data before generating new content
   ['meta_title','meta_description','slug'].forEach(f => localStorage.removeItem('content_'+f));
   Object.keys(localStorage).forEach(k => { if(k.startsWith('content_section_')) localStorage.removeItem(k); });
+  localStorage.removeItem('content_media_suggestions');
   document.getElementById('metaSection').innerHTML = '';
   document.getElementById('sectionsContainer').innerHTML = '';
   const type = document.getElementById('pageType').value;
@@ -625,7 +626,7 @@ function renderContent(data, skipMedia=false){
   });
   initTooltips();
   saveAll(true);
-  if(!skipMedia) updateMediaSuggestions();
+  if(!skipMedia) updateMediaSuggestions(true);
 }
 function regenMeta(field, p=''){
   const map = {meta_title:'metaTitle', meta_description:'metaDescription', slug:'slug'};
@@ -750,9 +751,50 @@ function checkMeta(){
   if(md && mdNote){ const len = md.textContent.trim().length; mdNote.textContent = (len < 110 || len > 140) ? 'Description should be 110-140 characters' : ''; }
 }
 
-function updateMediaSuggestions(){
+function updateMediaSuggestions(force=false){
   const box = document.getElementById('mediaSuggestions');
   if(!box) return;
+
+  function render(media){
+    box.innerHTML = '';
+    function addGroup(label, items){
+      if(!items || !items.length) return;
+      const p = document.createElement('p');
+      p.className = 'mb-1';
+      p.append(label + ': ');
+      items.forEach((item, idx) => {
+        const span = document.createElement('span');
+        span.className = 'text-primary';
+        span.style.cursor = 'pointer';
+        span.textContent = item;
+        span.addEventListener('click', () => {
+          navigator.clipboard.writeText(item).then(() => {
+            showToast('Copied to clipboard', 'info');
+          });
+        });
+        p.appendChild(span);
+        if(idx < items.length - 1) p.append(', ');
+      });
+      box.appendChild(p);
+    }
+    addGroup('Recommended icons', media.icons);
+    addGroup('Recommended images', media.images);
+    addGroup('Recommended videos', media.videos);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm btn-outline-secondary mt-1';
+    btn.textContent = 'Reload';
+    btn.addEventListener('click', () => updateMediaSuggestions(true));
+    box.appendChild(btn);
+  }
+
+  const cached = localStorage.getItem('content_media_suggestions');
+  if(!force && cached){
+    try { render(JSON.parse(cached)); } catch(e) { box.innerHTML = ''; }
+    return;
+  }
+  if(!force) return;
+
   const meta = document.getElementById('metaSection').innerHTML;
   const sections = document.getElementById('sectionsContainer').innerHTML;
   const params = new URLSearchParams({ajax:'1', media_suggestions:'1', html: meta + sections});
@@ -760,30 +802,8 @@ function updateMediaSuggestions(){
     .then(r => r.json())
     .then(media => {
       media.icons = (media.icons || []).map(i => i.replace(/^fa[-\s]?/,''));
-      box.innerHTML = '';
-      function addGroup(label, items){
-        if(!items || !items.length) return;
-        const p = document.createElement('p');
-        p.className = 'mb-1';
-        p.append(label + ': ');
-        items.forEach((item, idx) => {
-          const span = document.createElement('span');
-          span.className = 'text-primary';
-          span.style.cursor = 'pointer';
-          span.textContent = item;
-          span.addEventListener('click', () => {
-            navigator.clipboard.writeText(item).then(() => {
-              showToast('Copied to clipboard', 'info');
-            });
-          });
-          p.appendChild(span);
-          if(idx < items.length - 1) p.append(', ');
-        });
-        box.appendChild(p);
-      }
-      addGroup('Recommended icons', media.icons);
-      addGroup('Recommended images', media.images);
-      addGroup('Recommended videos', media.videos);
+      localStorage.setItem('content_media_suggestions', JSON.stringify(media));
+      render(media);
     })
     .catch(() => { box.innerHTML = ''; });
 }
