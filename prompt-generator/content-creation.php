@@ -6,20 +6,13 @@ $presetFocus = isset($_GET['focus']) ? trim($_GET['focus']) : '';
 $embed = isset($_GET['embed']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['export_doc'])) {
-    function rtf_escape($text){
-        $text = str_replace(["\\", "{", "}"], ["\\\\", "\\{", "\\}"], $text);
-        return str_replace(["\r\n", "\n", "\r"], "\\par ", $text);
-    }
     $title = trim($_POST['title'] ?? 'document');
     $body  = $_POST['body'] ?? '';
-    $rtf  = "{\\rtf1\\ansi\\deff0\n";
-    $rtf .= "{\\fonttbl{\\f0 Arial;}}\n";
-    $rtf .= "\\fs22\\f0 ".rtf_escape($body)."\n";
-    $rtf .= "}";
+    $html  = "<html><head><meta charset=\"UTF-8\"></head><body>".$body."</body></html>";
     $filename = preg_replace('/[^A-Za-z0-9_-]+/', '_', $title) ?: 'document';
     header('Content-Type: application/msword; charset=UTF-8');
     header('Content-Disposition: attachment; filename="'.$filename.'.doc"');
-    echo $rtf;
+    echo $html;
     exit;
 }
 
@@ -260,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function(){
   loadSaved();
 });
 function sanitizeHtml(html){
-  return String(html || '').replace(/<(?!\/?(p|strong|b|em|i|ul|ol|li|br)\b)[^>]*>/gi, '');
+  return String(html || '').replace(/<(?!\/?(h3|h4|p|strong|b|em|i|ul|ol|li|br)\b)[^>]*>/gi, '');
 }
 function autoResize(el){
   el.style.height = 'auto';
@@ -362,7 +355,7 @@ function addSection(html='', i, skipSave=false){
   div.id = 'sec-content-' + idx;
   div.contentEditable = 'true';
   div.style.minHeight = '6em';
-  div.innerHTML = html;
+  div.innerHTML = html || '<h3></h3><h4></h4><p></p>';
   wrap.append(header, div);
   container.appendChild(wrap);
   initTooltips();
@@ -566,16 +559,16 @@ function renderContent(data){
       if(!faqAllowed || faqAdded) return;
       faqAdded = true;
       let html = '';
-      if(sec.title) html += `<p><strong>${sec.title}</strong></p>`;
+      if(sec.title) html += `<h3>${sec.title}</h3>`;
       const subVal = sec.subtitle || sec.sub_title || sec.subTitle || sec.subheading || sec.sub_heading || '';
-      if(subVal) html += `<p>${subVal}</p>`;
+      if(subVal) html += `<h4>${subVal}</h4>`;
       if(Array.isArray(sec.faqs)){
-        sec.faqs.forEach(f => { html += `<p><strong>${f.question}</strong><br>${f.answer}</p>`; });
+        sec.faqs.forEach(f => { html += `<h4>${f.question}</h4><p>${f.answer}</p>`; });
       } else {
         for(let i=0;i<(sec.paragraphs||[]).length;i+=2){
           const q = (sec.paragraphs[i]||'').replace(/\*\*(.*?)\*\*/g,'$1');
           const a = sec.paragraphs[i+1]||'';
-          html += `<p><strong>${q}</strong><br>${a}</p>`;
+          html += `<h4>${q}</h4><p>${a}</p>`;
         }
       }
       const saved = localStorage.getItem('content_section_'+idx);
@@ -583,8 +576,8 @@ function renderContent(data){
     } else {
       let html = '';
       const subVal = sec.subtitle || sec.sub_title || sec.subTitle || sec.subheading || sec.sub_heading || '';
-      if(sec.title) html += `<p><strong>${sec.title}</strong></p>`;
-      if(subVal) html += `<p>${subVal}</p>`;
+      if(sec.title) html += `<h3>${sec.title}</h3>`;
+      if(subVal) html += `<h4>${subVal}</h4>`;
       html += (sec.paragraphs || []).map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('');
       const saved = localStorage.getItem('content_section_'+idx);
       addSection(saved || sanitizeHtml(html));
@@ -622,10 +615,9 @@ function regenSection(i, p=''){
   const html = sanitizeHtml(div.innerHTML);
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
-  const parts = Array.from(tmp.querySelectorAll('p')).map(p => p.innerHTML.trim()).filter(Boolean);
-  const title = parts.shift() || '';
-  const subtitle = parts.shift() || '';
-  const content = parts.join('\n');
+  const title = tmp.querySelector('h3')?.textContent.trim() || '';
+  const subtitle = tmp.querySelector('h4')?.textContent.trim() || '';
+  const content = Array.from(tmp.querySelectorAll('p')).map(p => p.textContent.trim()).filter(Boolean).join('\n');
   const params = new URLSearchParams({ajax:'1', generate_section:'1', prompt:basePrompt, title:title, subtitle:subtitle, content:content});
   if(p) params.append('userPrompt', p);
   showProgress();
@@ -635,11 +627,11 @@ function regenSection(i, p=''){
     .then(res => {
       if(res.sections) res = res.sections[0] || {};
       let html = '';
-      if(res.title) html += `<p><strong>${res.title}</strong></p>`;
+      if(res.title) html += `<h3>${res.title}</h3>`;
       const sub = res.subtitle ?? res.sub_title ?? res.subTitle ?? res.subheading ?? res.sub_heading;
-      if(sub) html += `<p>${sub}</p>`;
+      if(sub) html += `<h4>${sub}</h4>`;
       if(res.faqs){
-        html += res.faqs.map(f => `<p><strong>${f.question}</strong><br>${f.answer}</p>`).join('');
+        html += res.faqs.map(f => `<h4>${f.question}</h4><p>${f.answer}</p>`).join('');
       } else if(res.paragraphs) {
         html += res.paragraphs.map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('');
       }
@@ -696,16 +688,20 @@ function exportDoc(){
   const mt = document.getElementById('metaTitle')?.textContent.trim() || '';
   const md = document.getElementById('metaDescription')?.textContent.trim() || '';
   const slug = document.getElementById('slug')?.textContent.trim() || '';
+  const focus = document.getElementById('keyword')?.value.trim() || '';
+  const kwLines = document.getElementById('keywords')?.value.split('\n').map(k=>k.trim()).filter(Boolean) || [];
+  const kw = [focus, ...kwLines].filter(Boolean).join('|');
   const sections = Array.from(document.querySelectorAll('#sectionsContainer .mb-3'))
-    .map(w => w.querySelector('.section-field').innerText.trim())
+    .map(w => w.querySelector('.section-field').innerHTML.trim())
     .filter(Boolean)
-    .join('\n\n');
-  const parts = [];
-  if(mt) parts.push(mt);
-  if(md) parts.push(md);
-  if(slug) parts.push('Slug: ' + slug);
-  if(sections) parts.push(sections);
-  const body = parts.join('\n\n');
+    .join('');
+  let body = '';
+  if(mt) body += `<p><strong>Meta Title:</strong> ${mt}</p>`;
+  if(md) body += `<p><strong>Meta Description:</strong> ${md}</p>`;
+  if(slug) body += `<p><strong>Slug:</strong> ${slug}</p>`;
+  if(kw) body += `<p><strong>Keywords:</strong> ${kw}</p>`;
+  body += '<hr />';
+  body += sections;
   const title = mt || 'content';
   const params = new URLSearchParams({export_doc:'1', title:title, body:body});
   fetch('', {method:'POST', body:params})
