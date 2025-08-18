@@ -59,17 +59,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         if ($field === 'slug' && isset($res['slug'])) $res['slug'] = slugify($res['slug']);
         echo json_encode($res);
     } elseif (isset($_POST['generate_section'])) {
-        $prompt = $_POST['prompt'] ?? '';
+        $base = $_POST['prompt'] ?? '';
         $title = $_POST['title'] ?? '';
         $subtitle = $_POST['subtitle'] ?? '';
         $content = $_POST['content'] ?? '';
         $userPrompt = trim($_POST['userPrompt'] ?? '');
-        $prompt .= "\n\nYou are updating the section titled '{$title}' with subtitle '{$subtitle}'.";
-        if ($content !== '') $prompt .= "\nCurrent content:\n{$content}";
-        if ($userPrompt !== '') $prompt .= "\nApply these changes:\n{$userPrompt}";
-        $prompt .= "\nEdit the existing content accordingly while keeping unrelated parts the same.";
-        $prompt .= "\nReturn JSON with keys 'title','subtitle','paragraphs' (array of strings).";
+        $prompt = $base . "\n\nYou will rewrite only the section titled '{$title}' with subtitle '{$subtitle}'.";
+        if ($content !== '') $prompt .= "\nExisting section content:\n{$content}";
+        if ($userPrompt !== '') $prompt .= "\nUser instructions:\n{$userPrompt}";
+        $prompt .= "\nReturn only JSON for this section with keys 'title','subtitle','paragraphs' (array of strings). Do not include any other content.";
         $res = callGemini($prompt);
+        if (isset($res['sections'][0])) $res = $res['sections'][0];
         echo json_encode($res);
     } else {
         echo json_encode(['error'=>'Invalid request']);
@@ -180,6 +180,7 @@ if ($embed) {
 
   <div class="col-md-8">
     <button class="btn btn-success mb-3" onclick="exportDocx()">Export to DOCX</button>
+    <button class="btn btn-outline-primary mb-3 ms-2" onclick="saveAll()">Save All</button>
     <div id="genProgress" class="progress mb-2 d-none">
       <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
     </div>
@@ -369,6 +370,13 @@ function renderContent(data){
     lab.textContent = label;
     header.appendChild(lab);
     const btns = document.createElement('div');
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'btn btn-sm btn-outline-success me-2';
+    save.textContent = '\ud83d\udcbe';
+    save.setAttribute('data-bs-toggle','tooltip');
+    save.setAttribute('data-bs-title','Save '+label.toLowerCase());
+    save.addEventListener('click', () => saveMeta(field));
     const regen = document.createElement('button');
     regen.type = 'button';
     regen.className = 'btn btn-sm btn-outline-secondary me-2';
@@ -383,7 +391,7 @@ function renderContent(data){
     promptBtn.setAttribute('data-bs-toggle','tooltip');
     promptBtn.setAttribute('data-bs-title','Regenerate with prompt');
     promptBtn.addEventListener('click', () => promptMeta(field));
-    btns.append(regen, promptBtn);
+    btns.append(save, regen, promptBtn);
     header.appendChild(btns);
     const div = document.createElement('div');
     const id = idMap[field];
@@ -391,7 +399,8 @@ function renderContent(data){
     div.className = 'form-control';
     div.contentEditable = 'true';
     div.style.minHeight = '2.5rem';
-    div.textContent = value || '';
+    const saved = localStorage.getItem('content_'+field);
+    div.textContent = saved || value || '';
     wrap.append(header, div);
     if(field !== 'slug'){
       const note = document.createElement('div');
@@ -428,6 +437,13 @@ function renderContent(data){
     label.textContent = 'Section ' + (idx+1);
     header.appendChild(label);
     const btnGroup = document.createElement('div');
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'btn btn-sm btn-outline-success me-2';
+    save.textContent = '\ud83d\udcbe';
+    save.setAttribute('data-bs-toggle','tooltip');
+    save.setAttribute('data-bs-title','Save section');
+    save.addEventListener('click', () => saveSection(idx));
     const regen = document.createElement('button');
     regen.type = 'button';
     regen.className = 'btn btn-sm btn-outline-secondary me-2';
@@ -442,7 +458,7 @@ function renderContent(data){
     promptBtn.setAttribute('data-bs-toggle','tooltip');
     promptBtn.setAttribute('data-bs-title','Regenerate with prompt');
     promptBtn.addEventListener('click', () => promptSection(idx));
-    btnGroup.append(regen, promptBtn);
+    btnGroup.append(save, regen, promptBtn);
     header.appendChild(btnGroup);
 
     const div = document.createElement('div');
@@ -469,7 +485,8 @@ function renderContent(data){
     } else {
       html += (sec.paragraphs || []).map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('');
     }
-    div.innerHTML = sanitizeHtml(html);
+    const saved = localStorage.getItem('content_section_'+idx);
+    div.innerHTML = saved || sanitizeHtml(html);
 
     wrap.append(header, div);
     container.appendChild(wrap);
@@ -517,6 +534,7 @@ function regenSection(i, p=''){
   fetch('', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: params})
     .then(r => r.json())
     .then(res => {
+      if(res.sections) res = res.sections[0] || {};
       let html = '';
       if(res.title) html += `<p><strong>${res.title}</strong></p>`;
       const sub = res.subtitle ?? res.sub_title ?? res.subTitle ?? res.subheading ?? res.sub_heading;
@@ -533,6 +551,29 @@ function regenSection(i, p=''){
 async function promptSection(i){
   const p = await askPrompt('Regenerate section '+(i+1));
   if(p) regenSection(i, p);
+}
+function saveMeta(field){
+  const map = {meta_title:'metaTitle', meta_description:'metaDescription', slug:'slug'};
+  const el = document.getElementById(map[field]);
+  if(el){
+    localStorage.setItem('content_'+field, el.textContent.trim());
+    showToast(field.replace('_',' ')+' saved', 'success');
+  }
+}
+function saveSection(i){
+  const div = document.getElementById('sec-content-' + i);
+  if(div){
+    localStorage.setItem('content_section_'+i, div.innerHTML);
+    showToast('Section '+(i+1)+' saved', 'success');
+  }
+}
+function saveAll(){
+  ['meta_title','meta_description','slug'].forEach(saveMeta);
+  document.querySelectorAll('#sectionsContainer .mb-3').forEach(w => {
+    const idx = parseInt(w.dataset.index, 10);
+    saveSection(idx);
+  });
+  showToast('All content saved', 'success');
 }
 function copyPrompt() {
   const text = document.getElementById('output').textContent;
@@ -552,41 +593,52 @@ function checkMeta(){
 }
 
 function exportDocx(){
-  const {Document, Packer, Paragraph, TextRun, HeadingLevel} = window.docx;
-  const children = [];
-  const mt = document.getElementById('metaTitle')?.textContent || '';
-  const md = document.getElementById('metaDescription')?.textContent || '';
-  const slug = document.getElementById('slug')?.textContent || '';
-  if(mt) children.push(new Paragraph({text: mt, heading: HeadingLevel.HEADING_1}));
-  if(md) children.push(new Paragraph(md));
-  if(slug) children.push(new Paragraph('Slug: ' + slug));
-  children.push(new Paragraph(''));
-  const wraps = document.querySelectorAll('#sectionsContainer .mb-3');
-  wraps.forEach(wrap => {
-    const html = wrap.querySelector('.section-field').innerHTML;
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    const ps = Array.from(tmp.querySelectorAll('p'));
-    if(ps[0]) children.push(new Paragraph({text: ps[0].textContent, heading: HeadingLevel.HEADING_1}));
-    let start = 1;
-    if(ps[1]) { children.push(new Paragraph({text: ps[1].textContent, heading: HeadingLevel.HEADING_2})); start = 2; }
-    for(let i=start;i<ps.length;i++){
-      const text = ps[i].innerHTML
-        .replace(/<strong>(.*?)<\/strong>/gi,'**$1**')
-        .replace(/<br\s*\/?>/gi,'\n')
-        .replace(/<\/p>\s*<p>/gi,'\n\n')
-        .replace(/<[^>]+>/g,'');
-      text.split(/\n+/).forEach(p => {
-        if(!p.trim()) return;
-        const parts = p.split(/\*\*/);
-        const runs = parts.map((part,j) => new TextRun({text:part, bold:j%2===1}));
-        children.push(new Paragraph({children:runs}));
-      });
-    }
+  if(!window.docx){
+    alert('DOCX library not loaded');
+    return;
+  }
+  try {
+    const {Document, Packer, Paragraph, TextRun, HeadingLevel} = window.docx;
+    const children = [];
+    const mt = document.getElementById('metaTitle')?.textContent || '';
+    const md = document.getElementById('metaDescription')?.textContent || '';
+    const slug = document.getElementById('slug')?.textContent || '';
+    if(mt) children.push(new Paragraph({text: mt, heading: HeadingLevel.HEADING_1}));
+    if(md) children.push(new Paragraph(md));
+    if(slug) children.push(new Paragraph('Slug: ' + slug));
     children.push(new Paragraph(''));
-  });
-  const doc = new Document({sections:[{children}]});
-  Packer.toBlob(doc).then(blob => window.saveAs(blob, 'content.docx'));
+    const wraps = document.querySelectorAll('#sectionsContainer .mb-3');
+    wraps.forEach(wrap => {
+      const html = wrap.querySelector('.section-field').innerHTML;
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      const ps = Array.from(tmp.querySelectorAll('p'));
+      if(ps[0]) children.push(new Paragraph({text: ps[0].textContent, heading: HeadingLevel.HEADING_1}));
+      let start = 1;
+      if(ps[1]) { children.push(new Paragraph({text: ps[1].textContent, heading: HeadingLevel.HEADING_2})); start = 2; }
+      for(let i=start;i<ps.length;i++){
+        const text = ps[i].innerHTML
+          .replace(/<strong>(.*?)<\/strong>/gi,'**$1**')
+          .replace(/<br\s*\/?>/gi,'\n')
+          .replace(/<\/p>\s*<p>/gi,'\n\n')
+          .replace(/<[^>]+>/g,'');
+        text.split(/\n+/).forEach(p => {
+          if(!p.trim()) return;
+          const parts = p.split(/\*\*/);
+          const runs = parts.map((part,j) => new TextRun({text:part, bold:j%2===1}));
+          children.push(new Paragraph({children:runs}));
+        });
+      }
+      children.push(new Paragraph(''));
+    });
+    const doc = new Document({sections:[{children}]});
+    Packer.toBlob(doc)
+      .then(blob => window.saveAs(blob, 'content.docx'))
+      .catch(err => { console.error(err); alert('Failed to export DOCX: '+err.message); });
+  } catch(e){
+    console.error(e);
+    alert('Failed to export DOCX: '+e.message);
+  }
 }
 </script>
 <?php include 'footer.php'; ?>
