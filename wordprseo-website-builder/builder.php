@@ -527,10 +527,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $text = substr($text, $start, $end - $start + 1);
                 }
                 $res = json_decode($text, true);
-                if ($res && !empty($res['content'])) {
-                    $content = $res['content'];
+                if ($res) {
+                    $content = $res['content'] ?? '';
                     if (is_array($content)) {
                         $content = $content['content'] ?? '';
+                    }
+                    if (!is_string($content) || !trim(strip_tags($content))) {
+                        $content = '<p>Content pending...</p>';
                     }
                     if (!isset($pageData[$page])) {
                         $pageData[$page] = ['meta_title' => '', 'meta_description' => '', 'slug' => '', 'sections' => [], 'media' => []];
