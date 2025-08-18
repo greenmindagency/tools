@@ -592,12 +592,30 @@ function checkMeta(){
   if(md && mdNote){ const len = md.textContent.trim().length; mdNote.textContent = (len < 110 || len > 140) ? 'Description should be 110-140 characters' : ''; }
 }
 
-function exportDocx(){
-  if(!window.docx){
-    alert('DOCX library not loaded');
-    return;
-  }
+function loadScript(src){
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function ensureDocxLib(){
+  const tasks = [];
+  if(!window.docx) tasks.push(loadScript('https://cdnjs.cloudflare.com/ajax/libs/docx/8.2.1/docx.min.js'));
+  if(typeof window.saveAs !== 'function') tasks.push(loadScript('https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js'));
+  if(tasks.length) await Promise.all(tasks);
+}
+
+async function exportDocx(){
   try {
+    await ensureDocxLib();
+    if(!window.docx || typeof window.saveAs !== 'function'){
+      alert('DOCX library not loaded');
+      return;
+    }
     const {Document, Packer, Paragraph, TextRun, HeadingLevel} = window.docx;
     const children = [];
     const mt = document.getElementById('metaTitle')?.textContent || '';
