@@ -440,6 +440,7 @@ function generatePrompt() {
   ['meta_title','meta_description','slug'].forEach(f => localStorage.removeItem('content_'+f));
   Object.keys(localStorage).forEach(k => { if(k.startsWith('content_section_')) localStorage.removeItem(k); });
   localStorage.removeItem('content_media_suggestions');
+  localStorage.removeItem('content_keywords_used');
   document.getElementById('metaSection').innerHTML = '';
   document.getElementById('sectionsContainer').innerHTML = '';
   const type = document.getElementById('pageType').value;
@@ -579,7 +580,8 @@ function renderContent(data, skipMedia=false){
   addMetaField('slug', 'Slug', data.slug || '');
   const focus = document.getElementById('keyword').value.trim();
   const kwLines = document.getElementById('keywords').value.split('\n').map(k => k.trim()).filter(Boolean);
-  const kw = [focus, ...kwLines].filter(Boolean).join('|');
+  let kw = [focus, ...kwLines].filter(Boolean).join('|');
+  if(!kw) kw = localStorage.getItem('content_keywords_used') || '';
   if(kw){
     const kwDiv = document.createElement('div');
     kwDiv.className = 'mb-2';
@@ -724,6 +726,12 @@ function saveSection(i, silent=false){
 }
 function saveAll(silent=false){
   ['meta_title','meta_description','slug'].forEach(f => saveMeta(f, true));
+  const focus = document.getElementById('keyword').value.trim();
+  const kwLines = document.getElementById('keywords').value.split('\n').map(k=>k.trim()).filter(Boolean);
+  let kw = [focus, ...kwLines].filter(Boolean).join('|');
+  if(!kw) kw = localStorage.getItem('content_keywords_used') || '';
+  if(kw) localStorage.setItem('content_keywords_used', kw);
+  else localStorage.removeItem('content_keywords_used');
   Object.keys(localStorage).forEach(k => { if(k.startsWith('content_section_')) localStorage.removeItem(k); });
   document.querySelectorAll('#sectionsContainer .mb-3').forEach((w, idx) => {
     w.dataset.index = idx;
@@ -814,7 +822,8 @@ function exportDoc(){
   const slug = document.getElementById('slug')?.textContent.trim() || '';
   const focus = document.getElementById('keyword')?.value.trim() || '';
   const kwLines = document.getElementById('keywords')?.value.split('\n').map(k=>k.trim()).filter(Boolean) || [];
-  const kw = [focus, ...kwLines].filter(Boolean).join('|');
+  let kw = [focus, ...kwLines].filter(Boolean).join('|');
+  if(!kw) kw = localStorage.getItem('content_keywords_used') || '';
   const sections = Array.from(document.querySelectorAll('#sectionsContainer .mb-3'))
     .map(w => w.querySelector('.section-field').innerHTML.trim())
     .filter(Boolean)
