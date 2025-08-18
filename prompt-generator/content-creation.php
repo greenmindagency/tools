@@ -211,6 +211,7 @@ if ($embed) {
         <div class="mb-3">
           <button class="btn btn-sm btn-outline-success" onclick="addSection()">+</button>
         </div>
+        <div id="mediaSuggestions" class="text-end small"></div>
       </div>
       <div class="tab-pane fade" id="promptTab" role="tabpanel">
         <div class="d-flex align-items-center mb-2">
@@ -651,6 +652,7 @@ function regenSection(i, p=''){
         html += res.paragraphs.map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('');
       }
       div.innerHTML = sanitizeHtml(html);
+      updateMediaSuggestions();
     })
     .finally(() => { hideProgress(); showToast('Section '+(i+1)+' updated', 'success'); });
 }
@@ -681,6 +683,7 @@ function saveAll(silent=false){
     saveSection(idx, silent);
   });
   if(!silent) showToast('All content saved', 'success');
+  updateMediaSuggestions();
 }
 function copyPrompt() {
   const text = document.getElementById('output').textContent;
@@ -697,6 +700,49 @@ function checkMeta(){
   const mdNote = document.getElementById('metaDescriptionNote');
   if(mt && mtNote){ mtNote.textContent = mt.textContent.trim().length > 60 ? 'Title exceeds 60 characters' : ''; }
   if(md && mdNote){ const len = md.textContent.trim().length; mdNote.textContent = (len < 110 || len > 140) ? 'Description should be 110-140 characters' : ''; }
+}
+
+function mediaSuggestions(html){
+  const text = String(html || '').replace(/<[^>]+>/g, ' ');
+  const words = Array.from(new Set(text.toLowerCase().split(/\W+/).filter(w => w.length > 3)));
+  const icons = words.slice(0,5).map(w => 'fa-' + w.replace(/[^a-z0-9]+/g,'-'));
+  const phrases = [];
+  for(let i=0;i<words.length-1 && phrases.length<10;i++){
+    phrases.push(words[i] + ' ' + words[i+1]);
+  }
+  return {icons: icons, images: phrases.slice(0,5), videos: phrases.slice(5,10)};
+}
+
+function updateMediaSuggestions(){
+  const box = document.getElementById('mediaSuggestions');
+  if(!box) return;
+  const meta = document.getElementById('metaSection').innerHTML;
+  const sections = document.getElementById('sectionsContainer').innerHTML;
+  const media = mediaSuggestions(meta + sections);
+  box.innerHTML = '';
+  function addGroup(label, items){
+    if(!items || !items.length) return;
+    const p = document.createElement('p');
+    p.className = 'mb-1';
+    p.append(label + ': ');
+    items.forEach((item, idx) => {
+      const span = document.createElement('span');
+      span.className = 'text-primary';
+      span.style.cursor = 'pointer';
+      span.textContent = item;
+      span.addEventListener('click', () => {
+        navigator.clipboard.writeText(item).then(() => {
+          showToast('Copied to clipboard', 'info');
+        });
+      });
+      p.appendChild(span);
+      if(idx < items.length - 1) p.append(', ');
+    });
+    box.appendChild(p);
+  }
+  addGroup('Recommended icons', media.icons);
+  addGroup('Recommended images', media.images);
+  addGroup('Recommended videos', media.videos);
 }
 
 function exportDoc(){
