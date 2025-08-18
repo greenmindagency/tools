@@ -267,7 +267,7 @@ function generatePrompt() {
     prompt += "– Slug length: 60 characters\n";
     prompt += "– Please provide: Meta Title: 60 characters max including the targeted keyword\n";
     prompt += "– Please provide: Meta Descriptions: 140 characters max including the target keyword, keep it within 110 to 140 characters\n";
-    prompt += "– Headings: the hierarchy must be formed well – starting with H3, the subheadings will be H4\n";
+    prompt += "– Headings: the hierarchy must be formed well – starting with H3, the subheadings will be H4 please avoid of adding the H1,2,3,4 as a text in the output just make the tag in the code not as an actual text\n";
     prompt += "– Please make the content follow Yoast SEO guidelines\n";
     prompt += "– Please make a quick search for SERP and understand why these pages are ranking and give the best SEO content to compete with them\n";
     prompt += "– please don't bold the keywords that you are using within the content; only bold the text needing emphasis, andplease in the doc don't add any data classes or classes for easy copy paste.\n";
