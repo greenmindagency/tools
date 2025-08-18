@@ -705,7 +705,7 @@ function checkMeta(){
 function mediaSuggestions(html){
   const text = String(html || '').replace(/<[^>]+>/g, ' ');
   const words = Array.from(new Set(text.toLowerCase().split(/\W+/).filter(w => w.length > 3)));
-  const icons = words.slice(0,5).map(w => 'fa-' + w.replace(/[^a-z0-9]+/g,'-'));
+  const icons = words.slice(0,5).map(w => '' + w.replace(/[^a-z0-9]+/g,'-'));
   const phrases = [];
   for(let i=0;i<words.length-1 && phrases.length<10;i++){
     phrases.push(words[i] + ' ' + words[i+1]);
