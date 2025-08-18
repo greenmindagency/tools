@@ -67,7 +67,7 @@ $sectionInstructions = [
 'postsrelatedcat' => 'Three-column grid of posts from a selected category with heading/subtitle and a “View all” button linking to the category.',
 'postsrelatedcatslider' => 'Two-column-width layout featuring a single-card carousel of posts from the selected category with heading and subtitle.',
 'postsrelatedwithfilter' => 'Full-width layout with heading/subtitle and tag filter buttons (e.g., News, Tips, Case Studies, Events) above the posts grid.',
-'slider' => 'Full-width image slider with overlay 4–6-word title, and 6–10-word subtitle, minmum 3 slides (of title and subtitle) and maxmuim 6 slides.',
+'slider' => '3 to 5 slides, containing of 4–6-word title, and 6–10-word subtitle, minmum 3 slides (of title and subtitle) and maxmuim 6 slides.',
 'tagslist' => 'Two-row, two-column grid with heading/subtitle listing selected tags from admin as service items.',
 'testimonial' => 'Full-width testimonials section with heading/subtitle that displays a chosen number of entries from single testimonial pages.',
 'verticaltabs' => 'starting with 4–6-word title, and 6–10-word subtitle, this section is a loop of 4 or 5 tabs, 4 to 7 words titles and 5 to 10 subtitles with description for each tab'
@@ -178,32 +178,6 @@ function suggestMedia(string $html): array {
     return $out;
 }
 
-function generateSection(string $apiKey, string $page, string $section, string $sourceText): string {
-    $instr = sectionInstr([$section]);
-    $prompt = "Using the following source text related to the {$page} page:\n{$sourceText}\n\nPage name: {$page}\nSection name: {$section}\nSection instructions:\n{$instr}\nGenerate HTML content for this section using only <h3>, <h4>, and <p> tags. Provide non-empty content. Return HTML only.";
-    $payload = json_encode([
-        'contents' => [[ 'parts' => [['text' => $prompt]] ]]
-    ]);
-    $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent');
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'X-goog-api-key: ' . $apiKey,
-    ]);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-    $response = curl_exec($ch);
-    if ($response === false) {
-        curl_close($ch);
-        return '';
-    }
-    $json = json_decode($response, true);
-    curl_close($ch);
-    $text = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
-    $text = preg_replace('/^```\w*\n?|```$/m', '', $text);
-    return trim($text);
-}
-
 if ($sitemap) {
     $convert = function (&$items) use (&$convert) {
         foreach ($items as &$item) {
@@ -269,14 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $content = $content['content'] ?? '';
                         }
                         if (!is_string($content) || !trim(strip_tags($content))) {
-                            $attempts = 0;
-                            do {
-                                $content = generateSection($apiKey, $page, $sec, $sourceText);
-                                $attempts++;
-                            } while ($attempts < 3 && (!is_string($content) || !trim(strip_tags($content))));
-                            if (!is_string($content) || !trim(strip_tags($content))) {
-                                $content = '<p>Content pending...</p>';
-                            }
+                            $content = '<p>Content pending...</p>';
                         }
                         $sectionContent[$sec] = $content;
                     }
