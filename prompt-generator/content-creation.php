@@ -74,8 +74,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         $title = $_POST['title'] ?? '';
         $subtitle = $_POST['subtitle'] ?? '';
         $content = $_POST['content'] ?? '';
+        $context = $_POST['context'] ?? '';
         $userPrompt = trim($_POST['userPrompt'] ?? '');
-        $prompt = $base . "\n\nYou will rewrite only the section titled '{$title}' with subtitle '{$subtitle}'.";
+        $prompt = $base;
+        if ($context !== '') $prompt .= "\n\nExisting preceding content:\n" . strip_tags($context);
+        $prompt .= "\n\nYou will rewrite only the section titled '{$title}' with subtitle '{$subtitle}'.";
         if ($content !== '') $prompt .= "\nExisting section content:\n{$content}";
         if ($userPrompt !== '') $prompt .= "\nUser instructions:\n{$userPrompt}";
         $prompt .= "\nReturn only JSON for this section with keys 'title','subtitle','paragraphs' (array of strings). Do not include any other content.";
@@ -656,7 +659,21 @@ function regenSection(i, p=''){
   const title = tmp.querySelector('h3')?.textContent.trim() || '';
   const subtitle = tmp.querySelector('h4')?.textContent.trim() || '';
   const content = Array.from(tmp.querySelectorAll('p')).map(p => p.textContent.trim()).filter(Boolean).join('\n');
-  const params = new URLSearchParams({ajax:'1', generate_section:'1', prompt:basePrompt, title:title, subtitle:subtitle, content:content});
+  const context = Array.from(document.querySelectorAll('#sectionsContainer .mb-3'))
+    .slice(0, i)
+    .map(w => w.querySelector('.section-field').innerHTML)
+    .join('');
+  const params = new URLSearchParams({ajax:'1', prompt:basePrompt});
+  if(title || content){
+    params.append('generate_section','1');
+    params.append('title', title);
+    params.append('subtitle', subtitle);
+    params.append('content', content);
+    params.append('context', context);
+  } else {
+    params.append('generate_new_section','1');
+    params.append('current', context);
+  }
   if(p) params.append('userPrompt', p);
   showProgress();
   showToast('Regenerating section '+(i+1)+'...', 'info');
