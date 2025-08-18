@@ -196,6 +196,9 @@ if ($embed) {
       <div class="tab-pane fade show active" id="contentTab" role="tabpanel">
         <div id="metaSection"></div>
         <div id="sectionsContainer"></div>
+        <div class="mb-3">
+          <button class="btn btn-sm btn-outline-success" onclick="addSection()">+</button>
+        </div>
       </div>
       <div class="tab-pane fade" id="promptTab" role="tabpanel">
         <div class="d-flex align-items-center mb-2">
@@ -237,6 +240,7 @@ document.addEventListener('DOMContentLoaded', function(){
     promptModal.hide();
     if(promptResolve) promptResolve(promptInput.value.trim());
   });
+  loadSaved();
 });
 function sanitizeHtml(html){
   return String(html || '').replace(/<(?!\/?(p|strong|b|em|i|ul|ol|li|br)\b)[^>]*>/gi, '');
@@ -283,6 +287,87 @@ function addCountry(button) {
 }
 function removeCountry(button) {
   button.closest('.input-group').remove();
+}
+function initTooltips(){
+  const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+}
+function addSection(html='', i){
+  const container = document.getElementById('sectionsContainer');
+  const idx = typeof i === 'number' ? i : container.querySelectorAll('.mb-3').length;
+  const wrap = document.createElement('div');
+  wrap.className = 'mb-3';
+  wrap.dataset.index = idx;
+  const header = document.createElement('div');
+  header.className = 'd-flex justify-content-between align-items-center mb-2';
+  const label = document.createElement('strong');
+  label.textContent = 'Section ' + (idx+1);
+  header.appendChild(label);
+  const btnGroup = document.createElement('div');
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.className = 'btn btn-sm btn-outline-success me-2';
+  save.textContent = '\ud83d\udcbe';
+  save.setAttribute('data-bs-toggle','tooltip');
+  save.setAttribute('data-bs-title','Save section');
+  save.addEventListener('click', () => saveSection(idx));
+  const regen = document.createElement('button');
+  regen.type = 'button';
+  regen.className = 'btn btn-sm btn-outline-secondary me-2';
+  regen.textContent = '\u21bb';
+  regen.setAttribute('data-bs-toggle','tooltip');
+  regen.setAttribute('data-bs-title','Regenerate section');
+  regen.addEventListener('click', () => regenSection(idx));
+  const promptBtn = document.createElement('button');
+  promptBtn.type = 'button';
+  promptBtn.className = 'btn btn-sm btn-outline-primary me-2';
+  promptBtn.textContent = '\u2728';
+  promptBtn.setAttribute('data-bs-toggle','tooltip');
+  promptBtn.setAttribute('data-bs-title','Regenerate with prompt');
+  promptBtn.addEventListener('click', () => promptSection(idx));
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'btn btn-sm btn-outline-danger';
+  remove.textContent = '-';
+  remove.setAttribute('data-bs-toggle','tooltip');
+  remove.setAttribute('data-bs-title','Remove section');
+  remove.addEventListener('click', () => removeSection(idx));
+  btnGroup.append(save, regen, promptBtn, remove);
+  header.appendChild(btnGroup);
+  const div = document.createElement('div');
+  div.className = 'form-control section-field';
+  div.id = 'sec-content-' + idx;
+  div.contentEditable = 'true';
+  div.style.minHeight = '6em';
+  div.innerHTML = html;
+  wrap.append(header, div);
+  container.appendChild(wrap);
+  initTooltips();
+  saveAll(true);
+}
+function removeSection(i){
+  const wrap = document.querySelector(`#sectionsContainer .mb-3[data-index="${i}"]`);
+  if(!wrap) return;
+  wrap.remove();
+  localStorage.removeItem('content_section_'+i);
+  document.querySelectorAll('#sectionsContainer .mb-3').forEach((w, idx) => {
+    w.dataset.index = idx;
+    w.querySelector('strong').textContent = 'Section ' + (idx+1);
+    w.querySelector('.section-field').id = 'sec-content-' + idx;
+  });
+  saveAll(true);
+}
+function loadSaved(){
+  const metaExists = ['meta_title','meta_description','slug'].some(f => localStorage.getItem('content_'+f));
+  const sectionKeys = Object.keys(localStorage)
+    .filter(k => k.startsWith('content_section_'))
+    .sort((a,b) => parseInt(a.split('_').pop()) - parseInt(b.split('_').pop()));
+  if(!metaExists && !sectionKeys.length) return;
+  renderContent({sections:[]});
+  sectionKeys.forEach(k => {
+    const html = localStorage.getItem(k);
+    addSection(html);
+  });
 }
 function generatePrompt() {
   const type = document.getElementById('pageType').value;
@@ -426,53 +511,16 @@ function renderContent(data){
 
   const container = document.getElementById('sectionsContainer');
   container.innerHTML = '';
+  const faqAllowed = document.getElementById('includeFAQ').checked;
+  let faqAdded = false;
   (data.sections || []).forEach((sec, idx) => {
-    const wrap = document.createElement('div');
-    wrap.className = 'mb-3';
-    wrap.dataset.index = idx;
-
-    const header = document.createElement('div');
-    header.className = 'd-flex justify-content-between align-items-center mb-2';
-    const label = document.createElement('strong');
-    label.textContent = 'Section ' + (idx+1);
-    header.appendChild(label);
-    const btnGroup = document.createElement('div');
-    const save = document.createElement('button');
-    save.type = 'button';
-    save.className = 'btn btn-sm btn-outline-success me-2';
-    save.textContent = '\ud83d\udcbe';
-    save.setAttribute('data-bs-toggle','tooltip');
-    save.setAttribute('data-bs-title','Save section');
-    save.addEventListener('click', () => saveSection(idx));
-    const regen = document.createElement('button');
-    regen.type = 'button';
-    regen.className = 'btn btn-sm btn-outline-secondary me-2';
-    regen.textContent = '\u21bb';
-    regen.setAttribute('data-bs-toggle','tooltip');
-    regen.setAttribute('data-bs-title','Regenerate section');
-    regen.addEventListener('click', () => regenSection(idx));
-    const promptBtn = document.createElement('button');
-    promptBtn.type = 'button';
-    promptBtn.className = 'btn btn-sm btn-outline-primary';
-    promptBtn.textContent = '\u2728';
-    promptBtn.setAttribute('data-bs-toggle','tooltip');
-    promptBtn.setAttribute('data-bs-title','Regenerate with prompt');
-    promptBtn.addEventListener('click', () => promptSection(idx));
-    btnGroup.append(save, regen, promptBtn);
-    header.appendChild(btnGroup);
-
-    const div = document.createElement('div');
-    div.className = 'form-control section-field';
-    div.id = 'sec-content-' + idx;
-    div.contentEditable = 'true';
-    div.style.minHeight = '6em';
-    const subVal = sec.subtitle || sec.sub_title || sec.subTitle || sec.subheading || sec.sub_heading || '';
-    let html = '';
-    if(sec.title) html += `<p><strong>${sec.title}</strong></p>`;
-    if(subVal) html += `<p>${subVal}</p>`;
     if(sec.title && sec.title.toLowerCase().includes('faq')){
-      const divider = document.createElement('hr');
-      container.appendChild(divider);
+      if(!faqAllowed || faqAdded) return;
+      faqAdded = true;
+      let html = '';
+      if(sec.title) html += `<p><strong>${sec.title}</strong></p>`;
+      const subVal = sec.subtitle || sec.sub_title || sec.subTitle || sec.subheading || sec.sub_heading || '';
+      if(subVal) html += `<p>${subVal}</p>`;
       if(Array.isArray(sec.faqs)){
         sec.faqs.forEach(f => { html += `<p><strong>${f.question}</strong><br>${f.answer}</p>`; });
       } else {
@@ -482,17 +530,20 @@ function renderContent(data){
           html += `<p><strong>${q}</strong><br>${a}</p>`;
         }
       }
+      const saved = localStorage.getItem('content_section_'+idx);
+      addSection(saved || sanitizeHtml(html));
     } else {
+      let html = '';
+      const subVal = sec.subtitle || sec.sub_title || sec.subTitle || sec.subheading || sec.sub_heading || '';
+      if(sec.title) html += `<p><strong>${sec.title}</strong></p>`;
+      if(subVal) html += `<p>${subVal}</p>`;
       html += (sec.paragraphs || []).map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('');
+      const saved = localStorage.getItem('content_section_'+idx);
+      addSection(saved || sanitizeHtml(html));
     }
-    const saved = localStorage.getItem('content_section_'+idx);
-    div.innerHTML = saved || sanitizeHtml(html);
-
-    wrap.append(header, div);
-    container.appendChild(wrap);
   });
-  const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-  tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+  initTooltips();
+  saveAll(true);
 }
 function regenMeta(field, p=''){
   const map = {meta_title:'metaTitle', meta_description:'metaDescription', slug:'slug'};
@@ -552,28 +603,28 @@ async function promptSection(i){
   const p = await askPrompt('Regenerate section '+(i+1));
   if(p) regenSection(i, p);
 }
-function saveMeta(field){
+function saveMeta(field, silent=false){
   const map = {meta_title:'metaTitle', meta_description:'metaDescription', slug:'slug'};
   const el = document.getElementById(map[field]);
   if(el){
     localStorage.setItem('content_'+field, el.textContent.trim());
-    showToast(field.replace('_',' ')+' saved', 'success');
+    if(!silent) showToast(field.replace('_',' ')+' saved', 'success');
   }
 }
-function saveSection(i){
+function saveSection(i, silent=false){
   const div = document.getElementById('sec-content-' + i);
   if(div){
     localStorage.setItem('content_section_'+i, div.innerHTML);
-    showToast('Section '+(i+1)+' saved', 'success');
+    if(!silent) showToast('Section '+(i+1)+' saved', 'success');
   }
 }
-function saveAll(){
-  ['meta_title','meta_description','slug'].forEach(saveMeta);
+function saveAll(silent=false){
+  ['meta_title','meta_description','slug'].forEach(f => saveMeta(f, silent));
   document.querySelectorAll('#sectionsContainer .mb-3').forEach(w => {
     const idx = parseInt(w.dataset.index, 10);
-    saveSection(idx);
+    saveSection(idx, silent);
   });
-  showToast('All content saved', 'success');
+  if(!silent) showToast('All content saved', 'success');
 }
 function copyPrompt() {
   const text = document.getElementById('output').textContent;
@@ -597,7 +648,7 @@ function loadScript(src){
     const s = document.createElement('script');
     s.src = src;
     s.onload = resolve;
-    s.onerror = reject;
+    s.onerror = () => reject(new Error('Failed to load '+src));
     document.head.appendChild(s);
   });
 }
@@ -652,10 +703,10 @@ async function exportDocx(){
     const doc = new Document({sections:[{children}]});
     Packer.toBlob(doc)
       .then(blob => window.saveAs(blob, 'content.docx'))
-      .catch(err => { console.error(err); alert('Failed to export DOCX: '+err.message); });
+      .catch(err => { console.error(err); alert('Failed to export DOCX: '+(err && err.message ? err.message : err)); });
   } catch(e){
     console.error(e);
-    alert('Failed to export DOCX: '+e.message);
+    alert('Failed to export DOCX: '+(e && e.message ? e.message : e));
   }
 }
 </script>
