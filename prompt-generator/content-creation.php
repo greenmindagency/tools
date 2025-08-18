@@ -87,7 +87,7 @@ if ($embed) {
 ?>
 <style>
   #output { white-space: pre-wrap; background: #f8f9fa; border: 1px solid #ced4da; padding:20px; border-radius:5px; min-height:200px; }
-  #sectionsContainer .mb-3 { cursor: move; }
+  .drag-handle { cursor: move; }
 </style>
 
 <div class="row">
@@ -291,14 +291,12 @@ function initTooltips(){
   const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
   tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
 }
-function addSection(html='', i){
+function addSection(html='', i, skipSave=false){
   const container = document.getElementById('sectionsContainer');
   const idx = typeof i === 'number' ? i : container.querySelectorAll('.mb-3').length;
   const wrap = document.createElement('div');
   wrap.className = 'mb-3';
   wrap.dataset.index = idx;
-  wrap.draggable = true;
-  wrap.addEventListener('dragstart', handleDragStart);
   wrap.addEventListener('dragover', handleDragOver);
   wrap.addEventListener('drop', handleDrop);
   wrap.addEventListener('dragend', handleDragEnd);
@@ -306,6 +304,9 @@ function addSection(html='', i){
   header.className = 'd-flex justify-content-between align-items-center mb-2';
   const label = document.createElement('strong');
   label.textContent = 'Section ' + (idx+1);
+  label.classList.add('drag-handle');
+  label.draggable = true;
+  label.addEventListener('dragstart', e => handleDragStart.call(wrap, e));
   header.appendChild(label);
   const btnGroup = document.createElement('div');
   const save = document.createElement('button');
@@ -347,7 +348,7 @@ function addSection(html='', i){
   wrap.append(header, div);
   container.appendChild(wrap);
   initTooltips();
-  saveAll(true);
+  if(!skipSave) saveAll(true);
 }
 function removeSection(i){
   const wrap = document.querySelector(`#sectionsContainer .mb-3[data-index="${i}"]`);
@@ -393,11 +394,10 @@ function loadSaved(){
     .filter(k => k.startsWith('content_section_'))
     .sort((a,b) => parseInt(a.split('_').pop()) - parseInt(b.split('_').pop()));
   if(!metaExists && !sectionKeys.length) return;
+  const sections = sectionKeys.map(k => localStorage.getItem(k) || '');
   renderContent({sections:[]});
-  sectionKeys.forEach(k => {
-    const html = localStorage.getItem(k);
-    addSection(html);
-  });
+  sections.forEach((html, idx) => addSection(html, idx, true));
+  saveAll(true);
 }
 function generatePrompt() {
   const type = document.getElementById('pageType').value;
