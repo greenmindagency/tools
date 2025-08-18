@@ -178,6 +178,36 @@ function suggestMedia(string $html): array {
     return $out;
 }
 
+function generateSection(string $apiKey, string $page, string $section, string $sourceText): string {
+    $instr = sectionInstr([$section]);
+    $html = '';
+    do {
+        $prompt = "Using the following source text related to the {$page} page:\n{$sourceText}\n\nPage name: {$page}\nSection name:{$section}\nSection instructions:\n{$instr}\nGenerate HTML content for this section using only <h3>, <h4>, and <p> tags. Provide non-empty content. Return HTML only.";
+        $payload = json_encode([
+            'contents' => [[ 'parts' => [['text' => $prompt]] ]]
+        ]);
+        $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'X-goog-api-key: ' . $apiKey,
+        ]);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        $response = curl_exec($ch);
+        if ($response !== false) {
+            $json = json_decode($response, true);
+            $text = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
+            $text = preg_replace('/^```\\w*\\n?|```$/m', '', $text);
+            $html = trim($text);
+        } else {
+            $html = '';
+        }
+        curl_close($ch);
+    } while (!is_string($html) || !trim(strip_tags($html)));
+    return $html;
+}
+
 if ($sitemap) {
     $convert = function (&$items) use (&$convert) {
         foreach ($items as &$item) {
@@ -243,7 +273,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $content = $content['content'] ?? '';
                         }
                         if (!is_string($content) || !trim(strip_tags($content))) {
-                            $content = '<p>Content pending...</p>';
+                            $content = generateSection($apiKey, $page, $sec, $sourceText);
                         }
                         $sectionContent[$sec] = $content;
                     }
@@ -533,7 +563,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $content = $content['content'] ?? '';
                     }
                     if (!is_string($content) || !trim(strip_tags($content))) {
-                        $content = '<p>Content pending...</p>';
+                        $content = generateSection($apiKey, $page, $section, $sourceText);
                     }
                     if (!isset($pageData[$page])) {
                         $pageData[$page] = ['meta_title' => '', 'meta_description' => '', 'slug' => '', 'sections' => [], 'media' => []];
