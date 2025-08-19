@@ -334,6 +334,12 @@ function addSection(html='', i, skipSave=false){
   wrap.addEventListener('dragover', handleDragOver);
   wrap.addEventListener('drop', handleDrop);
   wrap.addEventListener('dragend', handleDragEnd);
+  const div = document.createElement('div');
+  div.className = 'form-control section-field';
+  div.id = 'sec-content-' + idx;
+  div.contentEditable = 'true';
+  div.style.minHeight = '6em';
+  div.innerHTML = html || '<h3></h3><h4></h4><p></p>';
   const header = document.createElement('div');
   header.className = 'd-flex justify-content-between align-items-center mb-2';
   const label = document.createElement('strong');
@@ -343,6 +349,17 @@ function addSection(html='', i, skipSave=false){
   label.addEventListener('dragstart', e => handleDragStart.call(wrap, e));
   header.appendChild(label);
   const btnGroup = document.createElement('div');
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.className = 'btn btn-sm btn-outline-secondary me-2';
+  copy.textContent = '\uD83D\uDCCB';
+  copy.setAttribute('data-bs-toggle','tooltip');
+  copy.setAttribute('data-bs-title','Copy section');
+  copy.addEventListener('click', () => {
+    navigator.clipboard.writeText(div.innerHTML).then(() => {
+      showToast('Copied to clipboard', 'info');
+    });
+  });
   const save = document.createElement('button');
   save.type = 'button';
   save.className = 'btn btn-sm btn-outline-success me-2';
@@ -371,14 +388,8 @@ function addSection(html='', i, skipSave=false){
   remove.setAttribute('data-bs-toggle','tooltip');
   remove.setAttribute('data-bs-title','Remove section');
   remove.addEventListener('click', () => removeSection(wrap.dataset.index));
-  btnGroup.append(save, regen, promptBtn, remove);
+  btnGroup.append(copy, save, regen, promptBtn, remove);
   header.appendChild(btnGroup);
-  const div = document.createElement('div');
-  div.className = 'form-control section-field';
-  div.id = 'sec-content-' + idx;
-  div.contentEditable = 'true';
-  div.style.minHeight = '6em';
-  div.innerHTML = html || '<h3></h3><h4></h4><p></p>';
   wrap.append(header, div);
   container.appendChild(wrap);
   initTooltips();
@@ -522,12 +533,31 @@ function renderContent(data, skipMedia=false){
   function addMetaField(field, label, value){
     const wrap = document.createElement('div');
     wrap.className = 'mb-2';
+    const id = idMap[field];
+    const div = document.createElement('div');
+    div.id = id;
+    div.className = 'form-control';
+    div.contentEditable = 'true';
+    div.style.minHeight = '2.5rem';
+    const saved = localStorage.getItem('content_'+field);
+    div.textContent = saved || value || '';
     const header = document.createElement('div');
     header.className = 'd-flex justify-content-between align-items-center mb-1';
     const lab = document.createElement('strong');
     lab.textContent = label;
     header.appendChild(lab);
     const btns = document.createElement('div');
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'btn btn-sm btn-outline-secondary me-2';
+    copy.textContent = '\uD83D\uDCCB';
+    copy.setAttribute('data-bs-toggle','tooltip');
+    copy.setAttribute('data-bs-title','Copy '+label.toLowerCase());
+    copy.addEventListener('click', () => {
+      navigator.clipboard.writeText(div.textContent.trim()).then(() => {
+        showToast('Copied to clipboard', 'info');
+      });
+    });
     const save = document.createElement('button');
     save.type = 'button';
     save.className = 'btn btn-sm btn-outline-success me-2';
@@ -549,16 +579,8 @@ function renderContent(data, skipMedia=false){
     promptBtn.setAttribute('data-bs-toggle','tooltip');
     promptBtn.setAttribute('data-bs-title','Regenerate with prompt');
     promptBtn.addEventListener('click', () => promptMeta(field));
-    btns.append(save, regen, promptBtn);
+    btns.append(copy, save, regen, promptBtn);
     header.appendChild(btns);
-    const div = document.createElement('div');
-    const id = idMap[field];
-    div.id = id;
-    div.className = 'form-control';
-    div.contentEditable = 'true';
-    div.style.minHeight = '2.5rem';
-    const saved = localStorage.getItem('content_'+field);
-    div.textContent = saved || value || '';
     wrap.append(header, div);
     if(field !== 'slug'){
       const note = document.createElement('div');
