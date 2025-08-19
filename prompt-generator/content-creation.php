@@ -212,37 +212,27 @@ if ($embed) {
   </div>
 
   <div class="col-md-8">
-    <button class="btn btn-success mb-3" onclick="exportDoc()">Export to DOC</button>
-    <button class="btn btn-outline-primary mb-3 ms-2" onclick="saveAll()">Save All</button>
+    <button id="exportBtn" class="btn btn-success mb-3 d-none" onclick="exportDoc()">Export to DOC</button>
+    <button id="saveBtn" class="btn btn-outline-primary mb-3 ms-2 d-none" onclick="saveAll()">Save All</button>
     <div id="genProgress" class="progress mb-2 d-none">
       <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
     </div>
-    <ul class="nav nav-tabs" id="outTabs" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#contentTab" type="button" role="tab">Generated Content</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#promptTab" type="button" role="tab">Prompt</button>
-      </li>
-    </ul>
-    <div class="tab-content border border-top-0 p-3">
-      <div class="tab-pane fade show active" id="contentTab" role="tabpanel">
-        <div id="metaSection"></div>
-        <div id="sectionsContainer"></div>
-        <div class="mb-3">
-          <button class="btn btn-sm btn-outline-success" onclick="addSection()">+</button>
-        </div>
-        <hr>
-        <div id="mediaSuggestions" class="small float-start"></div>
+    <div class="border p-3 d-none" id="contentArea">
+      <div id="metaSection"></div>
+      <div id="sectionsContainer"></div>
+      <div class="mb-3">
+        <button class="btn btn-sm btn-outline-success" onclick="addSection()">+</button>
       </div>
-      <div class="tab-pane fade" id="promptTab" role="tabpanel">
-        <div class="d-flex align-items-center mb-2">
-          <button class="btn btn-outline-secondary btn-sm" onclick="copyPrompt()">Copy</button>
-        </div>
-        <div id="output" class="form-control" readonly></div>
-      </div>
+      <hr>
+      <div id="mediaSuggestions" class="small float-start"></div>
     </div>
-</div>
+    <div class="border p-3 d-none" id="promptArea">
+      <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-outline-secondary btn-sm" onclick="copyPrompt()">Copy</button>
+      </div>
+      <div id="output" class="form-control" readonly></div>
+    </div>
+  </div>
 </div>
 <textarea id="clipboardArea" style="position: absolute; left: -9999px; top: -9999px;"></textarea>
 <div class="toast-container position-fixed top-0 end-0 p-3"></div>
@@ -515,8 +505,12 @@ function loadSaved(){
   renderContent({sections:[]}, true);
   sections.forEach((html, idx) => addSection(html, idx, true));
   saveAll(true);
+  document.getElementById('promptArea').classList.add('d-none');
+  document.getElementById('contentArea').classList.remove('d-none');
+  document.getElementById('exportBtn').classList.remove('d-none');
+  document.getElementById('saveBtn').classList.remove('d-none');
 }
-function generatePrompt(skipToast=false, skipTab=false) {
+function generatePrompt(skipToast=false, skipDisplay=false) {
   saveInputs();
   // clear cached data before generating new content
   ['meta_title','meta_description','slug'].forEach(f => localStorage.removeItem('content_'+f));
@@ -583,7 +577,12 @@ function generatePrompt(skipToast=false, skipTab=false) {
   if (faq) prompt += " Add a FAQ section at the end.";
   basePrompt = prompt;
   document.getElementById('output').textContent = prompt;
-  if(!skipTab) document.querySelector('[data-bs-target="#promptTab"]').click();
+  if(!skipDisplay){
+    document.getElementById('contentArea').classList.add('d-none');
+    document.getElementById('promptArea').classList.remove('d-none');
+    document.getElementById('exportBtn').classList.add('d-none');
+    document.getElementById('saveBtn').classList.add('d-none');
+  }
   if(!skipToast) showToast('Prompt generated', 'success');
 }
 
@@ -601,7 +600,13 @@ function generateContent(){
     body: new URLSearchParams({ajax:'1', generate_content:'1', prompt: basePrompt})
   })
   .then(r => r.json())
-  .then(res => { renderContent(res); document.querySelector('[data-bs-target="#contentTab"]').click(); })
+  .then(res => {
+    renderContent(res);
+    document.getElementById('promptArea').classList.add('d-none');
+    document.getElementById('contentArea').classList.remove('d-none');
+    document.getElementById('exportBtn').classList.remove('d-none');
+    document.getElementById('saveBtn').classList.remove('d-none');
+  })
   .catch(() => alert('Failed to generate content'))
   .finally(() => { hideProgress(); showToast('Content generated', 'success'); });
 }
