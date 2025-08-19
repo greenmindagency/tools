@@ -502,11 +502,11 @@ function loadSaved(){
     .sort((a,b) => parseInt(a.split('_').pop()) - parseInt(b.split('_').pop()));
   if(!metaExists && !sectionKeys.length) return;
   const sections = sectionKeys.map(k => localStorage.getItem(k) || '');
+  document.getElementById('promptArea').classList.add('d-none');
+  document.getElementById('contentArea').classList.remove('d-none');
   renderContent({sections:[]}, true);
   sections.forEach((html, idx) => addSection(html, idx, true));
   saveAll(true);
-  document.getElementById('promptArea').classList.add('d-none');
-  document.getElementById('contentArea').classList.remove('d-none');
   document.getElementById('exportBtn').classList.remove('d-none');
   document.getElementById('saveBtn').classList.remove('d-none');
 }
@@ -601,9 +601,9 @@ function generateContent(){
   })
   .then(r => r.json())
   .then(res => {
-    renderContent(res);
     document.getElementById('promptArea').classList.add('d-none');
     document.getElementById('contentArea').classList.remove('d-none');
+    renderContent(res);
     document.getElementById('exportBtn').classList.remove('d-none');
     document.getElementById('saveBtn').classList.remove('d-none');
   })
