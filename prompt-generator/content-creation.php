@@ -442,7 +442,70 @@ function handleDragEnd(){
   saveAll(true);
   updateMediaSuggestions();
 }
+function saveInputs(){
+  const data = {
+    pageType: document.getElementById('pageType').value,
+    outputLanguage: document.getElementById('outputLanguage').value,
+    keyword: document.getElementById('keyword').value,
+    website: document.getElementById('website').value,
+    companyName: document.getElementById('companyName').value,
+    keywords: document.getElementById('keywords').value,
+    autoSelectKeywords: document.getElementById('autoSelectKeywords').checked,
+    countries: Array.from(document.querySelectorAll('input[name="country[]"]')).map(c => c.value),
+    oldContent: document.getElementById('oldContent').value,
+    refineLevel: document.getElementById('refineLevel').value,
+    includeFAQ: document.getElementById('includeFAQ').checked,
+    includeDoc: document.getElementById('includeDoc').checked,
+    includeEmojis: document.getElementById('includeEmojis').checked
+  };
+  localStorage.setItem('content_form_inputs', JSON.stringify(data));
+}
 function loadSaved(){
+  const inputData = localStorage.getItem('content_form_inputs');
+  if(inputData){
+    try{
+      const d = JSON.parse(inputData);
+      if(d.pageType) document.getElementById('pageType').value = d.pageType;
+      if(d.outputLanguage) document.getElementById('outputLanguage').value = d.outputLanguage;
+      if(d.keyword) document.getElementById('keyword').value = d.keyword;
+      if(d.website) document.getElementById('website').value = d.website;
+      if(d.companyName) document.getElementById('companyName').value = d.companyName;
+      if(d.keywords) document.getElementById('keywords').value = d.keywords;
+      document.getElementById('autoSelectKeywords').checked = !!d.autoSelectKeywords;
+      if(Array.isArray(d.countries)){
+        const container = document.getElementById('countries');
+        container.innerHTML = '';
+        d.countries.forEach((c, idx) => {
+          const group = document.createElement('div');
+          group.className = 'input-group mb-2';
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.name = 'country[]';
+          input.className = 'form-control';
+          input.placeholder = 'e.g. Egypt';
+          input.value = c;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          if(idx === 0){
+            btn.className = 'btn btn-outline-success';
+            btn.textContent = '+';
+            btn.setAttribute('onclick','addCountry(this)');
+          } else {
+            btn.className = 'btn btn-outline-danger';
+            btn.textContent = '-';
+            btn.setAttribute('onclick','removeCountry(this)');
+          }
+          group.append(input, btn);
+          container.appendChild(group);
+        });
+      }
+      if(d.oldContent) document.getElementById('oldContent').value = d.oldContent;
+      if(d.refineLevel) document.getElementById('refineLevel').value = d.refineLevel;
+      document.getElementById('includeFAQ').checked = !!d.includeFAQ;
+      document.getElementById('includeDoc').checked = !!d.includeDoc;
+      document.getElementById('includeEmojis').checked = !!d.includeEmojis;
+    }catch(e){/* ignore */}
+  }
   const metaExists = ['meta_title','meta_description','slug'].some(f => localStorage.getItem('content_'+f));
   const sectionKeys = Object.keys(localStorage)
     .filter(k => k.startsWith('content_section_'))
@@ -453,7 +516,8 @@ function loadSaved(){
   sections.forEach((html, idx) => addSection(html, idx, true));
   saveAll(true);
 }
-function generatePrompt(skipToast=false) {
+function generatePrompt(skipToast=false, skipTab=false) {
+  saveInputs();
   // clear cached data before generating new content
   ['meta_title','meta_description','slug'].forEach(f => localStorage.removeItem('content_'+f));
   Object.keys(localStorage).forEach(k => { if(k.startsWith('content_section_')) localStorage.removeItem(k); });
@@ -519,11 +583,7 @@ function generatePrompt(skipToast=false) {
   if (faq) prompt += " Add a FAQ section at the end.";
   basePrompt = prompt;
   document.getElementById('output').textContent = prompt;
-  if(!skipToast) showToast('Prompt generated', 'success');
-}
-
-function generateContent(){
-  generatePrompt(true);
+  generatePrompt(true, true);
   if(!basePrompt){
     showToast('Prompt generation failed', 'danger');
     return;
@@ -536,7 +596,7 @@ function generateContent(){
     body: new URLSearchParams({ajax:'1', generate_content:'1', prompt: basePrompt})
   })
   .then(r => r.json())
-  .then(renderContent)
+  .then(res => { renderContent(res); document.querySelector('[data-bs-target="#contentTab"]').click(); })
   .catch(() => alert('Failed to generate content'))
   .finally(() => { hideProgress(); showToast('Content generated', 'success'); });
 }
