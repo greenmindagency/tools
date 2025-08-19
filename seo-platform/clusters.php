@@ -92,6 +92,12 @@ function loadKeywordLinks(PDO $pdo, int $client_id): array {
     return $map;
 }
 
+function loadKeywordTypes(PDO $pdo, int $client_id): array {
+    $stmt = $pdo->prepare("SELECT DISTINCT page_type FROM keywords WHERE client_id = ? AND page_type <> '' ORDER BY page_type");
+    $stmt->execute([$client_id]);
+    return $stmt->fetchAll(PDO::FETCH_COLUMN);
+}
+
 function loadUnclustered(PDO $pdo, int $client_id): array {
     $stmt = $pdo->prepare("SELECT keyword FROM keywords WHERE client_id = ? AND (cluster_name = '' OR cluster_name IS NULL) ORDER BY id");
     $stmt->execute([$client_id]);
@@ -133,7 +139,8 @@ if ($action === 'list') {
         'clusters' => $clusters,
         'unclustered' => loadUnclustered($pdo, $client_id),
         'allKeywords' => loadAllKeywords($pdo, $client_id),
-        'links' => loadKeywordLinks($pdo, $client_id)
+        'links' => loadKeywordLinks($pdo, $client_id),
+        'types' => loadKeywordTypes($pdo, $client_id)
     ]);
     exit;
 }
@@ -266,6 +273,20 @@ if ($action === 'clear' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         ->execute([$client_id]);
     updateKeywordStats($pdo, $client_id);
     echo json_encode(['success' => true, 'unclustered' => loadUnclustered($pdo, $client_id)]);
+    exit;
+}
+
+if ($action === 'bulk_update' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $keywords = json_decode($_POST['keywords'] ?? '[]', true) ?: [];
+    $link = $_POST['link'] ?? '';
+    $type = $_POST['type'] ?? '';
+    if ($keywords) {
+        $placeholders = implode(',', array_fill(0, count($keywords), '?'));
+        $params = array_merge([$link, $type, $client_id], $keywords);
+        $pdo->prepare("UPDATE keywords SET content_link = ?, page_type = ? WHERE client_id = ? AND keyword IN ($placeholders)")
+            ->execute($params);
+    }
+    echo json_encode(['success' => true]);
     exit;
 }
 
@@ -422,6 +443,30 @@ updateKeywordStats($pdo, $client_id);
   </div>
 </div>
 
+<div class="modal fade" id="bulkModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Update Keywords</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="bulkLinkInput" class="form-label">Link</label>
+          <input type="text" id="bulkLinkInput" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label for="bulkTypeSelect" class="form-label">Type</label>
+          <select id="bulkTypeSelect" class="form-select"></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="bulkSave">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/masonry-layout@4.2.2/dist/masonry.pkgd.min.js" integrity="sha384-GNFwBvfVxBkLMJpYMOABq3c+d3KnQxudP/mGPkzpZSTYykLBNsZEnG2D9G/X/+7D" crossorigin="anonymous" async onload="applyMasonry()"></script>
 <script>
 let currentClusters = [];
@@ -429,8 +474,11 @@ let orderMap = {};
 let loadedKeywords = [];
 let currentUnclustered = [];
 let keywordLinks = {};
+let keywordTypes = [];
 let pendingKeywords = [];
 let focusModalInstance;
+let bulkModalInstance;
+let currentBulkIndex = null;
 const singleFilterActive = <?= isset($_GET['single']) ? 'true' : 'false' ?>;
 const filterTerms = (document.getElementById('clusterFilter').value || '')
   .toLowerCase()
@@ -499,6 +547,40 @@ function renderKeywordButtons(list) {
     })
     .join('');
 }
+
+function openBulkModal(idx) {
+  currentBulkIndex = idx;
+  const linkInput = document.getElementById('bulkLinkInput');
+  const typeSelect = document.getElementById('bulkTypeSelect');
+  linkInput.value = '';
+  typeSelect.innerHTML = '<option value=""></option>' + keywordTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+  const modalEl = document.getElementById('bulkModal');
+  bulkModalInstance = new bootstrap.Modal(modalEl);
+  bulkModalInstance.show();
+}
+
+document.getElementById('bulkSave').addEventListener('click', function() {
+  if (currentBulkIndex === null) return;
+  const link = document.getElementById('bulkLinkInput').value || '';
+  const type = document.getElementById('bulkTypeSelect').value || '';
+  const kws = currentClusters[currentBulkIndex] ? currentClusters[currentBulkIndex].slice() : [];
+  fetch('clusters.php?action=bulk_update&client_id=<?= $client_id ?>', {
+    method: 'POST',
+    headers: {'Content-Type':'application/x-www-form-urlencoded'},
+    body: 'keywords=' + encodeURIComponent(JSON.stringify(kws)) + '&link=' + encodeURIComponent(link) + '&type=' + encodeURIComponent(type)
+  }).then(r => r.json()).then(res => {
+    if (res.success) {
+      kws.forEach(k => {
+        if (link) keywordLinks[k] = link;
+        else delete keywordLinks[k];
+      });
+      if (type && !keywordTypes.includes(type)) keywordTypes.push(type);
+      renderClusters(currentClusters);
+      if (bulkModalInstance) bulkModalInstance.hide();
+      currentBulkIndex = null;
+    }
+  });
+});
 
 function updateStatusBars(unclustered = null, singles = []) {
   if (unclustered !== null) currentUnclustered = unclustered;
@@ -719,6 +801,17 @@ function renderClusters(data) {
       const url = `dashboard.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>&field=keyword&mode=exact&q=${encodeURIComponent(kws.join('|'))}`;
       window.location.href = url;
     });
+    const bulkBtn = document.createElement('button');
+    bulkBtn.type = 'button';
+    bulkBtn.className = 'btn btn-sm btn-outline-success me-1';
+    bulkBtn.innerHTML = '<i class="bi bi-link-45deg"></i>';
+    bulkBtn.setAttribute('data-bs-toggle', 'tooltip');
+    bulkBtn.setAttribute('title', 'Update Link & Type');
+    bulkBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      openBulkModal(idx);
+    });
     const splitBtn = document.createElement('button');
     splitBtn.type = 'button';
     splitBtn.className = 'btn btn-sm btn-secondary me-1';
@@ -774,6 +867,7 @@ function renderClusters(data) {
     header.appendChild(titleSpan);
     header.appendChild(contentBtn);
     header.appendChild(filterBtn);
+    header.appendChild(bulkBtn);
     header.appendChild(splitBtn);
     header.appendChild(removeBtn);
     header.style.cursor = 'pointer';
@@ -880,6 +974,7 @@ document.addEventListener('DOMContentLoaded', function() {
       (data.clusters || []).forEach(c => loadedKeywords.push(...c));
       setOrder(data.allKeywords || []);
       keywordLinks = data.links || {};
+      keywordTypes = data.types || [];
       const processed = processClusters(data.clusters || []);
       renderClusters(processed.clusters);
       updateStatusBars(data.unclustered || [], processed.singles);
