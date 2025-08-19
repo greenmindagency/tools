@@ -269,10 +269,6 @@ document.addEventListener('DOMContentLoaded', function(){
 function sanitizeHtml(html){
   return String(html || '').replace(/<(?!\/?(h3|h4|p|strong|b|em|i|ul|ol|li|br)\b)[^>]*>/gi, '');
 }
-function autoResize(el){
-  el.style.height = 'auto';
-  el.style.height = el.scrollHeight + 'px';
-}
 function showProgress(){
   document.getElementById('genProgress').classList.remove('d-none');
 }
@@ -451,51 +447,7 @@ function saveInputs(){
   localStorage.setItem('content_form_inputs', JSON.stringify(data));
 }
 function loadSaved(){
-  const inputData = localStorage.getItem('content_form_inputs');
-  if(inputData){
-    try{
-      const d = JSON.parse(inputData);
-      if(d.pageType) document.getElementById('pageType').value = d.pageType;
-      if(d.outputLanguage) document.getElementById('outputLanguage').value = d.outputLanguage;
-      if(d.keyword) document.getElementById('keyword').value = d.keyword;
-      if(d.website) document.getElementById('website').value = d.website;
-      if(d.companyName) document.getElementById('companyName').value = d.companyName;
-      if(d.keywords) document.getElementById('keywords').value = d.keywords;
-      document.getElementById('autoSelectKeywords').checked = !!d.autoSelectKeywords;
-      if(Array.isArray(d.countries)){
-        const container = document.getElementById('countries');
-        container.innerHTML = '';
-        d.countries.forEach((c, idx) => {
-          const group = document.createElement('div');
-          group.className = 'input-group mb-2';
-          const input = document.createElement('input');
-          input.type = 'text';
-          input.name = 'country[]';
-          input.className = 'form-control';
-          input.placeholder = 'e.g. Egypt';
-          input.value = c;
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          if(idx === 0){
-            btn.className = 'btn btn-outline-success';
-            btn.textContent = '+';
-            btn.setAttribute('onclick','addCountry(this)');
-          } else {
-            btn.className = 'btn btn-outline-danger';
-            btn.textContent = '-';
-            btn.setAttribute('onclick','removeCountry(this)');
-          }
-          group.append(input, btn);
-          container.appendChild(group);
-        });
-      }
-      if(d.oldContent) document.getElementById('oldContent').value = d.oldContent;
-      if(d.refineLevel) document.getElementById('refineLevel').value = d.refineLevel;
-      document.getElementById('includeFAQ').checked = !!d.includeFAQ;
-      document.getElementById('includeDoc').checked = !!d.includeDoc;
-      document.getElementById('includeEmojis').checked = !!d.includeEmojis;
-    }catch(e){/* ignore */}
-  }
+  localStorage.removeItem('content_form_inputs');
   const metaExists = ['meta_title','meta_description','slug'].some(f => localStorage.getItem('content_'+f));
   const sectionKeys = Object.keys(localStorage)
     .filter(k => k.startsWith('content_section_'))
@@ -511,7 +463,6 @@ function loadSaved(){
   document.getElementById('saveBtn').classList.remove('d-none');
 }
 function generatePrompt(skipToast=false, skipDisplay=false) {
-  saveInputs();
   // clear cached data before generating new content
   ['meta_title','meta_description','slug'].forEach(f => localStorage.removeItem('content_'+f));
   Object.keys(localStorage).forEach(k => { if(k.startsWith('content_section_')) localStorage.removeItem(k); });
@@ -675,8 +626,7 @@ function renderContent(data, skipMedia=false){
     }
     meta.appendChild(wrap);
     if(field === 'meta_description'){
-      autoResize(div);
-      div.addEventListener('input', () => {autoResize(div); checkMeta();});
+      div.addEventListener('input', checkMeta);
     }
     if(field === 'meta_title'){
       div.addEventListener('input', checkMeta);
@@ -750,7 +700,6 @@ function regenMeta(field, p=''){
     .then(res => {
       if(res[field] !== undefined) {
         el.textContent = res[field];
-        if(field === 'meta_description') autoResize(el);
       } else if(res.error) alert(res.error);
       checkMeta();
     })
