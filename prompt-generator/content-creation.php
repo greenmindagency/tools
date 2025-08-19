@@ -206,7 +206,8 @@ if ($embed) {
     </div>
 
     <div>
-      <button class="btn btn-primary" onclick="generatePrompt()">Generate</button>
+      <button class="btn btn-primary me-2" onclick="generatePrompt()">Generate</button>
+      <button class="btn btn-success" onclick="generateContent()">Generate Content</button>
     </div>
   </div>
 
@@ -356,7 +357,13 @@ function addSection(html='', i, skipSave=false){
   copy.setAttribute('data-bs-toggle','tooltip');
   copy.setAttribute('data-bs-title','Copy section');
   copy.addEventListener('click', () => {
-    navigator.clipboard.writeText(div.innerHTML).then(() => {
+    const html = div.innerHTML;
+    const text = div.innerText;
+    const item = new ClipboardItem({
+      'text/html': new Blob([html], { type: 'text/html' }),
+      'text/plain': new Blob([text], { type: 'text/plain' })
+    });
+    navigator.clipboard.write([item]).then(() => {
       showToast('Copied to clipboard', 'info');
     });
   });
@@ -446,7 +453,7 @@ function loadSaved(){
   sections.forEach((html, idx) => addSection(html, idx, true));
   saveAll(true);
 }
-function generatePrompt() {
+function generatePrompt(skipToast=false) {
   // clear cached data before generating new content
   ['meta_title','meta_description','slug'].forEach(f => localStorage.removeItem('content_'+f));
   Object.keys(localStorage).forEach(k => { if(k.startsWith('content_section_')) localStorage.removeItem(k); });
@@ -512,13 +519,21 @@ function generatePrompt() {
   if (faq) prompt += " Add a FAQ section at the end.";
   basePrompt = prompt;
   document.getElementById('output').textContent = prompt;
+  if(!skipToast) showToast('Prompt generated', 'success');
+}
 
+function generateContent(){
+  generatePrompt(true);
+  if(!basePrompt){
+    showToast('Prompt generation failed', 'danger');
+    return;
+  }
   showProgress();
   showToast('Generating content...', 'info');
   fetch('', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: new URLSearchParams({ajax: '1', generate_content: '1', prompt: prompt})
+    body: new URLSearchParams({ajax:'1', generate_content:'1', prompt: basePrompt})
   })
   .then(r => r.json())
   .then(renderContent)
