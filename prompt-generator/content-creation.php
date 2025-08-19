@@ -583,6 +583,11 @@ function generatePrompt(skipToast=false, skipTab=false) {
   if (faq) prompt += " Add a FAQ section at the end.";
   basePrompt = prompt;
   document.getElementById('output').textContent = prompt;
+  if(!skipTab) document.querySelector('[data-bs-target="#promptTab"]').click();
+  if(!skipToast) showToast('Prompt generated', 'success');
+}
+
+function generateContent(){
   generatePrompt(true, true);
   if(!basePrompt){
     showToast('Prompt generation failed', 'danger');
