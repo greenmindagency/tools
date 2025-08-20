@@ -13,7 +13,7 @@ https://greenmindagency.com/tools/
 - Common layout elements come from `header.php` and `footer.php`.
 
 ## Task Manager
-Simple team task management system with admin login (`peter`). Tasks can be assigned to users and separated into today's and upcoming lists. Database tables are defined in `task-manager/setup.sql`.
+Simple team task management system with admin login (`peter`). Tasks include priority and optional client linkage and are separated into today's and upcoming lists. An admin panel lets you add team members and clients for assignment, and each task can expand to edit its description or reassign the work. Database tables are defined in `task-manager/setup.sql`.
 
 ### SEO Platform Backups
 Backups are created manually from the dashboard using the **Backup Now**

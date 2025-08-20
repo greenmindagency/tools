@@ -3,16 +3,25 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(50) UNIQUE NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS clients (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS tasks (
     id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
+    description TEXT,
     assigned_to INT NOT NULL,
+    client_id INT DEFAULT NULL,
+    priority VARCHAR(20) NOT NULL DEFAULT 'Normal',
     due_date DATE NOT NULL,
     status VARCHAR(20) DEFAULT 'pending',
     parent_id INT DEFAULT NULL,
     order_index INT DEFAULT 0,
     FOREIGN KEY (assigned_to) REFERENCES users(id),
-    FOREIGN KEY (parent_id) REFERENCES tasks(id) ON DELETE CASCADE
+    FOREIGN KEY (parent_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (client_id) REFERENCES clients(id)
 );
 
 CREATE TABLE IF NOT EXISTS comments (
@@ -24,3 +33,7 @@ CREATE TABLE IF NOT EXISTS comments (
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS client_id INT DEFAULT NULL;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority VARCHAR(20) NOT NULL DEFAULT 'Normal';
