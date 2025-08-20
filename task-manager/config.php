@@ -6,7 +6,7 @@ const DB_PASS = '8QPNw)_?Jc-S';
 
 // Admin credentials
 const ADMIN_USER = 'Peter';
-const ADMIN_PASS_HASH = '$2y$10$sSEDcVY0xFcCpgoSoltYvOnWP7J7slbe35fgPwHCb3WM6rGmZXi2K';
+const ADMIN_PASS_HASH = 'GreenGreenmind-123';
 
 function get_pdo(): PDO {
     static $pdo;
