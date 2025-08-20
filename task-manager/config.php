@@ -5,9 +5,9 @@ const DB_USER = 'greenm38_todotasks';
 const DB_PASS = '8QPNw)_?Jc-S';
 
 // Admin credentials
-const ADMIN_USER = 'Peter';
+const ADMIN_USER = 'peter';
 // Uses the same hashed password as other tools so credentials stay consistent
-const ADMIN_PASS_HASH = '$2y$10$bfb/WglNwEY8VqLdb8NCLORhuLh3lXMLi/p7NcQc.4AmNohXopt6i';
+const ADMIN_PASS_HASH = '$2y$10$DrSjBqdNtRRd9/r8JpIpse5Bgot9hLnKHsZrIGSTSUlkcL1RhXPSG';
 
 function get_pdo(): PDO {
     static $pdo;
