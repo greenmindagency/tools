@@ -6,7 +6,8 @@ const DB_PASS = '8QPNw)_?Jc-S';
 
 // Admin credentials
 const ADMIN_USER = 'peter';
-const ADMIN_PASS_HASH = '$2y$10$sSEDcVY0xFcCpgoSoltYvOnWP7J7slbe35fgPwHCb3WM6rGmZXi2K';
+// Uses the same hashed password as other tools so credentials stay consistent
+const ADMIN_PASS_HASH = '$2y$10$DrSjBqdNtRRd9/r8JpIpse5Bgot9hLnKHsZrIGSTSUlkcL1RhXPSG';
 
 function get_pdo(): PDO {
     static $pdo;
@@ -20,7 +21,8 @@ function init_db(PDO $pdo): void {
     $sqlFile = __DIR__ . '/setup.sql';
     if (is_readable($sqlFile)) {
         $pdo->exec(file_get_contents($sqlFile));
-        $stmt = $pdo->prepare('INSERT IGNORE INTO users (username, password_hash) VALUES (?, ?)');
+        $stmt = $pdo->prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)
+                               ON DUPLICATE KEY UPDATE password_hash=VALUES(password_hash)');
         $stmt->execute([ADMIN_USER, ADMIN_PASS_HASH]);
     }
 }
