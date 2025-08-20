@@ -36,10 +36,9 @@ if ($sitemap) {
     $convert($sitemap);
 }
 
-function buildTree(array $items, int &$count, int $max, array &$seen): array {
+function buildTree(array $items, array &$seen, int $depth = 0): array {
     $result = [];
     foreach ($items as $item) {
-        if ($count >= $max) break;
         $title = trim($item['title'] ?? '');
         if ($title === '') continue;
         $key = strtolower($title);
@@ -48,9 +47,8 @@ function buildTree(array $items, int &$count, int $max, array &$seen): array {
         $type = $item['type'] ?? 'page';
         if (!in_array($type, ['page','single','category','tag'])) $type = 'page';
         $node = ['title' => $title, 'type' => $type, 'children' => []];
-        $count++;
-        if (!empty($item['children']) && is_array($item['children'])) {
-            $node['children'] = buildTree($item['children'], $count, $max, $seen);
+        if ($depth < 1 && !empty($item['children']) && is_array($item['children'])) {
+            $node['children'] = buildTree($item['children'], $seen, $depth + 1);
         }
         $result[] = $node;
     }
@@ -104,11 +102,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $saved = 'Sitemap saved.';
         $activeTab = 'sitemap';
     } elseif (isset($_POST['regenerate'])) {
-        $num = (int)($_POST['num_pages'] ?? 4);
         $source = $client['core_text'] ?? '';
         $instr = $instructions;
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-        $prompt = "Using the following source text:\n{$source}\n\nAnd the instructions:\n{$instr}\nGenerate a website sitemap as a JSON array. Each item must contain 'title', 'type' (page, single, category, or tag) and optional 'children'. Ensure titles are unique and the total number of items including subpages does not exceed {$num}. Return only JSON without any explanations.";
+        $prompt = "Using the following source text:\n{$source}\n\nAnd the instructions:\n{$instr}\nGenerate a website sitemap as a JSON array. Limit the structure to two levels: top-level items with optional children only. Each item must contain 'title', 'type' (page, single, category, or tag) and optional 'children'. Ensure titles are unique. Return only JSON without any explanations.";
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -139,8 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $items = json_decode($text, true);
                 if (is_array($items)) {
                     $seen = [];
-                    $count = 0;
-                    $sitemap = buildTree($items, $count, $num, $seen);
+                    $sitemap = buildTree($items, $seen);
                     $generated = 'Sitemap regenerated. Save to apply changes.';
                 } else {
                     $error = 'Failed to parse sitemap JSON.';
@@ -166,22 +162,11 @@ function renderList(array $items, int $depth = 0) {
         echo "<option value='category'" . ($type==='category'?" selected":"") . ">Category</option>";
         echo "<option value='tag'" . ($type==='tag'?" selected":"") . ">Tag</option>";
         echo "</select><div class='btn-group btn-group-sm ms-2'>";
-        if ($depth < 1) {
-            echo "<button type='button' class='btn btn-outline-secondary add-child'>+</button>";
-        }
+        if ($depth < 1) echo "<button type='button' class='btn btn-outline-secondary add-child'>+</button>";
         echo "<button type='button' class='btn btn-outline-danger remove'>x</button></div></div><ul class='list-group ms-3 children'>";
-        if ($depth < 1 && !empty($item['children'])) renderList($item['children'], $depth + 1);
+        if (!empty($item['children'])) renderList($item['children'], $depth + 1);
         echo "</ul></li>";
     }
-}
-
-function countPages(array $items): int {
-    $c = 0;
-    foreach ($items as $item) {
-        $c++;
-        if (!empty($item['children'])) $c += countPages($item['children']);
-    }
-    return $c;
 }
 
 $title = 'Wordprseo Content Builder';
@@ -220,10 +205,6 @@ require __DIR__ . '/../header.php';
   </div>
   <div class="tab-pane fade <?= $activeTab==='sitemap'?'show active':'' ?>" id="sitemapTab" role="tabpanel">
     <form method="post" id="sitemapForm">
-      <div class="mb-3">
-        <label class="form-label">Number of pages</label>
-        <input type="number" name="num_pages" class="form-control" value="<?= countPages($sitemap) ?: 4 ?>">
-      </div>
       <div class="p-3 rounded mb-3">
         <ul id="sitemapRoot" class="list-group mb-0">
           <?php renderList($sitemap); ?>
@@ -246,19 +227,8 @@ require __DIR__ . '/../header.php';
   <script>
   function setDepth(li, depth){
     li.dataset.depth = depth;
-    const btnGroup = li.querySelector('.btn-group');
-    let addBtn = btnGroup.querySelector('.add-child');
-    if(depth >= 1){
-      if(addBtn) addBtn.remove();
-    } else {
-      if(!addBtn){
-        addBtn = document.createElement('button');
-        addBtn.type='button';
-        addBtn.className='btn btn-outline-secondary add-child';
-        addBtn.textContent='+';
-        btnGroup.insertBefore(addBtn, btnGroup.firstChild);
-      }
-    }
+    const addBtn = li.querySelector(':scope > div .add-child');
+    if(addBtn) addBtn.style.display = depth >= 1 ? 'none' : '';
     li.querySelectorAll(':scope > .children > li').forEach(function(child){
       setDepth(child, depth + 1);
     });
@@ -269,7 +239,12 @@ require __DIR__ . '/../header.php';
     });
   }
   function initSortables(){
-    document.querySelectorAll('#sitemapRoot, #sitemapRoot > li > .children').forEach(function(el){
+    document.querySelectorAll('#sitemapRoot, #sitemapRoot .children').forEach(function(el){
+      const s = Sortable.get(el);
+      if (s) s.destroy();
+    });
+    Sortable.create(document.getElementById('sitemapRoot'),{group:'pages',animation:150,onEnd:updateDepths});
+    document.querySelectorAll('#sitemapRoot > li > .children').forEach(function(el){
       Sortable.create(el,{group:'pages',animation:150,onEnd:updateDepths});
     });
   }
@@ -311,20 +286,20 @@ require __DIR__ . '/../header.php';
       updateDepths();
     }
   });
-document.getElementById('sitemapForm').addEventListener('submit',function(){
+document.getElementById('sitemapForm').addEventListener('submit', function () {
   updateDepths();
-  document.getElementById('sitemapData').value=JSON.stringify(serialize(document.getElementById('sitemapRoot')));
+  document.getElementById('sitemapData').value = JSON.stringify(serialize(document.getElementById('sitemapRoot'), 0));
 });
-function serialize(ul, depth=0){
-  const items=[];
-  ul.querySelectorAll(':scope > li').forEach(function(li){
-    const title=li.querySelector('.item-title-input').value.trim();
-    const type=li.querySelector('.item-type').value;
-    let children=[];
-    if(depth < 1){
-      children=serialize(li.querySelector('.children'), depth+1);
+function serialize(ul, depth = 0) {
+  const items = [];
+  ul.querySelectorAll(':scope > li').forEach(function (li) {
+    const title = li.querySelector('.item-title-input').value.trim();
+    const type = li.querySelector('.item-type').value;
+    let children = [];
+    if (depth < 1) {
+      children = serialize(li.querySelector('.children'), depth + 1);
     }
-    items.push({title:title,type:type,children:children});
+    items.push({ title: title, type: type, children: children });
   });
   return items;
 }
