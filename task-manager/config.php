@@ -15,4 +15,13 @@ function get_pdo(): PDO {
     }
     return $pdo;
 }
+
+function init_db(PDO $pdo): void {
+    $sqlFile = __DIR__ . '/setup.sql';
+    if (is_readable($sqlFile)) {
+        $pdo->exec(file_get_contents($sqlFile));
+        $stmt = $pdo->prepare('INSERT IGNORE INTO users (username) VALUES (?)');
+        $stmt->execute([ADMIN_USER]);
+    }
+}
 ?>

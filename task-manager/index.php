@@ -38,6 +38,7 @@ if (!isset($_SESSION['user'])) {
 
 try {
     $pdo = get_pdo();
+    init_db($pdo);
 } catch (PDOException $e) {
     $dbError = $e->getMessage();
 }
