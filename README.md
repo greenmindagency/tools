@@ -12,6 +12,9 @@ https://greenmindagency.com/tools/
 - Cards on each index page are generated automatically and the top navigation is rendered via `nav.php`, which lists every generator in a dropdown.
 - Common layout elements come from `header.php` and `footer.php`.
 
+## Task Manager
+Simple team task management system with admin login (`peter`). Tasks can be assigned to users and separated into today's and upcoming lists. Database tables are defined in `task-manager/setup.sql`.
+
 ### SEO Platform Backups
 Backups are created manually from the dashboard using the **Backup Now**
 button. The seven most recent backup files are kept for each client.

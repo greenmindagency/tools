@@ -63,6 +63,10 @@ $loggedIn = isset($_SESSION['is_admin']) || isset($_SESSION['client_id']) || !em
           <?php $active = strpos($current, '/wordprseo-website-builder/') !== false ? 'active' : ''; ?>
           <a class="nav-link <?= $active ?>" href="/tools/wordprseo-website-builder/">WordPrSEO Builder</a>
         </li>
+        <li class="nav-item">
+          <?php $active = strpos($current, '/task-manager/') !== false ? 'active' : ''; ?>
+          <a class="nav-link <?= $active ?>" href="/tools/task-manager/">Task Manager</a>
+        </li>
       </ul>
     </div>
   </div>
