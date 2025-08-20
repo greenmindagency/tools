@@ -20,8 +20,8 @@ function init_db(PDO $pdo): void {
     $sqlFile = __DIR__ . '/setup.sql';
     if (is_readable($sqlFile)) {
         $pdo->exec(file_get_contents($sqlFile));
-        $stmt = $pdo->prepare('INSERT IGNORE INTO users (username) VALUES (?)');
-        $stmt->execute([ADMIN_USER]);
+        $stmt = $pdo->prepare('INSERT IGNORE INTO users (username, password_hash) VALUES (?, ?)');
+        $stmt->execute([ADMIN_USER, ADMIN_PASS_HASH]);
     }
 }
 ?>
