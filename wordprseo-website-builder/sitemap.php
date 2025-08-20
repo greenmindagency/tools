@@ -36,7 +36,7 @@ if ($sitemap) {
     $convert($sitemap);
 }
 
-function buildTree(array $items, array &$seen): array {
+function buildTree(array $items, array &$seen, int $depth = 0): array {
     $result = [];
     foreach ($items as $item) {
         $title = trim($item['title'] ?? '');
@@ -47,8 +47,8 @@ function buildTree(array $items, array &$seen): array {
         $type = $item['type'] ?? 'page';
         if (!in_array($type, ['page','single','category','tag'])) $type = 'page';
         $node = ['title' => $title, 'type' => $type, 'children' => []];
-        if (!empty($item['children']) && is_array($item['children'])) {
-            $node['children'] = buildTree($item['children'], $seen);
+        if ($depth < 1 && !empty($item['children']) && is_array($item['children'])) {
+            $node['children'] = buildTree($item['children'], $seen, $depth + 1);
         }
         $result[] = $node;
     }
@@ -105,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $source = $client['core_text'] ?? '';
         $instr = $instructions;
         $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-        $prompt = "Using the following source text:\n{$source}\n\nAnd the instructions:\n{$instr}\nGenerate a website sitemap as a JSON array. Each item must contain 'title', 'type' (page, single, category, or tag) and optional 'children'. Ensure titles are unique. Return only JSON without any explanations.";
+        $prompt = "Using the following source text:\n{$source}\n\nAnd the instructions:\n{$instr}\nGenerate a website sitemap as a JSON array. Limit the structure to two levels: top-level items with optional children only. Each item must contain 'title', 'type' (page, single, category, or tag) and optional 'children'. Ensure titles are unique. Return only JSON without any explanations.";
         $payload = json_encode([
             'contents' => [[ 'parts' => [['text' => $prompt]] ]]
         ]);
@@ -162,7 +162,7 @@ function renderList(array $items, int $depth = 0) {
         echo "<option value='category'" . ($type==='category'?" selected":"") . ">Category</option>";
         echo "<option value='tag'" . ($type==='tag'?" selected":"") . ">Tag</option>";
         echo "</select><div class='btn-group btn-group-sm ms-2'>";
-        echo "<button type='button' class='btn btn-outline-secondary add-child'>+</button>";
+        if ($depth < 1) echo "<button type='button' class='btn btn-outline-secondary add-child'>+</button>";
         echo "<button type='button' class='btn btn-outline-danger remove'>x</button></div></div><ul class='list-group ms-3 children'>";
         if (!empty($item['children'])) renderList($item['children'], $depth + 1);
         echo "</ul></li>";
@@ -227,6 +227,8 @@ require __DIR__ . '/../header.php';
   <script>
   function setDepth(li, depth){
     li.dataset.depth = depth;
+    const addBtn = li.querySelector(':scope > div .add-child');
+    if(addBtn) addBtn.style.display = depth >= 1 ? 'none' : '';
     li.querySelectorAll(':scope > .children > li').forEach(function(child){
       setDepth(child, depth + 1);
     });
@@ -238,6 +240,11 @@ require __DIR__ . '/../header.php';
   }
   function initSortables(){
     document.querySelectorAll('#sitemapRoot, #sitemapRoot .children').forEach(function(el){
+      const s = Sortable.get(el);
+      if (s) s.destroy();
+    });
+    Sortable.create(document.getElementById('sitemapRoot'),{group:'pages',animation:150,onEnd:updateDepths});
+    document.querySelectorAll('#sitemapRoot > li > .children').forEach(function(el){
       Sortable.create(el,{group:'pages',animation:150,onEnd:updateDepths});
     });
   }
@@ -288,7 +295,10 @@ function serialize(ul){
   ul.querySelectorAll(':scope > li').forEach(function(li){
     const title=li.querySelector('.item-title-input').value.trim();
     const type=li.querySelector('.item-type').value;
-    const children=serialize(li.querySelector('.children'));
+    let children=[];
+    if(depth < 1) {
+      children=serialize(li.querySelector('.children'), depth+1);
+    }
     items.push({title:title,type:type,children:children});
   });
   return items;
