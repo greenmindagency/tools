@@ -50,24 +50,32 @@ if (isset($dbError)) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_task'])) {
-    $titleTask = trim($_POST['title'] ?? '');
-    $assigned = (int)($_POST['assigned'] ?? 0);
-    $due = $_POST['due_date'] ?? date('Y-m-d');
-    if ($titleTask !== '' && $assigned) {
-        $stmt = $pdo->prepare('INSERT INTO tasks (title, assigned_to, due_date) VALUES (?, ?, ?)');
-        $stmt->execute([$titleTask, $assigned, $due]);
+try {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_task'])) {
+        $titleTask = trim($_POST['title'] ?? '');
+        $assigned = (int)($_POST['assigned'] ?? 0);
+        $due = $_POST['due_date'] ?? date('Y-m-d');
+        if ($titleTask !== '' && $assigned) {
+            $stmt = $pdo->prepare('INSERT INTO tasks (title, assigned_to, due_date) VALUES (?, ?, ?)');
+            $stmt->execute([$titleTask, $assigned, $due]);
+        }
     }
-}
 
-$users = $pdo->query('SELECT id, username FROM users ORDER BY username')->fetchAll(PDO::FETCH_ASSOC);
-$today = date('Y-m-d');
-$todayTasks = $pdo->prepare('SELECT t.*, u.username FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE due_date <= ? ORDER BY due_date');
-$todayTasks->execute([$today]);
-$todayTasks = $todayTasks->fetchAll(PDO::FETCH_ASSOC);
-$upcomingTasks = $pdo->prepare('SELECT t.*, u.username FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE due_date > ? ORDER BY due_date');
-$upcomingTasks->execute([$today]);
-$upcomingTasks = $upcomingTasks->fetchAll(PDO::FETCH_ASSOC);
+    $users = $pdo->query('SELECT id, username FROM users ORDER BY username')->fetchAll(PDO::FETCH_ASSOC);
+    $today = date('Y-m-d');
+    $todayTasks = $pdo->prepare('SELECT t.*, u.username FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE due_date <= ? ORDER BY due_date');
+    $todayTasks->execute([$today]);
+    $todayTasks = $todayTasks->fetchAll(PDO::FETCH_ASSOC);
+    $upcomingTasks = $pdo->prepare('SELECT t.*, u.username FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE due_date > ? ORDER BY due_date');
+    $upcomingTasks->execute([$today]);
+    $upcomingTasks = $upcomingTasks->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $title = 'Task Manager - Error';
+    include __DIR__ . '/header.php';
+    echo '<div class="alert alert-danger">Database query failed: ' . htmlspecialchars($e->getMessage()) . '</div>';
+    include __DIR__ . '/footer.php';
+    exit;
+}
 
 $title = 'Task Manager';
 include __DIR__ . '/header.php';

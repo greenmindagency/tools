@@ -35,7 +35,9 @@ $hideBreadcrumb = $hideBreadcrumb ?? false;
         if (!empty($segments) && $segments[0] === 'tools') {
           array_shift($segments);
         }
-        $segments = array_values(array_filter($segments, fn($s) => $s !== 'index.php'));
+        $segments = array_values(array_filter($segments, function ($s) {
+          return $s !== 'index.php';
+        }));
 
         echo '<li class="breadcrumb-item"><a href="/tools/">Home</a></li>';
         $link = '/tools';
