@@ -286,20 +286,20 @@ require __DIR__ . '/../header.php';
       updateDepths();
     }
   });
-document.getElementById('sitemapForm').addEventListener('submit',function(){
+document.getElementById('sitemapForm').addEventListener('submit', function () {
   updateDepths();
-  document.getElementById('sitemapData').value=JSON.stringify(serialize(document.getElementById('sitemapRoot')));
+  document.getElementById('sitemapData').value = JSON.stringify(serialize(document.getElementById('sitemapRoot'), 0));
 });
-function serialize(ul){
-  const items=[];
-  ul.querySelectorAll(':scope > li').forEach(function(li){
-    const title=li.querySelector('.item-title-input').value.trim();
-    const type=li.querySelector('.item-type').value;
-    let children=[];
-    if(depth < 1) {
-      children=serialize(li.querySelector('.children'), depth+1);
+function serialize(ul, depth = 0) {
+  const items = [];
+  ul.querySelectorAll(':scope > li').forEach(function (li) {
+    const title = li.querySelector('.item-title-input').value.trim();
+    const type = li.querySelector('.item-type').value;
+    let children = [];
+    if (depth < 1) {
+      children = serialize(li.querySelector('.children'), depth + 1);
     }
-    items.push({title:title,type:type,children:children});
+    items.push({ title: title, type: type, children: children });
   });
   return items;
 }
