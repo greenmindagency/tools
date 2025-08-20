@@ -2,19 +2,22 @@
 session_start();
 require __DIR__ . '/config.php';
 
-$pdo = get_pdo();
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     $user = $_POST['username'] ?? '';
     $pass = $_POST['password'] ?? '';
     if ($user === ADMIN_USER && password_verify($pass, ADMIN_PASS_HASH)) {
         $_SESSION['user'] = ADMIN_USER;
+    } else {
+        $loginError = 'Invalid username or password.';
     }
 }
 
 if (!isset($_SESSION['user'])) {
     $title = 'Task Manager - Login';
     include __DIR__ . '/header.php';
+    if (isset($loginError)) {
+        echo '<div class="alert alert-danger">' . htmlspecialchars($loginError) . '</div>';
+    }
     ?>
     <h2>Login</h2>
     <form method="post" class="mb-5" style="max-width:400px;">
@@ -29,6 +32,20 @@ if (!isset($_SESSION['user'])) {
       <button type="submit" name="login" class="btn btn-primary">Login</button>
     </form>
     <?php
+    include __DIR__ . '/footer.php';
+    exit;
+}
+
+try {
+    $pdo = get_pdo();
+} catch (PDOException $e) {
+    $dbError = $e->getMessage();
+}
+
+if (isset($dbError)) {
+    $title = 'Task Manager - Error';
+    include __DIR__ . '/header.php';
+    echo '<div class="alert alert-danger">Database connection failed: ' . htmlspecialchars($dbError) . '</div>';
     include __DIR__ . '/footer.php';
     exit;
 }
