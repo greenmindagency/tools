@@ -112,7 +112,6 @@ function render_task($t, $users, $clients) {
           <div class="text-end ms-2">
             <div class="mb-1">
               <button type="button" class="btn btn-light btn-sm edit-btn" data-id="<?= $t['id'] ?>" title="Edit" data-bs-toggle="tooltip"><i class="bi bi-pencil"></i></button>
-              <button type="button" class="btn btn-success btn-sm save-btn" data-id="<?= $t['id'] ?>" title="Save" data-bs-toggle="tooltip"><i class="bi bi-save"></i></button>
               <button type="button" class="btn btn-warning btn-sm archive-btn" data-id="<?= $t['id'] ?>" title="Archive" data-bs-toggle="tooltip"><i class="bi bi-archive"></i></button>
             </div>
             <?php $pc = strtolower($t['priority']); ?>
@@ -182,7 +181,64 @@ function render_task($t, $users, $clients) {
                 <option value="nextmonth">Next Month</option>
               </select>
             </div>
+            <div class="col-12 mt-2 text-end">
+              <button type="button" class="btn btn-success save-btn" data-id="<?= $t['id'] ?>">Save</button>
+            </div>
           </form>
+          <button class="btn btn-link btn-sm add-subtask-toggle mt-2" type="button" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>">Add Subtask</button>
+          <div class="collapse" id="subtask-form-<?= $t['id'] ?>">
+            <form method="post" class="row g-2 mt-2 ajax">
+              <input type="hidden" name="add_task" value="1">
+              <input type="hidden" name="parent_id" value="<?= $t['id'] ?>">
+              <div class="col-12"><input type="text" name="title" class="form-control" placeholder="Subtask title" required></div>
+              <div class="col-12"><textarea name="description" class="form-control" placeholder="Description"></textarea></div>
+              <div class="col-md-3"><input type="date" name="due_date" class="form-control" required></div>
+              <div class="col-md-3">
+                <select class="form-select quick-date">
+                  <option value="">Quick date</option>
+                  <option value="tomorrow">Tomorrow</option>
+                  <option value="nextweek">Next Week</option>
+                  <option value="nextmonth">Next Month</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <select name="assigned" class="form-select" required>
+                  <option value="">Assign to</option>
+                  <?php foreach ($users as $u): ?>
+                  <option value="<?= $u['id'] ?>"><?= htmlspecialchars($u['username']) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <select name="client_id" class="form-select">
+                  <option value="">Client</option>
+                  <?php foreach ($clients as $c): ?>
+                  <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <select name="priority" class="form-select">
+                  <option value="Low">Low</option>
+                  <option value="Normal" selected>Normal</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
+              <div class="col-md-2 mt-2"><button class="btn btn-success w-100">Add</button></div>
+            </form>
+          </div>
+          <?php
+          global $pdo;
+          $childStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id=? ORDER BY t.order_index, t.due_date');
+          $childStmt->execute([$t['id']]);
+          $children = $childStmt->fetchAll(PDO::FETCH_ASSOC);
+          if ($children): ?>
+          <ul class="list-group ms-4 mt-2">
+            <?php foreach ($children as $ch): ?>
+            <?= render_task($ch, $users, $clients); ?>
+            <?php endforeach; ?>
+          </ul>
+          <?php endif; ?>
         </div>
       </div>
     </li>
@@ -210,6 +266,7 @@ try {
         $clientId = (int)($_POST['client_id'] ?? 0) ?: null;
         $desc = trim($_POST['description'] ?? '');
         $rec = $_POST['recurrence'] ?? 'none';
+        $parentId = (int)($_POST['parent_id'] ?? 0) ?: null;
         if ($rec === 'custom') {
             $days = $_POST['days'] ?? [];
             $rec = 'custom:' . implode(',', array_map('htmlspecialchars',$days));
@@ -220,8 +277,8 @@ try {
         }
         if ($title !== '' && $assigned) {
             $orderIdx = strtotime($due);
-            $stmt = $pdo->prepare('INSERT INTO tasks (title,description,assigned_to,client_id,priority,due_date,recurrence,order_index) VALUES (?,?,?,?,?,?,?,?)');
-            $stmt->execute([$title,$desc,$assigned,$clientId,$priority,$due,$rec,$orderIdx]);
+            $stmt = $pdo->prepare('INSERT INTO tasks (title,description,assigned_to,client_id,priority,due_date,recurrence,parent_id,order_index) VALUES (?,?,?,?,?,?,?,?,?)');
+            $stmt->execute([$title,$desc,$assigned,$clientId,$priority,$due,$rec,$parentId,$orderIdx]);
         }
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_task'])) {
@@ -288,8 +345,8 @@ try {
     $filterClient = isset($_GET['client']) ? (int)$_GET['client'] : null;
     $filterArchived = isset($_GET['archived']);
 
-    $users = $pdo->query('SELECT id,username FROM users ORDER BY username')->fetchAll(PDO::FETCH_ASSOC);
-    $clients = $pdo->query('SELECT id,name FROM clients ORDER BY name')->fetchAll(PDO::FETCH_ASSOC);
+    $users = $pdo->query('SELECT id,username FROM users ORDER BY sort_order, username')->fetchAll(PDO::FETCH_ASSOC);
+    $clients = $pdo->query('SELECT id,name FROM clients ORDER BY sort_order, name')->fetchAll(PDO::FETCH_ASSOC);
 
     $cond = [];
     $params = [];
@@ -301,14 +358,14 @@ try {
 
     $today = date('Y-m-d');
     if ($filterArchived) {
-        $archivedTasks = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE 1=1'.$where.' '.$order);
+        $archivedTasks = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id IS NULL'.$where.' '.$order);
         $archivedTasks->execute($params);
         $archivedTasks = $archivedTasks->fetchAll(PDO::FETCH_ASSOC);
     } else {
-        $todayStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE due_date <= ?'.$where.' '.$order);
+        $todayStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id IS NULL AND due_date <= ?'.$where.' '.$order);
         $todayStmt->execute(array_merge([$today],$params));
         $todayTasks = $todayStmt->fetchAll(PDO::FETCH_ASSOC);
-        $upcomingStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE due_date > ?'.$where.' '.$order);
+        $upcomingStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id IS NULL AND due_date > ?'.$where.' '.$order);
         $upcomingStmt->execute(array_merge([$today],$params));
         $upcomingTasks = $upcomingStmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -353,7 +410,12 @@ include __DIR__ . '/header.php';
   </div>
   <div class="col-md-9">
     <div class="d-flex justify-content-between mb-3">
-      <button id="addBtn" class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
+      <div>
+        <button id="addBtn" class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
+        <?php if(!$filterUser && !$filterClient && !$filterArchived): ?>
+        <button id="saveOrderBtn" class="btn btn-primary btn-sm ms-2">Save Order</button>
+        <?php endif; ?>
+      </div>
       <div>
         <a href="admin.php" class="btn btn-secondary btn-sm me-2" data-bs-toggle="tooltip" title="Admin">Admin</a>
         <a href="?logout=1" class="btn btn-outline-secondary btn-sm" data-bs-toggle="tooltip" title="Logout">Logout</a>
@@ -460,7 +522,7 @@ include __DIR__ . '/header.php';
 <script>
 function saveOrder(id){
   const order = Array.from(document.getElementById(id).children).map((el,idx)=>el.dataset.taskId+':'+idx).join(',');
-  fetch('index.php?reorder=1', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'order='+order});
+  return fetch('index.php?reorder=1', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'order='+order});
 }
 <?php if(!$filterUser && !$filterArchived): ?>
 new Sortable(document.getElementById('today-list'), {group:'tasks', animation:150, handle:'.task-main', onEnd:()=>saveOrder('today-list')});
@@ -584,5 +646,8 @@ document.querySelectorAll('.quick-date').forEach(sel=>{
 
 document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
 new bootstrap.Tooltip(document.getElementById('addBtn'));
+document.getElementById('saveOrderBtn')?.addEventListener('click', ()=>{
+  Promise.all([saveOrder('today-list'), saveOrder('upcoming-list')]).then(()=>showToast('Order saved'));
+});
 </script>
 <?php include __DIR__ . '/footer.php'; ?>
