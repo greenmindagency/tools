@@ -10,9 +10,14 @@ $hideBreadcrumb = $hideBreadcrumb ?? false;
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= htmlspecialchars($title) ?></title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <style>
     body { padding: 30px; margin-top: 50px; }
     img.logo { width: 50px; margin-right: 10px; }
+    .priority { font-weight: bold; }
+    .priority.low { color: #198754; }
+    .priority.normal { color: #ffc107; }
+    .priority.high { color: #dc3545; }
   </style>
 </head>
 <body>

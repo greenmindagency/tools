@@ -93,6 +93,92 @@ function next_due_date($current, $recurrence) {
     return $date->format('Y-m-d');
 }
 
+function render_task($t, $users, $clients) {
+    ob_start();
+    ?>
+    <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?>" draggable="true" data-task-id="<?= $t['id'] ?>">
+      <form method="post" class="me-2 ajax">
+        <input type="hidden" name="toggle_complete" value="<?= $t['id'] ?>">
+        <input type="checkbox" name="completed" <?= $t['status']==='done'?'checked':'' ?> onchange="this.form.submit()">
+      </form>
+      <div class="flex-grow-1">
+        <div class="d-flex justify-content-between">
+          <div data-bs-toggle="collapse" data-bs-target="#task-<?= $t['id'] ?>" class="task-header">
+            <?php if ($t['client_name']) echo '<strong>'.htmlspecialchars($t['client_name']).'</strong> '; ?><?= htmlspecialchars($t['title']) ?>
+            <?php if ($t['description']) echo '<div class=\"text-muted small\">'.htmlspecialchars($t['description']).'</div>'; ?>
+            <small>Assigned to <?= htmlspecialchars($t['username']) ?> — due <?= htmlspecialchars($t['due_date']) ?></small>
+          </div>
+          <div class="text-end ms-2">
+            <div class="mb-1">
+              <button type="button" class="btn btn-success btn-sm save-btn" data-id="<?= $t['id'] ?>" title="Save"><i class="bi bi-save"></i></button>
+              <button type="button" class="btn btn-warning btn-sm archive-btn" data-id="<?= $t['id'] ?>" title="Archive"><i class="bi bi-archive"></i></button>
+            </div>
+            <?php $pc = strtolower($t['priority']); ?>
+            <div class="priority <?= $pc ?>"><?= htmlspecialchars($t['priority']) ?></div>
+          </div>
+        </div>
+        <div class="collapse mt-2" id="task-<?= $t['id'] ?>">
+          <form method="post" class="row g-2 mt-2 task-form">
+            <input type="hidden" name="update_task" value="<?= $t['id'] ?>">
+            <div class="col-12"><input type="text" name="title" class="form-control" value="<?= htmlspecialchars($t['title']) ?>"></div>
+            <div class="col-12 mt-2"><textarea name="description" class="form-control" placeholder="Description"><?= htmlspecialchars($t['description'] ?? '') ?></textarea></div>
+            <div class="col-md-3"><input type="date" name="due_date" class="form-control" value="<?= htmlspecialchars($t['due_date']) ?>"></div>
+            <div class="col-md-3">
+              <select name="assigned" class="form-select">
+                <?php foreach ($users as $u): ?>
+                <option value="<?= $u['id'] ?>" <?= $t['assigned_to']==$u['id']?'selected':'' ?>><?= htmlspecialchars($u['username']) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <select name="client_id" class="form-select">
+                <option value="">Client</option>
+                <?php foreach ($clients as $c): ?>
+                <option value="<?= $c['id'] ?>" <?= $t['client_id']==$c['id']?'selected':'' ?>><?= htmlspecialchars($c['name']) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <?php $p=$t['priority']; ?>
+              <select name="priority" class="form-select">
+                <option value="Low" <?= $p==='Low'?'selected':'' ?>>Low</option>
+                <option value="Normal" <?= $p==='Normal'?'selected':'' ?>>Normal</option>
+                <option value="High" <?= $p==='High'?'selected':'' ?>>High</option>
+              </select>
+            </div>
+            <div class="col-md-3 mt-2">
+              <?php $r=$t['recurrence']; $rcount=1;$runit='week'; if(strpos($r,'interval:')===0){[, $rcount,$runit]=explode(':',$r);} ?>
+              <select name="recurrence" class="form-select recurrence-select">
+                <option value="none" <?= $r==='none'?'selected':'' ?>>No repeat</option>
+                <option value="everyday" <?= $r==='everyday'?'selected':'' ?>>Every Day</option>
+                <option value="working" <?= $r==='working'?'selected':'' ?>>Working Days</option>
+                <option value="interval" <?= strpos($r,'interval:')===0?'selected':'' ?>>Every N...</option>
+                <option value="custom" <?= strpos($r,'custom:')===0?'selected':'' ?>>Specific Days</option>
+              </select>
+            </div>
+            <div class="col-md-3 mt-2 recurrence-interval <?= strpos($r,'interval:')===0?'':'d-none' ?>">
+              <input type="number" min="1" name="interval_count" value="<?= $rcount ?>" class="form-control">
+            </div>
+            <div class="col-md-3 mt-2 recurrence-unit <?= strpos($r,'interval:')===0?'':'d-none' ?>">
+              <select name="interval_unit" class="form-select">
+                <option value="week" <?= $runit==='week'?'selected':'' ?>>week(s)</option>
+                <option value="month" <?= $runit==='month'?'selected':'' ?>>month(s)</option>
+                <option value="year" <?= $runit==='year'?'selected':'' ?>>year(s)</option>
+              </select>
+            </div>
+            <div class="col-md-12 mt-2 recurrence-days <?= strpos($r,'custom:')===0?'':'d-none' ?>">
+              <?php $selDays=strpos($r,'custom:')===0?explode(',',substr($r,7)):[]; foreach(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $d): ?>
+              <label class="me-2"><input type="checkbox" name="days[]" value="<?= $d ?>" <?= in_array($d,$selDays)?'checked':'' ?>> <?= $d ?></label>
+              <?php endforeach; ?>
+            </div>
+          </form>
+        </div>
+      </div>
+    </li>
+    <?php
+    return ob_get_clean();
+}
+
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['reorder'])) {
         $order = $_POST['order'] ?? '';
@@ -226,6 +312,11 @@ include __DIR__ . '/header.php';
 <div class="row">
   <div class="col-md-3">
     <ul class="list-group mb-4">
+      <?php if ($_SESSION['username'] === ADMIN_USER): ?>
+      <li class="list-group-item">
+        <a href="admin.php" class="text-decoration-none">Admin Panel</a>
+      </li>
+      <?php endif; ?>
       <li class="list-group-item <?= !$filterClient && !$filterUser && !$filterArchived ? 'active' : '' ?>">
         <a href="index.php" class="text-decoration-none<?= !$filterClient && !$filterUser && !$filterArchived ? ' text-white' : '' ?>">All Tasks</a>
       </li>
@@ -326,153 +417,13 @@ include __DIR__ . '/header.php';
       <h3>Today's & Overdue Tasks</h3>
       <ul id="today-list" class="list-group mb-4">
         <?php foreach ($todayTasks as $t): ?>
-        <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?>" draggable="true" data-task-id="<?= $t['id'] ?>">
-          <form method="post" class="me-2 ajax">
-            <input type="hidden" name="toggle_complete" value="<?= $t['id'] ?>">
-            <input type="checkbox" name="completed" <?= $t['status']==='done'?'checked':'' ?> onchange="this.form.submit()">
-          </form>
-          <div class="flex-grow-1">
-            <div data-bs-toggle="collapse" data-bs-target="#task-<?= $t['id'] ?>" class="task-header">
-              <?php if ($t['client_name']) echo '<strong>'.htmlspecialchars($t['client_name']).'</strong> '; ?><?= htmlspecialchars($t['title']) ?>
-              <?php if ($t['description']) echo '<div class="text-muted small">'.htmlspecialchars($t['description']).'</div>'; ?>
-              <small>Assigned to <?= htmlspecialchars($t['username']) ?> — <?= htmlspecialchars($t['priority']) ?> — due <?= htmlspecialchars($t['due_date']) ?></small>
-            </div>
-            <div class="collapse mt-2" id="task-<?= $t['id'] ?>">
-              <form method="post" class="row g-2 mt-2 ajax">
-                <input type="hidden" name="update_task" value="<?= $t['id'] ?>">
-                <div class="col-12"><input type="text" name="title" class="form-control" value="<?= htmlspecialchars($t['title']) ?>"></div>
-                <div class="col-12 mt-2"><textarea name="description" class="form-control" placeholder="Description"><?= htmlspecialchars($t['description'] ?? '') ?></textarea></div>
-                <div class="col-md-3"><input type="date" name="due_date" class="form-control" value="<?= htmlspecialchars($t['due_date']) ?>"></div>
-                <div class="col-md-3">
-                  <select name="assigned" class="form-select">
-                    <?php foreach ($users as $u): ?>
-                    <option value="<?= $u['id'] ?>" <?= $t['assigned_to']==$u['id']?'selected':'' ?>><?= htmlspecialchars($u['username']) ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                </div>
-                <div class="col-md-3">
-                  <select name="client_id" class="form-select">
-                    <option value="">Client</option>
-                    <?php foreach ($clients as $c): ?>
-                    <option value="<?= $c['id'] ?>" <?= $t['client_id']==$c['id']?'selected':'' ?>><?= htmlspecialchars($c['name']) ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                </div>
-                <div class="col-md-3">
-                  <?php $p=$t['priority']; ?>
-                  <select name="priority" class="form-select">
-                    <option value="Low" <?= $p==='Low'?'selected':'' ?>>Low</option>
-                    <option value="Normal" <?= $p==='Normal'?'selected':'' ?>>Normal</option>
-                    <option value="High" <?= $p==='High'?'selected':'' ?>>High</option>
-                  </select>
-                </div>
-                <div class="col-md-3 mt-2">
-                  <?php $r=$t['recurrence']; $rcount=1;$runit='week'; if(strpos($r,'interval:')===0){[, $rcount,$runit]=explode(':',$r);} ?>
-                  <select name="recurrence" class="form-select recurrence-select">
-                    <option value="none" <?= $r==='none'?'selected':'' ?>>No repeat</option>
-                    <option value="everyday" <?= $r==='everyday'?'selected':'' ?>>Every Day</option>
-                    <option value="working" <?= $r==='working'?'selected':'' ?>>Working Days</option>
-                    <option value="interval" <?= strpos($r,'interval:')===0?'selected':'' ?>>Every N...</option>
-                    <option value="custom" <?= strpos($r,'custom:')===0?'selected':'' ?>>Specific Days</option>
-                  </select>
-                </div>
-                <div class="col-md-3 mt-2 recurrence-interval <?= strpos($r,'interval:')===0?'':'d-none' ?>">
-                  <input type="number" min="1" name="interval_count" value="<?= $rcount ?>" class="form-control">
-                </div>
-                <div class="col-md-3 mt-2 recurrence-unit <?= strpos($r,'interval:')===0?'':'d-none' ?>">
-                  <select name="interval_unit" class="form-select">
-                    <option value="week" <?= $runit==='week'?'selected':'' ?>>week(s)</option>
-                    <option value="month" <?= $runit==='month'?'selected':'' ?>>month(s)</option>
-                    <option value="year" <?= $runit==='year'?'selected':'' ?>>year(s)</option>
-                  </select>
-                </div>
-                <div class="col-md-12 mt-2 recurrence-days <?= strpos($r,'custom:')===0?'':'d-none' ?>">
-                  <?php $selDays=strpos($r,'custom:')===0?explode(',',substr($r,7)):[]; foreach(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $d): ?>
-                  <label class="me-2"><input type="checkbox" name="days[]" value="<?= $d ?>" <?= in_array($d,$selDays)?'checked':'' ?>> <?= $d ?></label>
-                  <?php endforeach; ?>
-                </div>
-                <div class="col-md-3 mt-2"><button class="btn btn-primary btn-sm">Save</button></div>
-                <div class="col-md-3 mt-2"><button name="archive_task" value="<?= $t['id'] ?>" class="btn btn-warning btn-sm" onclick="return confirm('Archive task?')">Archive</button></div>
-              </form>
-            </div>
-          </div>
-        </li>
+        <?= render_task($t, $users, $clients); ?>
         <?php endforeach; ?>
       </ul>
       <h3>Upcoming Tasks</h3>
       <ul id="upcoming-list" class="list-group mb-4">
         <?php foreach ($upcomingTasks as $t): ?>
-        <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?>" draggable="true" data-task-id="<?= $t['id'] ?>">
-          <form method="post" class="me-2 ajax">
-            <input type="hidden" name="toggle_complete" value="<?= $t['id'] ?>">
-            <input type="checkbox" name="completed" <?= $t['status']==='done'?'checked':'' ?> onchange="this.form.submit()">
-          </form>
-          <div class="flex-grow-1">
-            <div data-bs-toggle="collapse" data-bs-target="#task-<?= $t['id'] ?>" class="task-header">
-              <?php if ($t['client_name']) echo '<strong>'.htmlspecialchars($t['client_name']).'</strong> '; ?><?= htmlspecialchars($t['title']) ?>
-              <?php if ($t['description']) echo '<div class="text-muted small">'.htmlspecialchars($t['description']).'</div>'; ?>
-              <small>Assigned to <?= htmlspecialchars($t['username']) ?> — <?= htmlspecialchars($t['priority']) ?> — due <?= htmlspecialchars($t['due_date']) ?></small>
-            </div>
-            <div class="collapse mt-2" id="task-<?= $t['id'] ?>">
-              <form method="post" class="row g-2 mt-2 ajax">
-                <input type="hidden" name="update_task" value="<?= $t['id'] ?>">
-                <div class="col-12"><input type="text" name="title" class="form-control" value="<?= htmlspecialchars($t['title']) ?>"></div>
-                <div class="col-12 mt-2"><textarea name="description" class="form-control" placeholder="Description"><?= htmlspecialchars($t['description'] ?? '') ?></textarea></div>
-                <div class="col-md-3"><input type="date" name="due_date" class="form-control" value="<?= htmlspecialchars($t['due_date']) ?>"></div>
-                <div class="col-md-3">
-                  <select name="assigned" class="form-select">
-                    <?php foreach ($users as $u): ?>
-                    <option value="<?= $u['id'] ?>" <?= $t['assigned_to']==$u['id']?'selected':'' ?>><?= htmlspecialchars($u['username']) ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                </div>
-                <div class="col-md-3">
-                  <select name="client_id" class="form-select">
-                    <option value="">Client</option>
-                    <?php foreach ($clients as $c): ?>
-                    <option value="<?= $c['id'] ?>" <?= $t['client_id']==$c['id']?'selected':'' ?>><?= htmlspecialchars($c['name']) ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                </div>
-                <div class="col-md-3">
-                  <?php $p=$t['priority']; ?>
-                  <select name="priority" class="form-select">
-                    <option value="Low" <?= $p==='Low'?'selected':'' ?>>Low</option>
-                    <option value="Normal" <?= $p==='Normal'?'selected':'' ?>>Normal</option>
-                    <option value="High" <?= $p==='High'?'selected':'' ?>>High</option>
-                  </select>
-                </div>
-                <div class="col-md-3 mt-2">
-                  <?php $r=$t['recurrence']; $rcount=1;$runit='week'; if(strpos($r,'interval:')===0){[, $rcount,$runit]=explode(':',$r);} ?>
-                  <select name="recurrence" class="form-select recurrence-select">
-                    <option value="none" <?= $r==='none'?'selected':'' ?>>No repeat</option>
-                    <option value="everyday" <?= $r==='everyday'?'selected':'' ?>>Every Day</option>
-                    <option value="working" <?= $r==='working'?'selected':'' ?>>Working Days</option>
-                    <option value="interval" <?= strpos($r,'interval:')===0?'selected':'' ?>>Every N...</option>
-                    <option value="custom" <?= strpos($r,'custom:')===0?'selected':'' ?>>Specific Days</option>
-                  </select>
-                </div>
-                <div class="col-md-3 mt-2 recurrence-interval <?= strpos($r,'interval:')===0?'':'d-none' ?>">
-                  <input type="number" min="1" name="interval_count" value="<?= $rcount ?>" class="form-control">
-                </div>
-                <div class="col-md-3 mt-2 recurrence-unit <?= strpos($r,'interval:')===0?'':'d-none' ?>">
-                  <select name="interval_unit" class="form-select">
-                    <option value="week" <?= $runit==='week'?'selected':'' ?>>week(s)</option>
-                    <option value="month" <?= $runit==='month'?'selected':'' ?>>month(s)</option>
-                    <option value="year" <?= $runit==='year'?'selected':'' ?>>year(s)</option>
-                  </select>
-                </div>
-                <div class="col-md-12 mt-2 recurrence-days <?= strpos($r,'custom:')===0?'':'d-none' ?>">
-                  <?php $selDays=strpos($r,'custom:')===0?explode(',',substr($r,7)):[]; foreach(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $d): ?>
-                  <label class="me-2"><input type="checkbox" name="days[]" value="<?= $d ?>" <?= in_array($d,$selDays)?'checked':'' ?>> <?= $d ?></label>
-                  <?php endforeach; ?>
-                </div>
-                <div class="col-md-3 mt-2"><button class="btn btn-primary btn-sm">Save</button></div>
-                <div class="col-md-3 mt-2"><button name="archive_task" value="<?= $t['id'] ?>" class="btn btn-warning btn-sm" onclick="return confirm('Archive task?')">Archive</button></div>
-              </form>
-            </div>
-          </div>
-        </li>
+        <?= render_task($t, $users, $clients); ?>
         <?php endforeach; ?>
       </ul>
     <?php endif; ?>
@@ -502,8 +453,35 @@ document.querySelectorAll('form.ajax').forEach(f=>{
   f.addEventListener('submit', async e=>{
     e.preventDefault();
     const fd = new FormData(f);
-    await fetch(window.location.href, {method:'POST', body:fd});
-    location.reload();
+    await fetch('index.php', {method:'POST', body:fd});
+    if (fd.has('toggle_complete')) {
+      const li = f.closest('li');
+      li.classList.toggle('opacity-50', f.querySelector('input[type=checkbox]').checked);
+      showToast('Updated');
+    } else if (fd.has('add_task')) {
+      f.reset();
+      showToast('Task added');
+      location.reload();
+    }
+  });
+});
+
+document.querySelectorAll('.save-btn').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    const id = btn.dataset.id;
+    const form = document.querySelector('#task-'+id+' form');
+    const fd = new FormData(form);
+    await fetch('index.php', {method:'POST', body:fd});
+    showToast('Task saved');
+  });
+});
+
+document.querySelectorAll('.archive-btn').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    const id = btn.dataset.id;
+    await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'archive_task='+id});
+    btn.closest('li').remove();
+    showToast('Task archived');
   });
 });
 
