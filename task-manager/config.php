@@ -7,7 +7,7 @@ const DB_PASS = '8QPNw)_?Jc-S';
 // Admin credentials
 const ADMIN_USER = 'peter';
 // Uses the same hashed password as other tools so credentials stay consistent
-const ADMIN_PASS_HASH = '$2y$10$DrSjBqdNtRRd9/r8JpIpse5Bgot9hLnKHsZrIGSTSUlkcL1RhXPSG';
+const ADMIN_PASS_HASH = '$2y$10$oLagrVLcLxtWr2K3Ghmq9euso7jSCVDxS4hCyZgVfUpCkAlj9RajW';
 
 function get_pdo(): PDO {
     static $pdo;
