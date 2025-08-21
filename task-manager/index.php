@@ -183,7 +183,7 @@ function render_task($t, $users, $clients) {
               </select>
             </div>
           </form>
-          <button class="btn btn-outline-secondary btn-sm add-subtask-toggle mt-2 d-none" type="button" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>">Add Subtask</button>
+          <button class="btn btn-primary btn-sm add-subtask-toggle mt-2 d-none" type="button" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>">Add Subtask</button>
           <div class="collapse" id="subtask-form-<?= $t['id'] ?>">
             <form method="post" class="row g-2 mt-2 ajax">
               <input type="hidden" name="add_task" value="1">
@@ -222,12 +222,12 @@ function render_task($t, $users, $clients) {
                   <option value="High">High</option>
                 </select>
               </div>
-              <div class="col-md-2 mt-2"><button class="btn btn-success w-100">Add</button></div>
+              <div class="col-md-2 mt-2"><button class="btn btn-primary w-100">Add</button></div>
             </form>
           </div>
           <?php
           global $pdo;
-          $childStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id=? ORDER BY t.order_index, t.due_date');
+          $childStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id=? AND t.status!="archived" ORDER BY t.order_index, t.due_date');
           $childStmt->execute([$t['id']]);
           $children = $childStmt->fetchAll(PDO::FETCH_ASSOC);
           if ($children): ?>
@@ -326,13 +326,13 @@ try {
           exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_task'])) {
         $id = (int)$_POST['archive_task'];
-        $stmt = $pdo->prepare('UPDATE tasks SET status="archived" WHERE id=?');
-        $stmt->execute([$id]);
+        $stmt = $pdo->prepare('UPDATE tasks SET status="archived" WHERE id=? OR parent_id=?');
+        $stmt->execute([$id,$id]);
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['unarchive_task'])) {
         $id = (int)$_POST['unarchive_task'];
-        $stmt = $pdo->prepare('UPDATE tasks SET status="pending" WHERE id=?');
-        $stmt->execute([$id]);
+        $stmt = $pdo->prepare('UPDATE tasks SET status="pending" WHERE id=? OR parent_id=?');
+        $stmt->execute([$id,$id]);
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_task'])) {
         $id = (int)$_POST['delete_task'];
@@ -350,7 +350,11 @@ try {
 
     $cond = [];
     $params = [];
-    if ($filterUser) { $cond[] = 't.assigned_to=?'; $params[] = $filterUser; }
+    if ($filterUser) {
+        $cond[] = '(t.assigned_to=? OR EXISTS (SELECT 1 FROM tasks st WHERE st.parent_id=t.id AND st.assigned_to=?))';
+        $params[] = $filterUser;
+        $params[] = $filterUser;
+    }
     if ($filterClient) { $cond[] = 't.client_id=?'; $params[] = $filterClient; }
     if ($filterArchived) { $cond[] = 't.status="archived"'; } else { $cond[] = 't.status!="archived"'; }
     $where = $cond ? ' AND '.implode(' AND ',$cond) : '';
@@ -362,7 +366,7 @@ try {
         $allStmt->execute($params);
         $allTasks = $allStmt->fetchAll(PDO::FETCH_ASSOC);
     } elseif ($filterArchived) {
-        $archivedStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id IS NULL'.$where.' '.$order);
+        $archivedStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE 1'.$where.' '.$order);
         $archivedStmt->execute($params);
         $archivedTasks = $archivedStmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
@@ -388,6 +392,9 @@ include __DIR__ . '/header.php';
 <div class="row">
   <div class="col-md-3">
     <ul class="list-group mb-4">
+      <li class="list-group-item <?= $filterUser == ($_SESSION['user_id'] ?? 0) && !$filterClient && !$filterArchived ? 'active' : '' ?>">
+        <a href="index.php?user=<?= $_SESSION['user_id'] ?? 0 ?>" class="text-decoration-none<?= $filterUser == ($_SESSION['user_id'] ?? 0) && !$filterClient && !$filterArchived ? ' text-white' : '' ?>">My Tasks</a>
+      </li>
       <li class="list-group-item <?= !$filterClient && !$filterUser && !$filterArchived ? 'active' : '' ?>">
         <a href="index.php" class="text-decoration-none<?= !$filterClient && !$filterUser && !$filterArchived ? ' text-white' : '' ?>">All Tasks</a>
       </li>
@@ -417,7 +424,7 @@ include __DIR__ . '/header.php';
       <div>
         <button id="addBtn" class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
         <?php if(!$filterUser && !$filterClient && !$filterArchived): ?>
-        <button id="saveOrderBtn" class="btn btn-primary btn-sm ms-2">Save Order</button>
+        <button id="saveOrderBtn" type="button" class="btn btn-primary btn-sm ms-2">Save Order</button>
         <?php endif; ?>
       </div>
       <div>
@@ -618,7 +625,10 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
     li.querySelector('.assignee').textContent = form.querySelector('select[name=assigned]').selectedOptions[0].textContent;
     const clientSel = form.querySelector('select[name=client_id]');
     li.querySelector('.client').textContent = clientSel.value ? clientSel.selectedOptions[0].textContent : 'Others';
-    li.querySelector('.priority').textContent = form.querySelector('select[name=priority]').value;
+    const newPriority = form.querySelector('select[name=priority]').value;
+    const prioritySpan = li.querySelector('.priority');
+    prioritySpan.textContent = newPriority;
+    prioritySpan.className = 'priority ' + newPriority.toLowerCase();
     form.classList.add('d-none');
     collapse.querySelector('.description').classList.remove('d-none');
     btn.classList.add('d-none');
@@ -684,8 +694,12 @@ document.querySelectorAll('.quick-date').forEach(sel=>{
 
 document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
 new bootstrap.Tooltip(document.getElementById('addBtn'));
-document.getElementById('saveOrderBtn')?.addEventListener('click', ()=>{
-  saveOrder('all-list').then(()=>showToast('Order saved'));
-});
+const saveOrderBtn = document.getElementById('saveOrderBtn');
+if (saveOrderBtn) {
+  saveOrderBtn.addEventListener('click', async () => {
+    await saveOrder('all-list');
+    showToast('Order saved');
+  });
+}
 </script>
 <?php include __DIR__ . '/footer.php'; ?>

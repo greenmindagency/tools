@@ -15,9 +15,9 @@ $hideBreadcrumb = $hideBreadcrumb ?? false;
     body { padding: 30px; margin-top: 50px; }
     img.logo { width: 50px; margin-right: 10px; }
     .priority { font-weight: bold; }
-    .priority.low { color: #198754; }
-    .priority.normal { color: #ffc107; }
-    .priority.high { color: #dc3545; }
+    .priority.low { color: #198754 !important; }
+    .priority.normal { color: #ffc107 !important; }
+    .priority.high { color: #dc3545 !important; }
     .editable { min-height: 38px; white-space: pre-wrap; }
     .task-main { cursor: pointer; }
   </style>
