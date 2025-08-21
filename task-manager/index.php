@@ -97,10 +97,10 @@ function render_task($t, $users, $clients) {
     $overdue = $t['due_date'] < $today && $t['status'] !== 'done';
     ob_start();
     ?>
-    <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>">
-      <form method="post" class="me-2 ajax" data-bs-toggle="tooltip" title="Complete">
+    <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>" data-recurrence="<?= htmlspecialchars($t['recurrence']) ?>">
+      <form method="post" class="me-2 complete-form" data-bs-toggle="tooltip" title="Complete">
         <input type="hidden" name="toggle_complete" value="<?= $t['id'] ?>">
-        <input type="checkbox" name="completed" <?= $t['status']==='done'?'checked':'' ?> onchange="this.form.submit()">
+        <input type="checkbox" class="complete-checkbox" name="completed" <?= $t['status']==='done'?'checked':'' ?>>
       </form>
       <div class="flex-grow-1">
         <div class="d-flex justify-content-between">
@@ -111,6 +111,7 @@ function render_task($t, $users, $clients) {
           </div>
           <div class="text-end ms-2">
             <div class="mb-1">
+              <button type="button" class="btn btn-success btn-sm save-btn d-none" data-id="<?= $t['id'] ?>" title="Save" data-bs-toggle="tooltip"><i class="bi bi-check"></i></button>
               <button type="button" class="btn btn-light btn-sm edit-btn" data-id="<?= $t['id'] ?>" title="Edit" data-bs-toggle="tooltip"><i class="bi bi-pencil"></i></button>
               <button type="button" class="btn btn-warning btn-sm archive-btn" data-id="<?= $t['id'] ?>" title="Archive" data-bs-toggle="tooltip"><i class="bi bi-archive"></i></button>
             </div>
@@ -181,11 +182,8 @@ function render_task($t, $users, $clients) {
                 <option value="nextmonth">Next Month</option>
               </select>
             </div>
-            <div class="col-12 mt-2 text-end">
-              <button type="button" class="btn btn-success save-btn" data-id="<?= $t['id'] ?>">Save</button>
-            </div>
           </form>
-          <button class="btn btn-link btn-sm add-subtask-toggle mt-2" type="button" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>">Add Subtask</button>
+          <button class="btn btn-outline-secondary btn-sm add-subtask-toggle mt-2 d-none" type="button" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>">Add Subtask</button>
           <div class="collapse" id="subtask-form-<?= $t['id'] ?>">
             <form method="post" class="row g-2 mt-2 ajax">
               <input type="hidden" name="add_task" value="1">
@@ -312,18 +310,20 @@ try {
         $stmt = $pdo->prepare('SELECT recurrence,due_date FROM tasks WHERE id=?');
         $stmt->execute([$id]);
         $task = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($task) {
-            if ($task['recurrence'] !== 'none') {
-                $next = next_due_date($task['due_date'],$task['recurrence']);
-                $stmt2 = $pdo->prepare('UPDATE tasks SET due_date=?, status="pending" WHERE id=?');
-                $stmt2->execute([$next,$id]);
-            } else {
-                $status = isset($_POST['completed']) ? 'done' : 'pending';
-                $stmt2 = $pdo->prepare('UPDATE tasks SET status=? WHERE id=?');
-                $stmt2->execute([$status,$id]);
-            }
-        }
-        exit;
+          if ($task) {
+              if ($task['recurrence'] !== 'none') {
+                  $next = next_due_date($task['due_date'],$task['recurrence']);
+                  $stmt2 = $pdo->prepare('UPDATE tasks SET due_date=?, status="pending" WHERE id=?');
+                  $stmt2->execute([$next,$id]);
+                  echo $next;
+              } else {
+                  $status = isset($_POST['completed']) ? 'done' : 'pending';
+                  $stmt2 = $pdo->prepare('UPDATE tasks SET status=? WHERE id=?');
+                  $stmt2->execute([$status,$id]);
+                  echo $status;
+              }
+          }
+          exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_task'])) {
         $id = (int)$_POST['archive_task'];
         $stmt = $pdo->prepare('UPDATE tasks SET status="archived" WHERE id=?');
@@ -354,13 +354,17 @@ try {
     if ($filterClient) { $cond[] = 't.client_id=?'; $params[] = $filterClient; }
     if ($filterArchived) { $cond[] = 't.status="archived"'; } else { $cond[] = 't.status!="archived"'; }
     $where = $cond ? ' AND '.implode(' AND ',$cond) : '';
-    $order = $filterUser ? 'ORDER BY due_date' : 'ORDER BY order_index, due_date';
+    $order = (!$filterUser && !$filterClient && !$filterArchived) ? 'ORDER BY order_index, due_date' : 'ORDER BY due_date';
 
     $today = date('Y-m-d');
-    if ($filterArchived) {
-        $archivedTasks = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id IS NULL'.$where.' '.$order);
-        $archivedTasks->execute($params);
-        $archivedTasks = $archivedTasks->fetchAll(PDO::FETCH_ASSOC);
+    if (!$filterUser && !$filterClient && !$filterArchived) {
+        $allStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id IS NULL'.$where.' '.$order);
+        $allStmt->execute($params);
+        $allTasks = $allStmt->fetchAll(PDO::FETCH_ASSOC);
+    } elseif ($filterArchived) {
+        $archivedStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id IS NULL'.$where.' '.$order);
+        $archivedStmt->execute($params);
+        $archivedTasks = $archivedStmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
         $todayStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id IS NULL AND due_date <= ?'.$where.' '.$order);
         $todayStmt->execute(array_merge([$today],$params));
@@ -502,6 +506,12 @@ include __DIR__ . '/header.php';
         </li>
         <?php endforeach; ?>
       </ul>
+    <?php elseif (!$filterUser && !$filterClient): ?>
+      <ul id="all-list" class="list-group mb-4">
+        <?php foreach ($allTasks as $t): ?>
+        <?= render_task($t, $users, $clients); ?>
+        <?php endforeach; ?>
+      </ul>
     <?php else: ?>
       <h3 class="mb-4">Today's & Overdue Tasks</h3>
       <ul id="today-list" class="list-group mb-4">
@@ -524,13 +534,9 @@ function saveOrder(id){
   const order = Array.from(document.getElementById(id).children).map((el,idx)=>el.dataset.taskId+':'+idx).join(',');
   return fetch('index.php?reorder=1', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'order='+order});
 }
-<?php if(!$filterUser && !$filterArchived): ?>
-new Sortable(document.getElementById('today-list'), {group:'tasks', animation:150, handle:'.task-main', onEnd:()=>saveOrder('today-list')});
-new Sortable(document.getElementById('upcoming-list'), {group:'tasks', animation:150, handle:'.task-main', onEnd:()=>saveOrder('upcoming-list')});
-<?php if($filterClient): ?>
-// allow drag also when filtering by client
-<?php endif; ?>
-<?php endif; ?>
+  <?php if(!$filterUser && !$filterClient && !$filterArchived): ?>
+  new Sortable(document.getElementById('all-list'), {animation:150, handle:'.task-main'});
+  <?php endif; ?>
 
 document.getElementById('recurrence').addEventListener('change', function(){
   document.getElementById('day-select').classList.toggle('d-none', this.value !== 'custom');
@@ -543,25 +549,55 @@ document.querySelectorAll('form.ajax').forEach(f=>{
     e.preventDefault();
     const fd = new FormData(f);
     await fetch('index.php', {method:'POST', body:fd});
-    if (fd.has('toggle_complete')) {
-      const li = f.closest('li');
-      li.classList.toggle('opacity-50', f.querySelector('input[type=checkbox]').checked);
-      showToast('Updated');
-    } else if (fd.has('add_task')) {
+    if (fd.has('add_task')) {
       f.reset();
       showToast('Task added');
       location.reload();
     }
   });
 });
+
+document.querySelectorAll('.complete-checkbox').forEach(cb=>{
+  cb.addEventListener('change', async ()=>{
+    const form = cb.closest('form');
+    const fd = new FormData(form);
+    if(cb.checked) fd.set('completed','1');
+    const res = await fetch('index.php', {method:'POST', body:fd});
+    const text = (await res.text()).trim();
+    const li = form.closest('li');
+    if(/^\d{4}-\d{2}-\d{2}$/.test(text)){
+      li.querySelector('.due-date').textContent = text;
+      cb.checked = false;
+      li.classList.remove('opacity-50');
+    } else {
+      li.classList.toggle('opacity-50', cb.checked);
+    }
+    showToast('Updated');
+  });
+});
+
+document.querySelectorAll('.task-main').forEach(main=>{
+  main.addEventListener('click', ()=>{
+    const target = document.querySelector(main.dataset.bsTarget);
+    document.querySelectorAll('.collapse.show').forEach(c=>{ if(c!==target) new bootstrap.Collapse(c,{toggle:false}).hide(); });
+  });
+});
+
 document.querySelectorAll('.edit-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     const id = btn.dataset.id;
+    const li = btn.closest('li');
     const collapse = document.getElementById('task-'+id);
     const form = collapse.querySelector('form');
     const desc = collapse.querySelector('.description');
+    const saveBtn = li.querySelector('.save-btn');
+    const subBtn = li.querySelector('.add-subtask-toggle');
+    document.querySelectorAll('.collapse.show').forEach(c=>{ if(c!==collapse) new bootstrap.Collapse(c,{toggle:false}).hide(); });
     form.classList.toggle('d-none');
     desc.classList.toggle('d-none');
+    const editing = !form.classList.contains('d-none');
+    saveBtn.classList.toggle('d-none', !editing);
+    subBtn.classList.toggle('d-none', !editing);
     new bootstrap.Collapse(collapse, {toggle:false}).show();
   });
 });
@@ -569,13 +605,13 @@ document.querySelectorAll('.edit-btn').forEach(btn=>{
 document.querySelectorAll('.save-btn').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
     const id = btn.dataset.id;
+    const li = btn.closest('li');
     const collapse = document.getElementById('task-'+id);
     const form = collapse.querySelector('form');
     const fd = new FormData(form);
     fd.set('title', form.querySelector('[data-field=title]').textContent.trim());
     fd.set('description', form.querySelector('[data-field=description]').textContent.trim());
     await fetch('index.php', {method:'POST', body:fd});
-    const li = collapse.closest('li');
     li.querySelector('.task-title-text').textContent = form.querySelector('[data-field=title]').textContent.trim();
     li.querySelector('.description').innerHTML = form.querySelector('[data-field=description]').textContent.replace(/\n/g,'<br>');
     li.querySelector('.due-date').textContent = form.querySelector('input[name=due_date]').value;
@@ -585,6 +621,8 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
     li.querySelector('.priority').textContent = form.querySelector('select[name=priority]').value;
     form.classList.add('d-none');
     collapse.querySelector('.description').classList.remove('d-none');
+    btn.classList.add('d-none');
+    li.querySelector('.add-subtask-toggle').classList.add('d-none');
     showToast('Task saved');
   });
 });
@@ -647,7 +685,7 @@ document.querySelectorAll('.quick-date').forEach(sel=>{
 document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
 new bootstrap.Tooltip(document.getElementById('addBtn'));
 document.getElementById('saveOrderBtn')?.addEventListener('click', ()=>{
-  Promise.all([saveOrder('today-list'), saveOrder('upcoming-list')]).then(()=>showToast('Order saved'));
+  saveOrder('all-list').then(()=>showToast('Order saved'));
 });
 </script>
 <?php include __DIR__ . '/footer.php'; ?>
