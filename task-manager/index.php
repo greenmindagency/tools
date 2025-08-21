@@ -93,9 +93,11 @@ function next_due_date($current, $recurrence) {
     return $date->format('Y-m-d');
 }
 function render_task($t, $users, $clients) {
+    $today = date('Y-m-d');
+    $overdue = $t['due_date'] < $today && $t['status'] !== 'done';
     ob_start();
     ?>
-    <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?>" draggable="true" data-task-id="<?= $t['id'] ?>">
+    <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>">
       <form method="post" class="me-2 ajax" data-bs-toggle="tooltip" title="Complete">
         <input type="hidden" name="toggle_complete" value="<?= $t['id'] ?>">
         <input type="checkbox" name="completed" <?= $t['status']==='done'?'checked':'' ?> onchange="this.form.submit()">
@@ -105,25 +107,24 @@ function render_task($t, $users, $clients) {
           <div class="task-main" data-bs-toggle="collapse" data-bs-target="#task-<?= $t['id'] ?>">
             <strong class="client"><?= $t['client_name'] ? htmlspecialchars($t['client_name']) : 'Others' ?></strong>
             <span class="task-title-text"><?= htmlspecialchars($t['title']) ?></span>
-            <div class="small text-muted due-date"><?= htmlspecialchars($t['due_date']) ?></div>
+            <div class="small text-muted due-date"><i class="bi bi-calendar-event me-1"></i><?= htmlspecialchars($t['due_date']) ?></div>
           </div>
           <div class="text-end ms-2">
-            <div class="fw-bold assignee"><?= htmlspecialchars($t['username']) ?></div>
-            <div class="mt-1">
+            <div class="mb-1">
               <button type="button" class="btn btn-light btn-sm edit-btn" data-id="<?= $t['id'] ?>" title="Edit" data-bs-toggle="tooltip"><i class="bi bi-pencil"></i></button>
               <button type="button" class="btn btn-success btn-sm save-btn" data-id="<?= $t['id'] ?>" title="Save" data-bs-toggle="tooltip"><i class="bi bi-save"></i></button>
               <button type="button" class="btn btn-warning btn-sm archive-btn" data-id="<?= $t['id'] ?>" title="Archive" data-bs-toggle="tooltip"><i class="bi bi-archive"></i></button>
             </div>
             <?php $pc = strtolower($t['priority']); ?>
-            <div class="priority <?= $pc ?>"><?= htmlspecialchars($t['priority']) ?></div>
+            <div><span class="fw-bold assignee"><?= htmlspecialchars($t['username']) ?></span> - <span class="priority <?= $pc ?>"><?= htmlspecialchars($t['priority']) ?></span></div>
           </div>
         </div>
         <div class="collapse mt-2" id="task-<?= $t['id'] ?>">
           <div class="description mb-2"><?= nl2br(htmlspecialchars($t['description'])) ?></div>
           <form method="post" class="row g-2 mt-2 task-form d-none">
             <input type="hidden" name="update_task" value="<?= $t['id'] ?>">
-            <div class="col-12"><div class="form-control editable" data-field="title"><?= htmlspecialchars($t['title']) ?></div></div>
-            <div class="col-12 mt-2"><div class="form-control editable" data-field="description"><?= htmlspecialchars($t['description'] ?? '') ?></div></div>
+            <div class="col-12"><div class="form-control editable" data-field="title" contenteditable="true"><?= htmlspecialchars($t['title']) ?></div></div>
+            <div class="col-12 mt-2"><div class="form-control editable" data-field="description" contenteditable="true"><?= htmlspecialchars($t['description'] ?? '') ?></div></div>
             <div class="col-md-3"><input type="date" name="due_date" class="form-control" value="<?= htmlspecialchars($t['due_date']) ?>"></div>
             <div class="col-md-3">
               <select name="assigned" class="form-select">
@@ -271,6 +272,16 @@ try {
         $stmt = $pdo->prepare('UPDATE tasks SET status="archived" WHERE id=?');
         $stmt->execute([$id]);
         exit;
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['unarchive_task'])) {
+        $id = (int)$_POST['unarchive_task'];
+        $stmt = $pdo->prepare('UPDATE tasks SET status="pending" WHERE id=?');
+        $stmt->execute([$id]);
+        exit;
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_task'])) {
+        $id = (int)$_POST['delete_task'];
+        $stmt = $pdo->prepare('DELETE FROM tasks WHERE id=?');
+        $stmt->execute([$id]);
+        exit;
     }
 
     $filterUser = isset($_GET['user']) ? (int)$_GET['user'] : null;
@@ -313,19 +324,9 @@ try {
 $title = 'Task Manager';
 include __DIR__ . '/header.php';
 ?>
-<div class="d-flex justify-content-between mb-3">
-  <button id="addBtn" class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
-  <div>
-    <a href="admin.php" class="btn btn-secondary btn-sm me-2" data-bs-toggle="tooltip" title="Admin">Admin</a>
-    <a href="?logout=1" class="btn btn-outline-secondary btn-sm" data-bs-toggle="tooltip" title="Logout">Logout</a>
-  </div>
-</div>
 <div class="row">
   <div class="col-md-3">
     <ul class="list-group mb-4">
-      <li class="list-group-item">
-        <a href="admin.php" class="text-decoration-none">Admin Panel</a>
-      </li>
       <li class="list-group-item <?= !$filterClient && !$filterUser && !$filterArchived ? 'active' : '' ?>">
         <a href="index.php" class="text-decoration-none<?= !$filterClient && !$filterUser && !$filterArchived ? ' text-white' : '' ?>">All Tasks</a>
       </li>
@@ -351,6 +352,13 @@ include __DIR__ . '/header.php';
     </ul>
   </div>
   <div class="col-md-9">
+    <div class="d-flex justify-content-between mb-3">
+      <button id="addBtn" class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
+      <div>
+        <a href="admin.php" class="btn btn-secondary btn-sm me-2" data-bs-toggle="tooltip" title="Admin">Admin</a>
+        <a href="?logout=1" class="btn btn-outline-secondary btn-sm" data-bs-toggle="tooltip" title="Logout">Logout</a>
+      </div>
+    </div>
     <div id="addTask" class="collapse mb-4">
       <form method="post" class="row g-2 ajax">
         <input type="hidden" name="add_task" value="1">
@@ -416,26 +424,30 @@ include __DIR__ . '/header.php';
       </form>
     </div>
     <?php if ($filterArchived): ?>
-      <h3>Archived Tasks</h3>
+      <h3 class="mb-4">Archived Tasks</h3>
       <ul class="list-group" id="archived-list">
         <?php foreach ($archivedTasks as $t): ?>
-        <li class="list-group-item d-flex align-items-start" data-task-id="<?= $t['id'] ?>">
+        <li class="list-group-item d-flex align-items-start justify-content-between" data-task-id="<?= $t['id'] ?>">
           <div class="flex-grow-1">
             <strong><?= $t['client_name'] ? htmlspecialchars($t['client_name']) : 'Others' ?></strong> <?= htmlspecialchars($t['title']) ?>
             <?php if ($t['description']) echo '<div class="text-muted small">'.htmlspecialchars($t['description']).'</div>'; ?>
             <small><?= htmlspecialchars($t['username']) ?> — <?= htmlspecialchars($t['priority']) ?> — <?= htmlspecialchars($t['due_date']) ?></small>
           </div>
+          <div class="ms-2 text-nowrap">
+            <button type="button" class="btn btn-success btn-sm unarchive-btn" data-id="<?= $t['id'] ?>" title="Unarchive" data-bs-toggle="tooltip"><i class="bi bi-arrow-counterclockwise"></i></button>
+            <button type="button" class="btn btn-danger btn-sm delete-btn" data-id="<?= $t['id'] ?>" title="Delete" data-bs-toggle="tooltip"><i class="bi bi-trash"></i></button>
+          </div>
         </li>
         <?php endforeach; ?>
       </ul>
     <?php else: ?>
-      <h3>Today's & Overdue Tasks</h3>
+      <h3 class="mb-4">Today's & Overdue Tasks</h3>
       <ul id="today-list" class="list-group mb-4">
         <?php foreach ($todayTasks as $t): ?>
         <?= render_task($t, $users, $clients); ?>
         <?php endforeach; ?>
       </ul>
-      <h3>Upcoming Tasks</h3>
+      <h3 class="mb-4">Upcoming Tasks</h3>
       <ul id="upcoming-list" class="list-group mb-4">
         <?php foreach ($upcomingTasks as $t): ?>
         <?= render_task($t, $users, $clients); ?>
@@ -451,8 +463,8 @@ function saveOrder(id){
   fetch('index.php?reorder=1', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'order='+order});
 }
 <?php if(!$filterUser && !$filterArchived): ?>
-new Sortable(document.getElementById('today-list'), {group:'tasks', animation:150, onEnd:()=>saveOrder('today-list')});
-new Sortable(document.getElementById('upcoming-list'), {group:'tasks', animation:150, onEnd:()=>saveOrder('upcoming-list')});
+new Sortable(document.getElementById('today-list'), {group:'tasks', animation:150, handle:'.task-main', onEnd:()=>saveOrder('today-list')});
+new Sortable(document.getElementById('upcoming-list'), {group:'tasks', animation:150, handle:'.task-main', onEnd:()=>saveOrder('upcoming-list')});
 <?php if($filterClient): ?>
 // allow drag also when filtering by client
 <?php endif; ?>
@@ -521,6 +533,25 @@ document.querySelectorAll('.archive-btn').forEach(btn=>{
     await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'archive_task='+id});
     btn.closest('li').remove();
     showToast('Task archived');
+  });
+});
+
+document.querySelectorAll('.unarchive-btn').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    const id = btn.dataset.id;
+    await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'unarchive_task='+id});
+    btn.closest('li').remove();
+    showToast('Task unarchived');
+  });
+});
+
+document.querySelectorAll('.delete-btn').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    if(!confirm('Delete this task?')) return;
+    const id = btn.dataset.id;
+    await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'delete_task='+id});
+    btn.closest('li').remove();
+    showToast('Task deleted');
   });
 });
 
