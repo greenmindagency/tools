@@ -303,20 +303,16 @@ include __DIR__ . '/header.php';
 ?>
 <div class="d-flex justify-content-between mb-3">
   <div>
-    <?php if ($_SESSION['username'] === ADMIN_USER): ?>
     <a href="admin.php" class="btn btn-secondary me-2">Admin Panel</a>
-    <?php endif; ?>
     <a href="?logout=1" class="btn btn-outline-secondary">Logout</a>
   </div>
 </div>
 <div class="row">
   <div class="col-md-3">
     <ul class="list-group mb-4">
-      <?php if ($_SESSION['username'] === ADMIN_USER): ?>
       <li class="list-group-item">
         <a href="admin.php" class="text-decoration-none">Admin Panel</a>
       </li>
-      <?php endif; ?>
       <li class="list-group-item <?= !$filterClient && !$filterUser && !$filterArchived ? 'active' : '' ?>">
         <a href="index.php" class="text-decoration-none<?= !$filterClient && !$filterUser && !$filterArchived ? ' text-white' : '' ?>">All Tasks</a>
       </li>

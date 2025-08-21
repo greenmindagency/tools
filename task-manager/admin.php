@@ -2,7 +2,7 @@
 session_start();
 require __DIR__ . '/config.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['username'] !== ADMIN_USER) {
+if (!isset($_SESSION['user_id'])) {
     header('Location: index.php');
     exit;
 }
