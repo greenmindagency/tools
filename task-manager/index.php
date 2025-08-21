@@ -92,36 +92,38 @@ function next_due_date($current, $recurrence) {
     }
     return $date->format('Y-m-d');
 }
-
 function render_task($t, $users, $clients) {
     ob_start();
     ?>
     <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?>" draggable="true" data-task-id="<?= $t['id'] ?>">
-      <form method="post" class="me-2 ajax">
+      <form method="post" class="me-2 ajax" data-bs-toggle="tooltip" title="Complete">
         <input type="hidden" name="toggle_complete" value="<?= $t['id'] ?>">
         <input type="checkbox" name="completed" <?= $t['status']==='done'?'checked':'' ?> onchange="this.form.submit()">
       </form>
       <div class="flex-grow-1">
         <div class="d-flex justify-content-between">
-          <div data-bs-toggle="collapse" data-bs-target="#task-<?= $t['id'] ?>" class="task-header">
-            <?php if ($t['client_name']) echo '<strong>'.htmlspecialchars($t['client_name']).'</strong> '; ?><?= htmlspecialchars($t['title']) ?>
-            <?php if ($t['description']) echo '<div class=\"text-muted small\">'.htmlspecialchars($t['description']).'</div>'; ?>
-            <small>Assigned to <?= htmlspecialchars($t['username']) ?> — due <?= htmlspecialchars($t['due_date']) ?></small>
+          <div class="task-main" data-bs-toggle="collapse" data-bs-target="#task-<?= $t['id'] ?>">
+            <strong class="client"><?= $t['client_name'] ? htmlspecialchars($t['client_name']) : 'Others' ?></strong>
+            <span class="task-title-text"><?= htmlspecialchars($t['title']) ?></span>
+            <div class="small text-muted due-date"><?= htmlspecialchars($t['due_date']) ?></div>
           </div>
           <div class="text-end ms-2">
-            <div class="mb-1">
-              <button type="button" class="btn btn-success btn-sm save-btn" data-id="<?= $t['id'] ?>" title="Save"><i class="bi bi-save"></i></button>
-              <button type="button" class="btn btn-warning btn-sm archive-btn" data-id="<?= $t['id'] ?>" title="Archive"><i class="bi bi-archive"></i></button>
+            <div class="fw-bold assignee"><?= htmlspecialchars($t['username']) ?></div>
+            <div class="mt-1">
+              <button type="button" class="btn btn-light btn-sm edit-btn" data-id="<?= $t['id'] ?>" title="Edit" data-bs-toggle="tooltip"><i class="bi bi-pencil"></i></button>
+              <button type="button" class="btn btn-success btn-sm save-btn" data-id="<?= $t['id'] ?>" title="Save" data-bs-toggle="tooltip"><i class="bi bi-save"></i></button>
+              <button type="button" class="btn btn-warning btn-sm archive-btn" data-id="<?= $t['id'] ?>" title="Archive" data-bs-toggle="tooltip"><i class="bi bi-archive"></i></button>
             </div>
             <?php $pc = strtolower($t['priority']); ?>
             <div class="priority <?= $pc ?>"><?= htmlspecialchars($t['priority']) ?></div>
           </div>
         </div>
         <div class="collapse mt-2" id="task-<?= $t['id'] ?>">
-          <form method="post" class="row g-2 mt-2 task-form">
+          <div class="description mb-2"><?= nl2br(htmlspecialchars($t['description'])) ?></div>
+          <form method="post" class="row g-2 mt-2 task-form d-none">
             <input type="hidden" name="update_task" value="<?= $t['id'] ?>">
-            <div class="col-12"><input type="text" name="title" class="form-control" value="<?= htmlspecialchars($t['title']) ?>"></div>
-            <div class="col-12 mt-2"><textarea name="description" class="form-control" placeholder="Description"><?= htmlspecialchars($t['description'] ?? '') ?></textarea></div>
+            <div class="col-12"><div class="form-control editable" data-field="title"><?= htmlspecialchars($t['title']) ?></div></div>
+            <div class="col-12 mt-2"><div class="form-control editable" data-field="description"><?= htmlspecialchars($t['description'] ?? '') ?></div></div>
             <div class="col-md-3"><input type="date" name="due_date" class="form-control" value="<?= htmlspecialchars($t['due_date']) ?>"></div>
             <div class="col-md-3">
               <select name="assigned" class="form-select">
@@ -171,6 +173,14 @@ function render_task($t, $users, $clients) {
               <label class="me-2"><input type="checkbox" name="days[]" value="<?= $d ?>" <?= in_array($d,$selDays)?'checked':'' ?>> <?= $d ?></label>
               <?php endforeach; ?>
             </div>
+            <div class="col-md-3 mt-2">
+              <select class="form-select quick-date">
+                <option value="">Quick date</option>
+                <option value="tomorrow">Tomorrow</option>
+                <option value="nextweek">Next Week</option>
+                <option value="nextmonth">Next Month</option>
+              </select>
+            </div>
           </form>
         </div>
       </div>
@@ -178,6 +188,8 @@ function render_task($t, $users, $clients) {
     <?php
     return ob_get_clean();
 }
+
+
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['reorder'])) {
@@ -302,9 +314,10 @@ $title = 'Task Manager';
 include __DIR__ . '/header.php';
 ?>
 <div class="d-flex justify-content-between mb-3">
+  <button id="addBtn" class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
   <div>
-    <a href="admin.php" class="btn btn-secondary me-2">Admin Panel</a>
-    <a href="?logout=1" class="btn btn-outline-secondary">Logout</a>
+    <a href="admin.php" class="btn btn-secondary btn-sm me-2" data-bs-toggle="tooltip" title="Admin">Admin</a>
+    <a href="?logout=1" class="btn btn-outline-secondary btn-sm" data-bs-toggle="tooltip" title="Logout">Logout</a>
   </div>
 </div>
 <div class="row">
@@ -338,13 +351,20 @@ include __DIR__ . '/header.php';
     </ul>
   </div>
   <div class="col-md-9">
-    <button class="btn btn-success mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#addTask">New Task</button>
     <div id="addTask" class="collapse mb-4">
       <form method="post" class="row g-2 ajax">
         <input type="hidden" name="add_task" value="1">
         <div class="col-12"><input type="text" name="title" class="form-control" placeholder="Task title" required></div>
         <div class="col-12"><textarea name="description" class="form-control" placeholder="Description"></textarea></div>
         <div class="col-md-3"><input type="date" name="due_date" class="form-control" required></div>
+        <div class="col-md-3">
+          <select class="form-select quick-date">
+            <option value="">Quick date</option>
+            <option value="tomorrow">Tomorrow</option>
+            <option value="nextweek">Next Week</option>
+            <option value="nextmonth">Next Month</option>
+          </select>
+        </div>
         <div class="col-md-3">
           <select name="assigned" class="form-select" required>
             <option value="">Assign to</option>
@@ -401,10 +421,9 @@ include __DIR__ . '/header.php';
         <?php foreach ($archivedTasks as $t): ?>
         <li class="list-group-item d-flex align-items-start" data-task-id="<?= $t['id'] ?>">
           <div class="flex-grow-1">
-            <?php if ($t['client_name']) echo '<strong>'.htmlspecialchars($t['client_name']).'</strong> '; ?>
-            <?= htmlspecialchars($t['title']) ?>
+            <strong><?= $t['client_name'] ? htmlspecialchars($t['client_name']) : 'Others' ?></strong> <?= htmlspecialchars($t['title']) ?>
             <?php if ($t['description']) echo '<div class="text-muted small">'.htmlspecialchars($t['description']).'</div>'; ?>
-            <small>Assigned to <?= htmlspecialchars($t['username']) ?> — <?= htmlspecialchars($t['priority']) ?> — due <?= htmlspecialchars($t['due_date']) ?></small>
+            <small><?= htmlspecialchars($t['username']) ?> — <?= htmlspecialchars($t['priority']) ?> — <?= htmlspecialchars($t['due_date']) ?></small>
           </div>
         </li>
         <?php endforeach; ?>
@@ -461,13 +480,37 @@ document.querySelectorAll('form.ajax').forEach(f=>{
     }
   });
 });
+document.querySelectorAll('.edit-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const id = btn.dataset.id;
+    const collapse = document.getElementById('task-'+id);
+    const form = collapse.querySelector('form');
+    const desc = collapse.querySelector('.description');
+    form.classList.toggle('d-none');
+    desc.classList.toggle('d-none');
+    new bootstrap.Collapse(collapse, {toggle:false}).show();
+  });
+});
 
 document.querySelectorAll('.save-btn').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
     const id = btn.dataset.id;
-    const form = document.querySelector('#task-'+id+' form');
+    const collapse = document.getElementById('task-'+id);
+    const form = collapse.querySelector('form');
     const fd = new FormData(form);
+    fd.set('title', form.querySelector('[data-field=title]').textContent.trim());
+    fd.set('description', form.querySelector('[data-field=description]').textContent.trim());
     await fetch('index.php', {method:'POST', body:fd});
+    const li = collapse.closest('li');
+    li.querySelector('.task-title-text').textContent = form.querySelector('[data-field=title]').textContent.trim();
+    li.querySelector('.description').innerHTML = form.querySelector('[data-field=description]').textContent.replace(/\n/g,'<br>');
+    li.querySelector('.due-date').textContent = form.querySelector('input[name=due_date]').value;
+    li.querySelector('.assignee').textContent = form.querySelector('select[name=assigned]').selectedOptions[0].textContent;
+    const clientSel = form.querySelector('select[name=client_id]');
+    li.querySelector('.client').textContent = clientSel.value ? clientSel.selectedOptions[0].textContent : 'Others';
+    li.querySelector('.priority').textContent = form.querySelector('select[name=priority]').value;
+    form.classList.add('d-none');
+    collapse.querySelector('.description').classList.remove('d-none');
     showToast('Task saved');
   });
 });
@@ -489,5 +532,26 @@ document.querySelectorAll('.recurrence-select').forEach(sel=>{
     parent.querySelector('.recurrence-unit')?.classList.toggle('d-none', this.value !== 'interval');
   });
 });
+
+function nextWorkingDay(date){
+  while(date.getDay()==5 || date.getDay()==6){date.setDate(date.getDate()+1);}
+  return date;
+}
+
+document.querySelectorAll('.quick-date').forEach(sel=>{
+  sel.addEventListener('change', ()=>{
+    const dateInput = sel.closest('form').querySelector('input[name=due_date]');
+    const now = new Date();
+    if(sel.value==='tomorrow') now.setDate(now.getDate()+1);
+    if(sel.value==='nextweek') now.setDate(now.getDate()+7);
+    if(sel.value==='nextmonth') now.setMonth(now.getMonth()+1);
+    const d = nextWorkingDay(now);
+    dateInput.value = d.toISOString().split('T')[0];
+    sel.value='';
+  });
+});
+
+document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
+new bootstrap.Tooltip(document.getElementById('addBtn'));
 </script>
 <?php include __DIR__ . '/footer.php'; ?>
