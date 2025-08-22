@@ -8,4 +8,7 @@ foreach (explode(',', $order) as $pair) {
     [$id, $idx] = explode(':', $pair);
     $stmt->execute([(int)$idx, (int)$id]);
 }
-echo 'OK';
+$redirect = $_POST['redirect'] ?? 'alltasks.php';
+$redirect .= (strpos($redirect, '?') === false ? '?' : '&') . 'saved=1';
+header('Location: ' . $redirect);
+exit;

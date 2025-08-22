@@ -436,7 +436,11 @@ include __DIR__ . '/header.php';
       <div>
         <button id="addBtn" class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
         <?php if(!$filterUser && !$filterClient && !$filterArchived): ?>
-        <button id="saveOrderBtn" type="button" class="btn btn-primary btn-sm ms-2">Save Order</button>
+        <form id="orderForm" method="post" action="reorder.php" class="d-inline">
+          <input type="hidden" name="order" id="orderInput">
+          <input type="hidden" name="redirect" value="<?= htmlspecialchars($_SERVER['REQUEST_URI']) ?>">
+          <button id="saveOrderBtn" type="submit" class="btn btn-primary btn-sm ms-2">Save Order</button>
+        </form>
         <?php endif; ?>
       </div>
       <div>
@@ -549,13 +553,19 @@ include __DIR__ . '/header.php';
 </div>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
-function saveOrder(id){
-  const order = Array.from(document.getElementById(id).children).map((el,idx)=>el.dataset.taskId+':'+idx).join(',');
-  return fetch('reorder.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'order='+order});
-}
   <?php if(!$filterUser && !$filterClient && !$filterArchived): ?>
   new Sortable(document.getElementById('all-list'), {animation:150, handle:'.task-main'});
   <?php endif; ?>
+
+  const orderForm = document.getElementById('orderForm');
+  if (orderForm) {
+    orderForm.addEventListener('submit', () => {
+      const order = Array.from(document.getElementById('all-list').children)
+        .map((el, idx) => el.dataset.taskId + ':' + idx)
+        .join(',');
+      document.getElementById('orderInput').value = order;
+    });
+  }
 
 document.getElementById('recurrence').addEventListener('change', function(){
   document.getElementById('day-select').classList.toggle('d-none', this.value !== 'custom');
@@ -706,12 +716,8 @@ document.querySelectorAll('.quick-date').forEach(sel=>{
 
 document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
 new bootstrap.Tooltip(document.getElementById('addBtn'));
-const saveOrderBtn = document.getElementById('saveOrderBtn');
-if (saveOrderBtn) {
-  saveOrderBtn.addEventListener('click', async () => {
-    await saveOrder('all-list');
-    showToast('Order saved');
-  });
-}
+<?php if(isset($_GET['saved'])): ?>
+document.addEventListener('DOMContentLoaded', ()=>{ showToast('Order saved'); });
+<?php endif; ?>
 </script>
 <?php include __DIR__ . '/footer.php'; ?>
