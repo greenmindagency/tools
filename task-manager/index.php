@@ -33,6 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     if ($row && password_verify($pass, $row['password_hash'])) {
         $_SESSION['user_id'] = $row['id'];
         $_SESSION['username'] = $row['username'];
+        header('Location: index.php?user=' . urlencode($row['username']));
+        exit;
     } else {
         $loginError = 'Invalid username or password.';
     }
