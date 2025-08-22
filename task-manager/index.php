@@ -677,7 +677,9 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
     <div class="d-flex justify-content-between mb-2 align-items-start">
       <button id="addBtn" class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
       <div>
+        <?php if (($_SESSION['user_id'] ?? 0) == 1): ?>
         <a href="admin.php" class="btn btn-secondary btn-sm me-2" data-bs-toggle="tooltip" title="Admin">Admin</a>
+        <?php endif; ?>
         <a href="?logout=1" class="btn btn-outline-secondary btn-sm" data-bs-toggle="tooltip" title="Logout">Logout</a>
       </div>
     </div>

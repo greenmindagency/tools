@@ -2,7 +2,7 @@
 session_start();
 require __DIR__ . '/config.php';
 
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['user_id']) || (int)$_SESSION['user_id'] !== 1) {
     header('Location: index.php');
     exit;
 }
