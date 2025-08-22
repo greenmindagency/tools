@@ -80,8 +80,14 @@ try {
                 $stmt = $pdo->prepare('UPDATE clients SET name=? WHERE id=?');
                 $stmt->execute([$name, $id]);
             }
+        } elseif (isset($_POST['archive_client'])) {
+            $id = (int)$_POST['archive_client'];
+            $stmt = $pdo->prepare('UPDATE tasks SET status="archived" WHERE client_id=? OR parent_id IN (SELECT id FROM (SELECT id FROM tasks WHERE client_id=?) AS t)');
+            $stmt->execute([$id, $id]);
         } elseif (isset($_POST['delete_client'])) {
             $id = (int)$_POST['delete_client'];
+            $stmt = $pdo->prepare('DELETE FROM tasks WHERE client_id=?');
+            $stmt->execute([$id]);
             $stmt = $pdo->prepare('DELETE FROM clients WHERE id=?');
             $stmt->execute([$id]);
         } elseif (isset($_POST['import_priorities'])) {
@@ -157,13 +163,14 @@ include __DIR__ . '/header.php';
   <?php foreach ($clients as $c): ?>
   <li class="list-group-item" data-id="<?= $c['id'] ?>">
     <form method="post" class="row g-2 align-items-center">
-      <div class="col-md-6"><input type="text" name="client_name" class="form-control" value="<?= htmlspecialchars($c['name']) ?>"></div>
+      <div class="col-md-4"><input type="text" name="client_name" class="form-control" value="<?= htmlspecialchars($c['name']) ?>"></div>
       <div class="col-md-2">
         <?php if (!empty($c['priority'])): ?>
           <span class="client-priority <?= strtolower($c['priority']) ?>"><?= htmlspecialchars($c['priority']) ?></span>
         <?php endif; ?>
       </div>
       <div class="col-md-2"><button class="btn btn-primary w-100 btn-sm" name="save_client" value="<?= $c['id'] ?>">Save</button></div>
+      <div class="col-md-2"><button class="btn btn-warning w-100 btn-sm" name="archive_client" value="<?= $c['id'] ?>" onclick="return confirm('Archive all tasks for this client?')">Archive</button></div>
       <div class="col-md-2"><button class="btn btn-danger w-100 btn-sm" name="delete_client" value="<?= $c['id'] ?>" onclick="return confirm('Delete client?')">Delete</button></div>
     </form>
   </li>
@@ -175,7 +182,7 @@ include __DIR__ . '/header.php';
   <button class="btn btn-info btn-sm mb-5 ms-2">Import Priorities &amp; Sorting</button>
 </form>
 
-<a href="index.php" class="btn btn-secondary">Back to Tasks</a>
+<a href="index.php" class="btn btn-success btn-sm">Back to Tasks</a>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
