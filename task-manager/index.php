@@ -115,7 +115,7 @@ function render_task($t, $users, $clients, $filterUser = null) {
                 Others
               <?php endif; ?>
             </strong>
-            <span class="task-title-text"><?= htmlspecialchars($t['title']) ?></span>
+            <strong class="task-title-text"><?= htmlspecialchars($t['title']) ?></strong>
             <div class="small text-muted due-date"><i class="bi bi-calendar-event me-1"></i><?= htmlspecialchars($t['due_date']) ?></div>
           </div>
           <div class="text-end ms-2">
@@ -126,8 +126,7 @@ function render_task($t, $users, $clients, $filterUser = null) {
               <button type="button" class="btn btn-secondary btn-sm duplicate-btn" data-id="<?= $t['id'] ?>" title="Duplicate" data-bs-toggle="tooltip"><i class="bi bi-files"></i></button>
               <button type="button" class="btn btn-warning btn-sm archive-btn" data-id="<?= $t['id'] ?>" title="Archive" data-bs-toggle="tooltip"><i class="bi bi-archive"></i></button>
             </div>
-            <?php $pc = strtolower($t['priority']); ?>
-            <div><span class="fw-bold assignee"><?= htmlspecialchars($t['username']) ?></span> - <span class="priority <?= $pc ?>"><?= htmlspecialchars($t['priority']) ?></span></div>
+            <div><span class="fw-bold assignee"><?= htmlspecialchars($t['username']) ?></span></div>
           </div>
         </div>
         <div class="collapse mt-2" id="task-<?= $t['id'] ?>">
@@ -566,9 +565,9 @@ include __DIR__ . '/header.php';
         <?php foreach ($archivedTasks as $t): ?>
         <li class="list-group-item d-flex align-items-start justify-content-between" data-task-id="<?= $t['id'] ?>">
           <div class="flex-grow-1">
-            <strong><?= $t['client_name'] ? htmlspecialchars($t['client_name']) : 'Others' ?></strong> <?= htmlspecialchars($t['title']) ?>
+            <strong><?= $t['client_name'] ? htmlspecialchars($t['client_name']) : 'Others' ?></strong> <strong><?= htmlspecialchars($t['title']) ?></strong>
             <?php if ($t['description']) echo '<div class="text-muted small">'.htmlspecialchars($t['description']).'</div>'; ?>
-            <small><?= htmlspecialchars($t['username']) ?> — <?= htmlspecialchars($t['priority']) ?> — <?= htmlspecialchars($t['due_date']) ?></small>
+            <small><?= htmlspecialchars($t['username']) ?> — <?= htmlspecialchars($t['due_date']) ?></small>
           </div>
           <div class="ms-2 text-nowrap">
             <button type="button" class="btn btn-success btn-sm unarchive-btn" data-id="<?= $t['id'] ?>" title="Unarchive" data-bs-toggle="tooltip"><i class="bi bi-arrow-counterclockwise"></i></button>
@@ -714,11 +713,7 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
         if(clientSpan) clientSpan.remove();
         clientWrapper.textContent = 'Others';
       }
-      const prioritySpan = li.querySelector('.priority');
-      if(cPrio){
-        prioritySpan.textContent = cPrio;
-        prioritySpan.className = 'priority ' + cPrio.toLowerCase();
-      }
+      // Priority display removed
     }
     form.classList.add('d-none');
     collapse.querySelector('.description').classList.remove('d-none');

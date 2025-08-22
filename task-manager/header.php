@@ -14,15 +14,11 @@ $hideBreadcrumb = $hideBreadcrumb ?? false;
   <style>
     body { padding: 30px; margin-top: 50px; }
     img.logo { width: 50px; margin-right: 10px; }
-    .priority { font-weight: bold; }
-    .priority.low { color: #198754 !important; }
-    .priority.normal { color: #ffc107 !important; }
-    .priority.high { color: #dc3545 !important; }
     .client-priority { padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
-    .client-priority.critical,
-    .client-priority.high { background-color: #832108; color: #fff; }
-    .client-priority.intermed,
-    .client-priority.low { background-color: #e8b839; color: #000; }
+    .client-priority.critical { background-color: #85200c; color: #fff; }
+    .client-priority.high { background-color: #b40000; color: #fff; }
+    .client-priority.intermed { background-color: #f1c232; color: #000; }
+    .client-priority.low { background-color: #6aa84f; color: #000; }
     .editable { min-height: 38px; white-space: pre-wrap; }
     .task-main[data-bs-target] { cursor: pointer; }
   </style>
