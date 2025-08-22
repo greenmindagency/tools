@@ -776,6 +776,22 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
         if(clientSpan) clientSpan.remove();
         clientWrapper.textContent = 'Others';
       }
+      li.querySelectorAll('.subtask-list li').forEach(sub=>{
+        const subClient = sub.querySelector('.client');
+        let subSpan = subClient.querySelector('.client-priority');
+        if(clientSel.value){
+          if(!subSpan){
+            subSpan = document.createElement('span');
+            subClient.textContent = '';
+            subClient.appendChild(subSpan);
+          }
+          subSpan.textContent = cName;
+          subSpan.className = 'client-priority ' + cPrio.toLowerCase();
+        } else {
+          if(subSpan) subSpan.remove();
+          subClient.textContent = 'Others';
+        }
+      });
       // Priority display removed
     }
     form.classList.add('d-none');
