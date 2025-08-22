@@ -117,7 +117,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
             </strong>
             <strong class="task-title-text"><?= htmlspecialchars($t['title']) ?></strong>
             <div class="small text-muted due-date"><i class="bi bi-calendar-event me-1"></i><?= htmlspecialchars($t['due_date']) ?></div>
-            <div><span class="fw-bold assignee p-1 <?= $userLoadClasses[$t['username']] ?? '' ?>"><?= htmlspecialchars($t['username']) ?></span></div>
+            <div><small class="fw-bold assignee p-1 <?= $userLoadClasses[$t['username']] ?? '' ?>"><?= htmlspecialchars($t['username']) ?></small></div>
           </div>
           <div class="text-end ms-2">
             <div class="mb-1">
@@ -847,11 +847,13 @@ document.querySelectorAll('.quick-date').forEach(sel=>{
   });
 });
 
-document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
-document.querySelectorAll('.add-subtask-toggle').forEach(el=>new bootstrap.Tooltip(el));
-new bootstrap.Tooltip(document.getElementById('addBtn'));
+window.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+  document.querySelectorAll('.add-subtask-toggle').forEach(el => new bootstrap.Tooltip(el));
+  new bootstrap.Tooltip(document.getElementById('addBtn'));
 <?php if(isset($_GET['saved'])): ?>
-document.addEventListener('DOMContentLoaded', ()=>{ showToast('Order saved'); });
+  showToast('Order saved');
 <?php endif; ?>
+});
 </script>
 <?php include __DIR__ . '/footer.php'; ?>
