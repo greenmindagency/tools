@@ -274,6 +274,7 @@ function duplicate_task_recursive($pdo, $taskId, $newParentId = null, $depth = 0
     $stmt->execute([$taskId]);
     $task = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$task) return null;
+    $title = rtrim($task['title']) . ' (duplicated)';
     if ($newParentId) {
         $oStmt = $pdo->prepare('SELECT COALESCE(MAX(order_index),0)+1 FROM tasks WHERE parent_id=?');
         $oStmt->execute([$newParentId]);
@@ -282,7 +283,7 @@ function duplicate_task_recursive($pdo, $taskId, $newParentId = null, $depth = 0
         $orderIdx = strtotime($task['due_date']);
     }
     $insert = $pdo->prepare('INSERT INTO tasks (title,description,assigned_to,client_id,priority,due_date,recurrence,parent_id,order_index) VALUES (?,?,?,?,?,?,?,?,?)');
-    $insert->execute([$task['title'],$task['description'],$task['assigned_to'],$task['client_id'],$task['priority'],$task['due_date'],$task['recurrence'],$newParentId,$orderIdx]);
+    $insert->execute([$title,$task['description'],$task['assigned_to'],$task['client_id'],$task['priority'],$task['due_date'],$task['recurrence'],$newParentId,$orderIdx]);
     $newId = $pdo->lastInsertId();
     if ($depth < 1) {
         $childStmt = $pdo->prepare('SELECT id FROM tasks WHERE parent_id=?');
