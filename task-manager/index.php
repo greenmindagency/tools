@@ -251,12 +251,12 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
             $childSql .= ' AND t.assigned_to=?';
             $params[] = $filterUser;
           }
-          $childSql .= ' ORDER BY t.due_date';
+          $childSql .= ' ORDER BY t.order_index, t.due_date';
           $childStmt = $pdo->prepare($childSql);
           $childStmt->execute($params);
           $children = $childStmt->fetchAll(PDO::FETCH_ASSOC);
           if ($children): ?>
-          <ul class="list-group ms-4 mt-3">
+          <ul class="list-group ms-4 mt-3 subtask-list" data-parent="<?= $t['id'] ?>">
             <?php foreach ($children as $ch): ?>
             <?= render_task($ch, $users, $clients, $filterUser, $userLoadClasses); ?>
             <?php endforeach; ?>
@@ -322,7 +322,13 @@ try {
             $rec = 'interval:' . $cnt . ':' . $unit;
         }
         if ($title !== '' && $assigned) {
-            $orderIdx = strtotime($due);
+            if ($parentId) {
+                $oStmt = $pdo->prepare('SELECT COALESCE(MAX(order_index),0)+1 FROM tasks WHERE parent_id=?');
+                $oStmt->execute([$parentId]);
+                $orderIdx = (int)$oStmt->fetchColumn();
+            } else {
+                $orderIdx = strtotime($due);
+            }
             $stmt = $pdo->prepare('INSERT INTO tasks (title,description,assigned_to,client_id,priority,due_date,recurrence,parent_id,order_index) VALUES (?,?,?,?,?,?,?,?,?)');
             $stmt->execute([$title,$desc,$assigned,$clientId,$priority,$due,$rec,$parentId,$orderIdx]);
         }
@@ -391,6 +397,15 @@ try {
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['duplicate_task'])) {
         $id = (int)$_POST['duplicate_task'];
         duplicate_task_recursive($pdo, $id);
+        exit;
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reorder_subtasks'])) {
+        $parentId = (int)($_POST['parent_id'] ?? 0);
+        $order = $_POST['order'] ?? '';
+        $ids = array_filter(explode(',', $order));
+        $stmt = $pdo->prepare('UPDATE tasks SET order_index=? WHERE id=? AND parent_id=?');
+        foreach ($ids as $idx => $taskId) {
+            $stmt->execute([$idx, (int)$taskId, $parentId]);
+        }
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_task'])) {
         $id = (int)$_POST['delete_task'];
@@ -621,6 +636,7 @@ include __DIR__ . '/header.php';
     <?php endif; ?>
   </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
 document.getElementById('recurrence').addEventListener('change', function(){
   document.getElementById('day-select').classList.toggle('d-none', this.value !== 'custom');
@@ -780,6 +796,20 @@ document.querySelectorAll('.delete-btn').forEach(btn=>{
     await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'delete_task='+id});
     btn.closest('li').remove();
     showToast('Task deleted');
+  });
+});
+
+document.querySelectorAll('.subtask-list').forEach(list=>{
+  new Sortable(list, {
+    animation:150,
+    onEnd: async ()=>{
+      const order = Array.from(list.children).map(li=>li.dataset.taskId).join(',');
+      const params = new URLSearchParams();
+      params.set('reorder_subtasks','1');
+      params.set('parent_id', list.dataset.parent);
+      params.set('order', order);
+      await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:params.toString()});
+    }
   });
 });
 
