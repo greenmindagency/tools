@@ -150,14 +150,6 @@ function render_task($t, $users, $clients, $filterUser = null) {
                 <?php endforeach; ?>
               </select>
             </div>
-            <div class="col-md-3">
-              <?php $p=$t['priority']; ?>
-              <select name="priority" class="form-select">
-                <option value="Low" <?= $p==='Low'?'selected':'' ?>>Low</option>
-                <option value="Normal" <?= $p==='Normal'?'selected':'' ?>>Normal</option>
-                <option value="High" <?= $p==='High'?'selected':'' ?>>High</option>
-              </select>
-            </div>
             <div class="col-md-3 mt-2">
               <?php $r=$t['recurrence']; $rcount=1;$runit='week'; if(strpos($r,'interval:')===0){[, $rcount,$runit]=explode(':',$r);} ?>
               <select name="recurrence" class="form-select recurrence-select">
@@ -224,13 +216,6 @@ function render_task($t, $users, $clients, $filterUser = null) {
                   <?php endforeach; ?>
                 </select>
               </div>
-              <div class="col-md-3">
-                <select name="priority" class="form-select">
-                  <option value="Low">Low</option>
-                  <option value="Normal" selected>Normal</option>
-                  <option value="High">High</option>
-                </select>
-              </div>
               <div class="col-md-2 mt-2"><button class="btn btn-primary w-100">Add</button></div>
             </form>
           </div>
@@ -242,7 +227,7 @@ function render_task($t, $users, $clients, $filterUser = null) {
             $childSql .= ' AND t.assigned_to=?';
             $params[] = $filterUser;
           }
-          $childSql .= ' ORDER BY t.order_index';
+          $childSql .= ' ORDER BY t.due_date';
           $childStmt = $pdo->prepare($childSql);
           $childStmt->execute($params);
           $children = $childStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -285,6 +270,12 @@ try {
         $due = $_POST['due_date'] ?? date('Y-m-d');
         $priority = $_POST['priority'] ?? 'Normal';
         $clientId = (int)($_POST['client_id'] ?? 0) ?: null;
+        if ($clientId) {
+            $pstmt = $pdo->prepare('SELECT priority FROM clients WHERE id=?');
+            $pstmt->execute([$clientId]);
+            $cPrio = $pstmt->fetchColumn();
+            if ($cPrio) { $priority = $cPrio; }
+        }
         $desc = trim($_POST['description'] ?? '');
         $rec = $_POST['recurrence'] ?? 'none';
         $parentId = (int)($_POST['parent_id'] ?? 0) ?: null;
@@ -308,6 +299,12 @@ try {
         $assigned = (int)($_POST['assigned'] ?? 0);
         $priority = $_POST['priority'] ?? 'Normal';
         $clientId = (int)($_POST['client_id'] ?? 0) ?: null;
+        if ($clientId) {
+            $pstmt = $pdo->prepare('SELECT priority FROM clients WHERE id=?');
+            $pstmt->execute([$clientId]);
+            $cPrio = $pstmt->fetchColumn();
+            if ($cPrio) { $priority = $cPrio; }
+        }
         $title = trim($_POST['title'] ?? '');
         $due = $_POST['due_date'] ?? date('Y-m-d');
         $rec = $_POST['recurrence'] ?? 'none';
@@ -395,7 +392,9 @@ try {
     if ($filterClient) { $cond[] = 't.client_id=?'; $params[] = $filterClient; }
     if ($filterArchived) { $cond[] = 't.status="archived"'; } else { $cond[] = 't.status!="archived"'; }
     $where = $cond ? ' AND '.implode(' AND ',$cond) : '';
-    $order = (!$filterUser && !$filterClient && !$filterArchived) ? 'ORDER BY order_index' : 'ORDER BY due_date';
+    $order = (!$filterUser && !$filterClient && !$filterArchived)
+        ? 'ORDER BY (c.sort_order IS NULL), c.sort_order, t.due_date'
+        : 'ORDER BY t.due_date';
 
     $today = date('Y-m-d');
     if (!$filterUser && !$filterClient && !$filterArchived) {
@@ -464,13 +463,6 @@ include __DIR__ . '/header.php';
     <div class="d-flex justify-content-between mb-3">
       <div>
         <button id="addBtn" class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
-        <?php if(!$filterUser && !$filterClient && !$filterArchived): ?>
-        <form id="orderForm" method="post" action="reorder.php" class="d-inline">
-          <input type="hidden" name="order" id="orderInput">
-          <input type="hidden" name="redirect" value="<?= htmlspecialchars($_SERVER['REQUEST_URI']) ?>">
-          <button id="saveOrderBtn" type="submit" class="btn btn-primary btn-sm ms-2">Save Order</button>
-        </form>
-        <?php endif; ?>
       </div>
       <div>
         <a href="admin.php" class="btn btn-secondary btn-sm me-2" data-bs-toggle="tooltip" title="Admin">Admin</a>
@@ -505,13 +497,6 @@ include __DIR__ . '/header.php';
             <?php foreach ($clients as $c): ?>
             <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
             <?php endforeach; ?>
-          </select>
-        </div>
-        <div class="col-md-3">
-          <select name="priority" class="form-select">
-            <option value="Low">Low</option>
-            <option value="Normal" selected>Normal</option>
-            <option value="High">High</option>
           </select>
         </div>
         <div class="col-md-3 mt-2">
@@ -580,22 +565,7 @@ include __DIR__ . '/header.php';
     <?php endif; ?>
   </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
-  <?php if(!$filterUser && !$filterClient && !$filterArchived): ?>
-  new Sortable(document.getElementById('all-list'), {animation:150, handle:'.task-main'});
-  <?php endif; ?>
-
-  const orderForm = document.getElementById('orderForm');
-  if (orderForm) {
-    orderForm.addEventListener('submit', () => {
-      const order = Array.from(document.getElementById('all-list').children)
-        .map((el, idx) => el.dataset.taskId + ':' + idx)
-        .join(',');
-      document.getElementById('orderInput').value = order;
-    });
-  }
-
 document.getElementById('recurrence').addEventListener('change', function(){
   document.getElementById('day-select').classList.toggle('d-none', this.value !== 'custom');
   document.getElementById('interval-count').classList.toggle('d-none', this.value !== 'interval');

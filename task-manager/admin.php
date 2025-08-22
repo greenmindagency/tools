@@ -89,17 +89,20 @@ try {
             $csv = @file_get_contents($url);
             if ($csv !== false) {
                 $rows = array_map('str_getcsv', explode("\n", trim($csv)));
-                $stmt = $pdo->prepare('UPDATE clients SET priority=? WHERE name=?');
+                $stmt = $pdo->prepare('UPDATE clients SET priority=?, sort_order=? WHERE name=?');
                 foreach ($rows as $i => $row) {
                     if ($i === 0) continue; // skip header
-                    if (count($row) >= 18) {
+                    if (count($row) >= 19) {
                         $client = trim($row[16]);
                         $prio = trim($row[17]);
-                        if ($client !== '' && $prio !== '') {
-                            $stmt->execute([$prio, $client]);
+                        $sort = trim($row[18]);
+                        if ($client !== '') {
+                            $sortVal = is_numeric($sort) ? (int)$sort : 0;
+                            $stmt->execute([$prio !== '' ? $prio : null, $sortVal, $client]);
                         }
                     }
                 }
+                $pdo->exec('UPDATE tasks t JOIN clients c ON t.client_id=c.id SET t.priority=c.priority');
             }
         }
     }
@@ -169,7 +172,7 @@ include __DIR__ . '/header.php';
 <button id="saveClientOrder" class="btn btn-success btn-sm mb-5">Save Order</button>
 <form method="post" class="d-inline">
   <input type="hidden" name="import_priorities" value="1">
-  <button class="btn btn-info btn-sm mb-5 ms-2">Import Priorities</button>
+  <button class="btn btn-info btn-sm mb-5 ms-2">Import Priorities &amp; Sorting</button>
 </form>
 
 <a href="index.php" class="btn btn-secondary">Back to Tasks</a>
