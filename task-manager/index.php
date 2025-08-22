@@ -100,7 +100,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
     $toggleAttr = ' data-bs-toggle="collapse" data-bs-target="#task-'.$t['id'].'"';
     ob_start();
     ?>
-    <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>" data-recurrence="<?= htmlspecialchars($t['recurrence']) ?>">
+    <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>" data-recurrence="<?= htmlspecialchars($t['recurrence']) ?>"<?= $isSub ? ' data-parent-title="'.htmlspecialchars($t['parent_title']).'" data-sub-title="'.htmlspecialchars($t['title']).'"' : '' ?>>
       <form method="post" class="me-2 complete-form" data-bs-toggle="tooltip" title="Complete">
         <input type="hidden" name="toggle_complete" value="<?= $t['id'] ?>">
         <input type="checkbox" class="complete-checkbox" name="completed" <?= $t['status']==='done'?'checked':'' ?>>
@@ -115,7 +115,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
                 Others
               <?php endif; ?>
             </strong>
-            <strong class="task-title-text"><?= htmlspecialchars($t['title']) ?></strong>
+            <strong class="task-title-text"><?= htmlspecialchars($isSub ? ($t['parent_title'] . ' - ' . $t['title']) : $t['title']) ?></strong>
             <div class="small text-muted due-date"><i class="bi bi-calendar-event me-1"></i><?= htmlspecialchars($t['due_date']) ?></div>
             <div><small class="fw-bold assignee p-1 <?= $userLoadClasses[$t['username']] ?? '' ?>"><?= htmlspecialchars($t['username']) ?></small></div>
           </div>
@@ -245,7 +245,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
           </div>
           <?php
           global $pdo;
-          $childSql = 'SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id=? AND t.status!="archived"';
+          $childSql = 'SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id=? AND t.status!="archived"';
           $params = [$t['id']];
           if ($filterUser) {
             $childSql .= ' AND t.assigned_to=?';
@@ -668,7 +668,7 @@ document.querySelectorAll('.complete-checkbox').forEach(cb=>{
     const text = (await res.text()).trim();
     const li = form.closest('li');
     if(/^\d{4}-\d{2}-\d{2}$/.test(text)){
-      li.querySelector('.due-date').textContent = text;
+      li.querySelector('.due-date').innerHTML = '<i class="bi bi-calendar-event me-1"></i>' + text;
       cb.checked = false;
       li.classList.remove('opacity-50');
     } else {
@@ -731,9 +731,21 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
     fd.set('title', form.querySelector('[data-field=title]').textContent.trim());
     fd.set('description', form.querySelector('[data-field=description]').textContent.trim());
     await fetch('index.php', {method:'POST', body:fd});
-    li.querySelector('.task-title-text').textContent = form.querySelector('[data-field=title]').textContent.trim();
+    const newTitle = form.querySelector('[data-field=title]').textContent.trim();
+    li.dataset.subTitle = newTitle;
+    if(li.dataset.parentTitle){
+      li.querySelector('.task-title-text').textContent = li.dataset.parentTitle + ' - ' + newTitle;
+    } else {
+      li.querySelector('.task-title-text').textContent = newTitle;
+      li.querySelectorAll('.subtask-list li').forEach(sub=>{
+        const subTitle = sub.dataset.subTitle || '';
+        sub.dataset.parentTitle = newTitle;
+        sub.querySelector('.task-title-text').textContent = newTitle + ' - ' + subTitle;
+      });
+    }
     li.querySelector('.description').innerHTML = form.querySelector('[data-field=description]').textContent.replace(/\n/g,'<br>');
-    li.querySelector('.due-date').textContent = form.querySelector('input[name=due_date]').value;
+    const newDate = form.querySelector('input[name=due_date]').value;
+    li.querySelector('.due-date').innerHTML = '<i class="bi bi-calendar-event me-1"></i>' + newDate;
     li.querySelector('.assignee').textContent = form.querySelector('select[name=assigned]').selectedOptions[0].textContent;
     const clientSel = form.querySelector('select[name=client_id]');
     if(clientSel){
