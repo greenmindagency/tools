@@ -7,6 +7,35 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+function is_due_on($due, $recurrence, $target) {
+    if ($recurrence === 'none') return $due === $target;
+    if ($target < $due) return false;
+    $dueDate = new DateTime($due);
+    $targetDate = new DateTime($target);
+    switch ($recurrence) {
+        case 'everyday':
+            return $targetDate >= $dueDate;
+        case 'working':
+            return $targetDate >= $dueDate && !in_array($targetDate->format('w'), ['5','6']);
+        case 'weekly':
+            return $targetDate >= $dueDate && $targetDate->format('w') === $dueDate->format('w');
+        default:
+            if (strpos($recurrence,'interval:')===0) {
+                [, $cnt, $unit] = explode(':',$recurrence);
+                $diff = $dueDate->diff($targetDate);
+                if ($unit === 'day') return $diff->days % $cnt === 0;
+                if ($unit === 'week') return ($diff->days/7) % $cnt === 0 && $targetDate->format('w') === $dueDate->format('w');
+                if ($unit === 'month') { $months = $diff->m + $diff->y*12; return $months % $cnt === 0 && $targetDate->format('d') === $dueDate->format('d'); }
+            } elseif (strpos($recurrence,'custom:')===0) {
+                $days = explode(',', substr($recurrence,7));
+                $map = ['Sun'=>0,'Mon'=>1,'Tue'=>2,'Wed'=>3,'Thu'=>4,'Fri'=>5,'Sat'=>6];
+                $dow = (int)$targetDate->format('w');
+                return $targetDate >= $dueDate && in_array($dow, array_map(fn($d)=>$map[$d], $days));
+            }
+            return $targetDate >= $dueDate && $targetDate->format('w') === $dueDate->format('w');
+    }
+}
+
 try {
     $pdo = get_pdo();
     init_db($pdo);
@@ -108,6 +137,13 @@ try {
             $stmt->execute([$id]);
         } elseif (isset($_POST['import_priorities'])) {
             refresh_client_priorities($pdo);
+        } elseif (isset($_POST['update_task'])) {
+            $id = (int)$_POST['update_task'];
+            $due = $_POST['due_date'] ?? '';
+            if ($due !== '') {
+                $stmt = $pdo->prepare('UPDATE tasks SET due_date=? WHERE id=?');
+                $stmt->execute([$due, $id]);
+            }
         }
     }
 
@@ -129,6 +165,22 @@ try {
         }
     }
     arsort($workerTotals);
+
+    $tasks = $pdo->query('SELECT t.id,t.title,t.due_date,t.recurrence,u.username,pt.title AS parent_title FROM tasks t LEFT JOIN users u ON t.assigned_to=u.id LEFT JOIN tasks pt ON t.parent_id=pt.id WHERE t.status!="archived" ORDER BY t.due_date')->fetchAll(PDO::FETCH_ASSOC);
+    $weekCounts = [];
+    $start = new DateTime('today');
+    for ($i=0; $i<7; $i++) {
+        $d = clone $start; $d->modify("+{$i} day");
+        $weekCounts[$d->format('Y-m-d')] = 0;
+    }
+    foreach ($tasks as $t) {
+        foreach ($weekCounts as $day => $cnt) {
+            if (is_due_on($t['due_date'], $t['recurrence'], $day)) {
+                $weekCounts[$day]++;
+            }
+        }
+    }
+    $maxWeekCount = max($weekCounts) ?: 1;
 } catch (PDOException $e) {
     $error = $e->getMessage();
 }
@@ -146,86 +198,134 @@ include __DIR__ . '/header.php';
 ?>
 <h2>Admin Panel</h2>
 
-<h4 class="mt-4">Team Members</h4>
-<form method="post" class="row g-2 mb-3">
-  <input type="hidden" name="add_user" value="1">
-  <div class="col-md-4"><input type="text" name="username" class="form-control" placeholder="Name" required></div>
-  <div class="col-md-4"><input type="password" name="password" class="form-control" placeholder="Password" required></div>
-  <div class="col-md-2"><button class="btn btn-success w-100">Add</button></div>
-</form>
-<ul class="list-group mb-2" id="user-list">
-  <?php foreach ($users as $u): ?>
-  <li class="list-group-item" data-id="<?= $u['id'] ?>">
-    <form method="post" class="row g-2 align-items-center">
-      <div class="col-md-4"><input type="text" name="username" class="form-control" value="<?= htmlspecialchars($u['username']) ?>"></div>
-      <div class="col-md-4"><input type="password" name="password" class="form-control" placeholder="New password"></div>
-      <div class="col-md-2"><button class="btn btn-primary w-100 btn-sm" name="save_user" value="<?= $u['id'] ?>">Save</button></div>
-      <div class="col-md-2"><button class="btn btn-danger w-100 btn-sm" name="delete_user" value="<?= $u['id'] ?>" onclick="return confirm('Delete user?')">Delete</button></div>
-    </form>
-  </li>
-  <?php endforeach; ?>
+<ul class="nav nav-tabs" id="adminTabs" role="tablist">
+  <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#clients" type="button" role="tab">Clients</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#team" type="button" role="tab">Team Members</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#status" type="button" role="tab">Status</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">Tasks</button></li>
 </ul>
-<button id="saveUserOrder" class="btn btn-success btn-sm mb-5">Save Order</button>
-
-<h4>Clients</h4>
-<form method="post" class="row g-2 mb-3">
-  <input type="hidden" name="add_client" value="1">
-  <div class="col-md-6">
-    <textarea name="client_names" class="form-control" rows="4" placeholder="One client per line" required></textarea>
+<div class="tab-content pt-3">
+  <div class="tab-pane fade show active" id="clients" role="tabpanel">
+    <form method="post" class="row g-2 mb-3">
+      <input type="hidden" name="add_client" value="1">
+      <div class="col-md-6">
+        <textarea name="client_names" class="form-control" rows="4" placeholder="One client per line" required></textarea>
+      </div>
+      <div class="col-md-2"><button class="btn btn-success w-100">Add</button></div>
+    </form>
+    <ul class="list-group mb-2" id="client-list">
+      <?php foreach ($clients as $c): ?>
+      <li class="list-group-item" data-id="<?= $c['id'] ?>">
+        <form method="post" class="row g-2 align-items-center">
+          <div class="col-md-3"><input type="text" name="client_name" class="form-control" value="<?= htmlspecialchars($c['name']) ?>"></div>
+          <div class="col-md-2">
+            <span class="client-priority <?= strtolower($c['priority'] ?? '') ?>"><?= $c['priority'] ? htmlspecialchars($c['priority']) : '&nbsp;' ?></span>
+          </div>
+          <div class="col-md-1">
+            <?php if ($c['progress_percent'] !== null): ?>
+              <span><?= number_format($c['progress_percent'], 2) ?>%</span>
+            <?php endif; ?>
+          </div>
+          <div class="col-md-2"><button class="btn btn-primary w-100 btn-sm" name="save_client" value="<?= $c['id'] ?>">Save</button></div>
+          <?php $archived = ($c['active_count'] == 0 && $c['archived_count'] > 0); ?>
+          <div class="col-md-2">
+            <?php if ($archived): ?>
+            <button class="btn btn-warning w-100 btn-sm" name="unarchive_client" value="<?= $c['id'] ?>" onclick="return confirm('Unarchive all tasks for this client?')">Unarchive</button>
+            <?php else: ?>
+            <button class="btn btn-warning w-100 btn-sm" name="archive_client" value="<?= $c['id'] ?>" onclick="return confirm('Archive all tasks for this client?')">Archive</button>
+            <?php endif; ?>
+          </div>
+          <div class="col-md-2"><button class="btn btn-danger w-100 btn-sm" name="delete_client" value="<?= $c['id'] ?>" onclick="return confirm('Delete client?')">Delete</button></div>
+        </form>
+      </li>
+      <?php endforeach; ?>
+    </ul>
+    <button id="saveClientOrder" class="btn btn-success btn-sm mb-3">Save Order</button>
+    <form method="post" class="d-inline">
+      <input type="hidden" name="import_priorities" value="1">
+      <button class="btn btn-info btn-sm ms-2">Import Priorities &amp; Sorting</button>
+    </form>
   </div>
-  <div class="col-md-2"><button class="btn btn-success w-100">Add</button></div>
-</form>
-<ul class="list-group mb-2" id="client-list">
-  <?php foreach ($clients as $c): ?>
-  <li class="list-group-item" data-id="<?= $c['id'] ?>">
-    <form method="post" class="row g-2 align-items-center">
-      <div class="col-md-3"><input type="text" name="client_name" class="form-control" value="<?= htmlspecialchars($c['name']) ?>"></div>
-      <div class="col-md-2">
-        <span class="client-priority <?= strtolower($c['priority'] ?? '') ?>"><?= $c['priority'] ? htmlspecialchars($c['priority']) : '&nbsp;' ?></span>
-      </div>
-      <div class="col-md-1">
-        <?php if ($c['progress_percent'] !== null): ?>
-          <span><?= number_format($c['progress_percent'], 2) ?>%</span>
-        <?php endif; ?>
-      </div>
-      <div class="col-md-2"><button class="btn btn-primary w-100 btn-sm" name="save_client" value="<?= $c['id'] ?>">Save</button></div>
-      <?php $archived = ($c['active_count'] == 0 && $c['archived_count'] > 0); ?>
-      <div class="col-md-2">
-        <?php if ($archived): ?>
-        <button class="btn btn-warning w-100 btn-sm" name="unarchive_client" value="<?= $c['id'] ?>" onclick="return confirm('Unarchive all tasks for this client?')">Unarchive</button>
-        <?php else: ?>
-        <button class="btn btn-warning w-100 btn-sm" name="archive_client" value="<?= $c['id'] ?>" onclick="return confirm('Archive all tasks for this client?')">Archive</button>
-        <?php endif; ?>
-      </div>
-      <div class="col-md-2"><button class="btn btn-danger w-100 btn-sm" name="delete_client" value="<?= $c['id'] ?>" onclick="return confirm('Delete client?')">Delete</button></div>
+  <div class="tab-pane fade" id="team" role="tabpanel">
+    <form method="post" class="row g-2 mb-3">
+      <input type="hidden" name="add_user" value="1">
+      <div class="col-md-4"><input type="text" name="username" class="form-control" placeholder="Name" required></div>
+      <div class="col-md-4"><input type="password" name="password" class="form-control" placeholder="Password" required></div>
+      <div class="col-md-2"><button class="btn btn-success w-100">Add</button></div>
     </form>
-  </li>
-  <?php endforeach; ?>
-</ul>
-<button id="saveClientOrder" class="btn btn-success btn-sm mb-5">Save Order</button>
-<div class="mb-5">
-  <form method="post" class="d-inline">
-    <input type="hidden" name="import_priorities" value="1">
-    <button class="btn btn-info btn-sm ms-2">Import Priorities &amp; Sorting</button>
-  </form>
-  <a href="index.php" class="btn btn-dark btn-sm ms-2">Back to Tasks</a>
+    <ul class="list-group mb-2" id="user-list">
+      <?php foreach ($users as $u): ?>
+      <li class="list-group-item" data-id="<?= $u['id'] ?>">
+        <form method="post" class="row g-2 align-items-center">
+          <div class="col-md-4"><input type="text" name="username" class="form-control" value="<?= htmlspecialchars($u['username']) ?>"></div>
+          <div class="col-md-4"><input type="password" name="password" class="form-control" placeholder="New password"></div>
+          <div class="col-md-2"><button class="btn btn-primary w-100 btn-sm" name="save_user" value="<?= $u['id'] ?>">Save</button></div>
+          <div class="col-md-2"><button class="btn btn-danger w-100 btn-sm" name="delete_user" value="<?= $u['id'] ?>" onclick="return confirm('Delete user?')">Delete</button></div>
+        </form>
+      </li>
+      <?php endforeach; ?>
+    </ul>
+    <button id="saveUserOrder" class="btn btn-success btn-sm">Save Order</button>
+  </div>
+  <div class="tab-pane fade" id="status" role="tabpanel">
+    <table class="table table-borderless w-auto">
+      <thead><tr><th>Team Member</th><th>Achieved %</th></tr></thead>
+      <tbody>
+        <?php foreach ($workerTotals as $name => $pct):
+            $ratio = $pct / 100;
+            if ($ratio >= 0.75) $class = 'priority-critical';
+            elseif ($ratio >= 0.5) $class = 'priority-high';
+            elseif ($ratio >= 0.25) $class = 'priority-intermed';
+            else $class = 'priority-low';
+        ?>
+        <tr class="<?= $class ?>"><td><?= htmlspecialchars($name) ?></td><td><?= number_format($pct, 2) ?>%</td></tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+    <h5 class="mt-4">Upcoming Week</h5>
+    <table class="table table-borderless w-auto">
+      <tbody>
+        <?php foreach ($weekCounts as $day => $count):
+            $label = date('D', strtotime($day));
+            $width = ($count / $maxWeekCount) * 100;
+        ?>
+        <tr><td><?= $label ?></td><td class="w-100"><div class="progress" style="height:20px;"><div class="progress-bar" style="width:<?= (int)$width ?>%"><?= $count ?></div></div></td></tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+  <div class="tab-pane fade" id="overview" role="tabpanel">
+    <table class="table table-striped">
+      <thead><tr><th>Title</th><th>Worker</th><th>Due Date</th><th></th></tr></thead>
+      <tbody>
+        <?php foreach ($tasks as $t):
+            $title = $t['parent_title'] ? $t['parent_title'].' - '.$t['title'] : $t['title'];
+        ?>
+        <tr>
+          <td><?= htmlspecialchars($title) ?></td>
+          <td><?= htmlspecialchars($t['username']) ?></td>
+          <td><?= htmlspecialchars($t['due_date']) ?></td>
+          <td><button type="button" class="btn btn-sm btn-primary edit-task-btn" data-id="<?= $t['id'] ?>" data-due="<?= $t['due_date'] ?>">Edit</button></td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
 </div>
+<div class="mt-3"><a href="index.php" class="btn btn-dark btn-sm">Back to Tasks</a></div>
 
-<h4>Status</h4>
-<table class="table table-borderless w-auto">
-  <thead><tr><th>Team Member</th><th>Achieved %</th></tr></thead>
-  <tbody>
-    <?php foreach ($workerTotals as $name => $pct):
-        $ratio = $pct / 100;
-        if ($ratio >= 0.75) $class = 'priority-critical';
-        elseif ($ratio >= 0.5) $class = 'priority-high';
-        elseif ($ratio >= 0.25) $class = 'priority-intermed';
-        else $class = 'priority-low';
-    ?>
-    <tr class="<?= $class ?>"><td><?= htmlspecialchars($name) ?></td><td><?= number_format($pct, 2) ?>%</td></tr>
-    <?php endforeach; ?>
-  </tbody>
-</table>
+<div class="modal fade" id="editTaskModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="post" class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Edit Task</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <input type="hidden" name="update_task" id="editTaskId">
+        <div class="mb-3"><label for="editDueDate" class="form-label">Due Date</label><input type="date" class="form-control" name="due_date" id="editDueDate" required></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save</button></div>
+    </form>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
@@ -238,6 +338,13 @@ document.getElementById('saveUserOrder').addEventListener('click', ()=>{
 document.getElementById('saveClientOrder').addEventListener('click', ()=>{
   const order = Array.from(document.querySelectorAll('#client-list li')).map((el,idx)=>el.dataset.id+':'+idx).join(',');
   fetch('admin.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'reorder_clients=1&order='+order}).then(()=>location.reload());
+});
+document.querySelectorAll('.edit-task-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.getElementById('editTaskId').value = btn.dataset.id;
+    document.getElementById('editDueDate').value = btn.dataset.due;
+    new bootstrap.Modal(document.getElementById('editTaskModal')).show();
+  });
 });
 </script>
 
