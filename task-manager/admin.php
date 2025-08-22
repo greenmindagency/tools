@@ -98,13 +98,15 @@ try {
                 $stmt = $pdo->prepare('UPDATE clients SET priority=?, sort_order=? WHERE name=?');
                 foreach ($rows as $i => $row) {
                     if ($i === 0) continue; // skip header
-                    if (count($row) >= 19) {
+                    if (count($row) >= 18) {
                         $client = trim($row[16]);
                         $prio = trim($row[17]);
-                        $sort = trim($row[18]);
                         if ($client !== '') {
-                            $sortVal = is_numeric($sort) ? (int)$sort : 0;
-                            $stmt->execute([$prio !== '' ? $prio : null, $sortVal, $client]);
+                            $stmt->execute([
+                                $prio !== '' ? $prio : null,
+                                $i - 1,
+                                $client
+                            ]);
                         }
                     }
                 }
