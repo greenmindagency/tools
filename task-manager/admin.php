@@ -160,6 +160,12 @@ try {
     $users = $pdo->query('SELECT id, username FROM users ORDER BY sort_order, username')->fetchAll(PDO::FETCH_ASSOC);
     $clients = $pdo->query('SELECT c.id, c.name, c.priority, c.progress_percent, COALESCE(SUM(t.status != "archived"),0) AS active_count, COALESCE(SUM(t.status = "archived"),0) AS archived_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.priority IS NULL), c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
 
+    $clientMaxTasks = 0;
+    foreach ($clients as $c) {
+        if ($c['active_count'] > $clientMaxTasks) $clientMaxTasks = $c['active_count'];
+    }
+    $clientMaxTasks = max($clientMaxTasks, 1);
+
     $workerTotals = [];
     $clientStmt = $pdo->query('SELECT id, progress_percent FROM clients WHERE progress_percent IS NOT NULL');
     $wStmt = $pdo->prepare('SELECT u.username, COUNT(*) AS task_count FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE t.client_id=? AND t.status!="archived" GROUP BY u.username');
@@ -204,10 +210,13 @@ try {
 
     $tasksByDay = [];
     $startTasks = new DateTime('today');
-    for ($i=0; $i<7; $i++) {
+    $i = 0;
+    while (count($tasksByDay) < 5) {
         $d = clone $startTasks; $d->modify("+{$i} day");
+        if (in_array($d->format('w'), ['5','6'])) { $i++; continue; }
         $key = $d->format('Y-m-d');
         $tasksByDay[$key] = ['label'=>$d->format('l'),'tasks'=>[]];
+        $i++;
     }
     foreach ($tasks as $t) {
         foreach ($tasksByDay as $day => &$info) {
@@ -330,6 +339,34 @@ include __DIR__ . '/header.php';
                 $width = ($count / $maxWeekCount) * 100;
             ?>
             <tr><td><?= $label ?></td><td class="w-100"><div class="progress" style="height:20px;"><div class="progress-bar" style="width:<?= (int)$width ?>%"><?= $count ?></div></div></td></tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="row mt-4">
+      <div class="col">
+        <div class="mb-2">
+          <span class="badge bg-info">Tasks</span>
+          <span class="badge bg-success">Progress %</span>
+        </div>
+        <table class="table table-borderless w-auto">
+          <tbody>
+            <?php foreach ($clients as $c):
+                $count = (int)$c['active_count'];
+                $pct = (float)($c['progress_percent'] ?? 0);
+                $countWidth = ($count / $clientMaxTasks) * 100;
+                $pctWidth = $pct;
+            ?>
+            <tr>
+              <td><?= htmlspecialchars($c['name']) ?></td>
+              <td class="w-100">
+                <div class="progress position-relative" style="height:20px;">
+                  <div class="progress-bar bg-info" style="width:<?= (int)$countWidth ?>%"></div>
+                  <div class="progress-bar bg-success position-absolute top-0 start-0" style="width:<?= (int)$pctWidth ?>%; opacity:0.6"></div>
+                </div>
+              </td>
+            </tr>
             <?php endforeach; ?>
           </tbody>
         </table>
