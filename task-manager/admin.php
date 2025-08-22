@@ -361,9 +361,11 @@ include __DIR__ . '/header.php';
             <tr>
               <td><?= htmlspecialchars($c['name']) ?></td>
               <td class="w-100">
-                <div class="progress position-relative" style="height:20px;">
-                  <div class="progress-bar bg-info" style="width:<?= (int)$countWidth ?>%"></div>
-                  <div class="progress-bar bg-success position-absolute top-0 start-0" style="width:<?= (int)$pctWidth ?>%; opacity:0.6"></div>
+                <div class="progress mb-1" style="height:20px;">
+                  <div class="progress-bar bg-info" style="width:<?= (int)$countWidth ?>%"><?= $count ?></div>
+                </div>
+                <div class="progress" style="height:20px;">
+                  <div class="progress-bar bg-success" style="width:<?= (int)$pctWidth ?>%"><?= number_format($pct, 2) ?>%</div>
                 </div>
               </td>
             </tr>

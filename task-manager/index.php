@@ -93,6 +93,37 @@ function next_due_date($current, $recurrence) {
     }
     return $date->format('Y-m-d');
 }
+function is_due_on($due, $recurrence, $target) {
+    if ($recurrence === 'none') return $due === $target;
+    if ($target < $due) return false;
+    $dueDate = new DateTime($due);
+    $targetDate = new DateTime($target);
+    switch ($recurrence) {
+        case 'everyday':
+            return $targetDate >= $dueDate;
+        case 'working':
+            return $targetDate >= $dueDate && !in_array($targetDate->format('w'), ['5','6']);
+        case 'weekly':
+            return $targetDate >= $dueDate && $targetDate->format('w') === $dueDate->format('w');
+        default:
+            if (strpos($recurrence,'interval:')===0) {
+                [, $cnt, $unit] = explode(':',$recurrence);
+                $diff = $dueDate->diff($targetDate);
+                if ($unit === 'day') return $diff->days % $cnt === 0;
+                if ($unit === 'week') return ($diff->days/7) % $cnt === 0 && $targetDate->format('w') === $dueDate->format('w');
+                if ($unit === 'month') {
+                    $months = $diff->m + $diff->y*12;
+                    return $months % $cnt === 0 && $targetDate->format('d') === $dueDate->format('d');
+                }
+            } elseif (strpos($recurrence,'custom:')===0) {
+                $days = explode(',', substr($recurrence,7));
+                $map = ['Sun'=>0,'Mon'=>1,'Tue'=>2,'Wed'=>3,'Thu'=>4,'Fri'=>5,'Sat'=>6];
+                $dow = (int)$targetDate->format('w');
+                return $targetDate >= $dueDate && in_array($dow, array_map(fn($d)=>$map[$d], $days));
+            }
+            return $targetDate >= $dueDate && $targetDate->format('w') === $dueDate->format('w');
+    }
+}
 function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses = []) {
     $today = date('Y-m-d');
     $overdue = $t['due_date'] < $today && $t['status'] !== 'done';
@@ -494,6 +525,24 @@ try {
         $upcomingTasks = $upcomingStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    $weekCounts = [];
+    $start = new DateTime('today');
+    $i = 0;
+    while (count($weekCounts) < 5) {
+        $d = clone $start; $d->modify("+{$i} day");
+        if (in_array($d->format('w'), ['5','6'])) { $i++; continue; }
+        $weekCounts[$d->format('Y-m-d')] = 0;
+        $i++;
+    }
+    $allForCounts = $pdo->query('SELECT due_date, recurrence FROM tasks WHERE status!="archived"')->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($allForCounts as $t) {
+        foreach ($weekCounts as $day => $cnt) {
+            if (is_due_on($t['due_date'], $t['recurrence'], $day)) {
+                $weekCounts[$day]++;
+            }
+        }
+    }
+
 } catch (PDOException $e) {
     $title = 'Task Manager - Error';
     include __DIR__ . '/header.php';
@@ -539,6 +588,12 @@ include __DIR__ . '/header.php';
       <li class="list-inline-item mb-2">
         <a href="index.php?user=<?= urlencode($u['username']) ?>" class="btn btn-sm <?= $loadClass ?> me-2 <?= $uActive ? 'border-dark border-2' : '' ?>"><?= htmlspecialchars($u['username']) ?></a>
       </li>
+      <?php endforeach; ?>
+    </ul>
+    <h6 class="mt-4">Upcoming Week</h6>
+    <ul class="list-unstyled small">
+      <?php foreach ($weekCounts as $day => $cnt): ?>
+      <li><?= date('D', strtotime($day)) ?>: <?= $cnt ?></li>
       <?php endforeach; ?>
     </ul>
   </div>
