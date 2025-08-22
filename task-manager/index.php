@@ -121,6 +121,7 @@ function render_task($t, $users, $clients, $filterUser = null) {
             <div class="mb-1">
               <button type="button" class="btn btn-success btn-sm save-btn d-none" data-id="<?= $t['id'] ?>" title="Save" data-bs-toggle="tooltip"><i class="bi bi-check"></i></button>
               <button type="button" class="btn btn-light btn-sm edit-btn" data-id="<?= $t['id'] ?>" title="Edit" data-bs-toggle="tooltip"><i class="bi bi-pencil"></i></button>
+              <button type="button" class="btn btn-secondary btn-sm duplicate-btn" data-id="<?= $t['id'] ?>" title="Duplicate" data-bs-toggle="tooltip"><i class="bi bi-files"></i></button>
               <button type="button" class="btn btn-warning btn-sm archive-btn" data-id="<?= $t['id'] ?>" title="Archive" data-bs-toggle="tooltip"><i class="bi bi-archive"></i></button>
             </div>
             <?php $pc = strtolower($t['priority']); ?>
@@ -258,6 +259,22 @@ function render_task($t, $users, $clients, $filterUser = null) {
     <?php
     return ob_get_clean();
 }
+function duplicate_task_recursive($pdo, $taskId, $newParentId = null) {
+    $stmt = $pdo->prepare('SELECT title,description,assigned_to,client_id,priority,due_date,recurrence FROM tasks WHERE id=?');
+    $stmt->execute([$taskId]);
+    $task = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$task) return null;
+    $orderIdx = strtotime($task['due_date']);
+    $insert = $pdo->prepare('INSERT INTO tasks (title,description,assigned_to,client_id,priority,due_date,recurrence,parent_id,order_index) VALUES (?,?,?,?,?,?,?,?,?)');
+    $insert->execute([$task['title'],$task['description'],$task['assigned_to'],$task['client_id'],$task['priority'],$task['due_date'],$task['recurrence'],$newParentId,$orderIdx]);
+    $newId = $pdo->lastInsertId();
+    $childStmt = $pdo->prepare('SELECT id FROM tasks WHERE parent_id=?');
+    $childStmt->execute([$taskId]);
+    while ($child = $childStmt->fetch(PDO::FETCH_ASSOC)) {
+        duplicate_task_recursive($pdo, $child['id'], $newId);
+    }
+    return $newId;
+}
 
 
 
@@ -340,6 +357,10 @@ try {
         $stmt = $pdo->prepare('UPDATE tasks SET status="pending" WHERE id=? OR parent_id=?');
         $stmt->execute([$id,$id]);
         exit;
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['duplicate_task'])) {
+        $id = (int)$_POST['duplicate_task'];
+        duplicate_task_recursive($pdo, $id);
+        exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_task'])) {
         $id = (int)$_POST['delete_task'];
         $stmt = $pdo->prepare('DELETE FROM tasks WHERE id=?');
@@ -421,18 +442,20 @@ include __DIR__ . '/header.php';
       </li>
     </ul>
     <h4>Clients</h4>
-    <ul class="list-group mb-4">
+    <ul class="list-inline mb-4">
       <?php foreach ($clients as $c): ?>
-      <li class="list-group-item <?= $filterClientName === $c['name'] ? 'active' : '' ?>">
-        <a href="index.php?client=<?= urlencode($c['name']) ?>" class="text-decoration-none<?= $filterClientName === $c['name'] ? ' text-white' : '' ?>"><?= htmlspecialchars($c['name']) ?></a>
+      <?php $isActive = $filterClientName === $c['name']; ?>
+      <li class="list-inline-item mb-2">
+        <a href="index.php?client=<?= urlencode($c['name']) ?>" class="btn btn-sm <?= $isActive ? 'btn-secondary' : 'btn-outline-secondary' ?> me-2"><?= htmlspecialchars($c['name']) ?></a>
       </li>
       <?php endforeach; ?>
     </ul>
     <h4>Team Members</h4>
-    <ul class="list-group">
+    <ul class="list-inline">
       <?php foreach ($users as $u): ?>
-      <li class="list-group-item <?= $filterUserName === $u['username'] ? 'active' : '' ?>">
-        <a href="index.php?user=<?= urlencode($u['username']) ?>" class="text-decoration-none<?= $filterUserName === $u['username'] ? ' text-white' : '' ?>"><?= htmlspecialchars($u['username']) ?></a>
+      <?php $uActive = $filterUserName === $u['username']; ?>
+      <li class="list-inline-item mb-2">
+        <a href="index.php?user=<?= urlencode($u['username']) ?>" class="btn btn-sm <?= $uActive ? 'btn-secondary' : 'btn-outline-secondary' ?> me-2"><?= htmlspecialchars($u['username']) ?></a>
       </li>
       <?php endforeach; ?>
     </ul>
@@ -676,6 +699,15 @@ document.querySelectorAll('.unarchive-btn').forEach(btn=>{
     await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'unarchive_task='+id});
     btn.closest('li').remove();
     showToast('Task unarchived');
+  });
+});
+
+document.querySelectorAll('.duplicate-btn').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    const id = btn.dataset.id;
+    await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'duplicate_task='+id});
+    showToast('Task duplicated');
+    location.reload();
   });
 });
 
