@@ -124,6 +124,7 @@ try {
             $workerTotals[$name] = ($workerTotals[$name] ?? 0) + $share;
         }
     }
+    arsort($workerTotals);
 } catch (PDOException $e) {
     $error = $e->getMessage();
 }
@@ -202,11 +203,17 @@ include __DIR__ . '/header.php';
 </div>
 
 <h4>Status</h4>
-<table class="table w-auto">
+<table class="table table-borderless w-auto">
   <thead><tr><th>Team Member</th><th>Achieved %</th></tr></thead>
   <tbody>
-    <?php foreach ($workerTotals as $name => $pct): ?>
-    <tr><td><?= htmlspecialchars($name) ?></td><td><?= number_format($pct, 2) ?>%</td></tr>
+    <?php foreach ($workerTotals as $name => $pct):
+        $ratio = $pct / 100;
+        if ($ratio >= 0.75) $class = 'priority-critical';
+        elseif ($ratio >= 0.5) $class = 'priority-high';
+        elseif ($ratio >= 0.25) $class = 'priority-intermed';
+        else $class = 'priority-low';
+    ?>
+    <tr class="<?= $class ?>"><td><?= htmlspecialchars($name) ?></td><td><?= number_format($pct, 2) ?>%</td></tr>
     <?php endforeach; ?>
   </tbody>
 </table>
