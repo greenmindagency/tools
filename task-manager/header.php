@@ -19,7 +19,7 @@ $hideBreadcrumb = $hideBreadcrumb ?? false;
     .priority.normal { color: #ffc107 !important; }
     .priority.high { color: #dc3545 !important; }
     .editable { min-height: 38px; white-space: pre-wrap; }
-    .task-main { cursor: pointer; }
+    .task-main[data-bs-target] { cursor: pointer; }
   </style>
 </head>
 <body>

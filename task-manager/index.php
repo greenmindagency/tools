@@ -95,6 +95,8 @@ function next_due_date($current, $recurrence) {
 function render_task($t, $users, $clients, $filterUser = null) {
     $today = date('Y-m-d');
     $overdue = $t['due_date'] < $today && $t['status'] !== 'done';
+    $isSub = !empty($t['parent_id']);
+    $toggleAttr = $isSub ? '' : ' data-bs-toggle="collapse" data-bs-target="#task-'.$t['id'].'"';
     ob_start();
     ?>
     <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>" data-recurrence="<?= htmlspecialchars($t['recurrence']) ?>">
@@ -104,7 +106,7 @@ function render_task($t, $users, $clients, $filterUser = null) {
       </form>
       <div class="flex-grow-1">
         <div class="d-flex justify-content-between">
-          <div class="task-main" data-bs-toggle="collapse" data-bs-target="#task-<?= $t['id'] ?>">
+          <div class="task-main"<?= $toggleAttr ?>>
             <strong class="client"><?= $t['client_name'] ? htmlspecialchars($t['client_name']) : 'Others' ?></strong>
             <span class="task-title-text"><?= htmlspecialchars($t['title']) ?></span>
             <div class="small text-muted due-date"><i class="bi bi-calendar-event me-1"></i><?= htmlspecialchars($t['due_date']) ?></div>
@@ -233,7 +235,7 @@ function render_task($t, $users, $clients, $filterUser = null) {
             $childSql .= ' AND t.assigned_to=?';
             $params[] = $filterUser;
           }
-          $childSql .= ' ORDER BY t.order_index, t.due_date';
+          $childSql .= ' ORDER BY t.order_index';
           $childStmt = $pdo->prepare($childSql);
           $childStmt->execute($params);
           $children = $childStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -339,8 +341,19 @@ try {
         exit;
     }
 
-    $filterUser = isset($_GET['user']) ? (int)$_GET['user'] : null;
-    $filterClient = isset($_GET['client']) ? (int)$_GET['client'] : null;
+    $filterUserName = $_GET['user'] ?? null;
+    $filterClientName = $_GET['client'] ?? null;
+    $filterUser = $filterClient = null;
+    if ($filterUserName) {
+        $stmt = $pdo->prepare('SELECT id FROM users WHERE username=?');
+        $stmt->execute([$filterUserName]);
+        $filterUser = $stmt->fetchColumn() ?: null;
+    }
+    if ($filterClientName) {
+        $stmt = $pdo->prepare('SELECT id FROM clients WHERE name=?');
+        $stmt->execute([$filterClientName]);
+        $filterClient = $stmt->fetchColumn() ?: null;
+    }
     $filterArchived = isset($_GET['archived']);
 
     $users = $pdo->query('SELECT id,username FROM users ORDER BY sort_order, username')->fetchAll(PDO::FETCH_ASSOC);
@@ -355,7 +368,7 @@ try {
     if ($filterClient) { $cond[] = 't.client_id=?'; $params[] = $filterClient; }
     if ($filterArchived) { $cond[] = 't.status="archived"'; } else { $cond[] = 't.status!="archived"'; }
     $where = $cond ? ' AND '.implode(' AND ',$cond) : '';
-    $order = (!$filterUser && !$filterClient && !$filterArchived) ? 'ORDER BY order_index, due_date' : 'ORDER BY due_date';
+    $order = (!$filterUser && !$filterClient && !$filterArchived) ? 'ORDER BY order_index' : 'ORDER BY due_date';
 
     $today = date('Y-m-d');
     if (!$filterUser && !$filterClient && !$filterArchived) {
@@ -389,12 +402,13 @@ include __DIR__ . '/header.php';
 ?>
 <div class="row">
   <div class="col-md-3">
+    <?php $isAllPage = basename($_SERVER['SCRIPT_NAME']) === 'alltasks.php'; ?>
     <ul class="list-group mb-4">
-      <li class="list-group-item <?= $filterUser == ($_SESSION['user_id'] ?? 0) && !$filterClient && !$filterArchived ? 'active' : '' ?>">
-        <a href="index.php?user=<?= $_SESSION['user_id'] ?? 0 ?>" class="text-decoration-none<?= $filterUser == ($_SESSION['user_id'] ?? 0) && !$filterClient && !$filterArchived ? ' text-white' : '' ?>">My Tasks</a>
+      <li class="list-group-item <?= $filterUserName === ($_SESSION['username'] ?? '') && !$filterClientName && !$filterArchived ? 'active' : '' ?>">
+        <a href="index.php?user=<?= urlencode($_SESSION['username'] ?? '') ?>" class="text-decoration-none<?= $filterUserName === ($_SESSION['username'] ?? '') && !$filterClientName && !$filterArchived ? ' text-white' : '' ?>">My Tasks</a>
       </li>
-      <li class="list-group-item <?= !$filterClient && !$filterUser && !$filterArchived ? 'active' : '' ?>">
-        <a href="index.php" class="text-decoration-none<?= !$filterClient && !$filterUser && !$filterArchived ? ' text-white' : '' ?>">All Tasks</a>
+      <li class="list-group-item <?= $isAllPage && !$filterClientName && !$filterUserName && !$filterArchived ? 'active' : '' ?>">
+        <a href="alltasks.php" class="text-decoration-none<?= $isAllPage && !$filterClientName && !$filterUserName && !$filterArchived ? ' text-white' : '' ?>">All Tasks</a>
       </li>
       <li class="list-group-item <?= $filterArchived ? 'active' : '' ?>">
         <a href="index.php?archived=1" class="text-decoration-none<?= $filterArchived ? ' text-white' : '' ?>">Archive</a>
@@ -403,16 +417,16 @@ include __DIR__ . '/header.php';
     <h4>Clients</h4>
     <ul class="list-group mb-4">
       <?php foreach ($clients as $c): ?>
-      <li class="list-group-item <?= $filterClient == $c['id'] ? 'active' : '' ?>">
-        <a href="index.php?client=<?= $c['id'] ?>" class="text-decoration-none<?= $filterClient == $c['id'] ? ' text-white' : '' ?>"><?= htmlspecialchars($c['name']) ?></a>
+      <li class="list-group-item <?= $filterClientName === $c['name'] ? 'active' : '' ?>">
+        <a href="index.php?client=<?= urlencode($c['name']) ?>" class="text-decoration-none<?= $filterClientName === $c['name'] ? ' text-white' : '' ?>"><?= htmlspecialchars($c['name']) ?></a>
       </li>
       <?php endforeach; ?>
     </ul>
     <h4>Team Members</h4>
     <ul class="list-group">
       <?php foreach ($users as $u): ?>
-      <li class="list-group-item <?= $filterUser == $u['id'] ? 'active' : '' ?>">
-        <a href="index.php?user=<?= $u['id'] ?>" class="text-decoration-none<?= $filterUser == $u['id'] ? ' text-white' : '' ?>"><?= htmlspecialchars($u['username']) ?></a>
+      <li class="list-group-item <?= $filterUserName === $u['username'] ? 'active' : '' ?>">
+        <a href="index.php?user=<?= urlencode($u['username']) ?>" class="text-decoration-none<?= $filterUserName === $u['username'] ? ' text-white' : '' ?>"><?= htmlspecialchars($u['username']) ?></a>
       </li>
       <?php endforeach; ?>
     </ul>
@@ -581,7 +595,7 @@ document.querySelectorAll('.complete-checkbox').forEach(cb=>{
   });
 });
 
-document.querySelectorAll('.task-main').forEach(main=>{
+document.querySelectorAll('.task-main[data-bs-target]').forEach(main=>{
   main.addEventListener('click', ()=>{
     const target = document.querySelector(main.dataset.bsTarget);
     document.querySelectorAll('.collapse.show').forEach(c=>{ if(c!==target) new bootstrap.Collapse(c,{toggle:false}).hide(); });
