@@ -566,6 +566,10 @@ try {
 
 $title = 'Task Manager';
 include __DIR__ . '/header.php';
+$uid = $_SESSION['user_id'] ?? null;
+$myOverdue = $overdueCounts[$uid] ?? 0;
+$myToday = $todayCounts[$uid] ?? 0;
+$myWeek = $weekCountsUser[$uid] ?? 0;
 ?>
 <div class="row">
   <div class="col-md-3">
@@ -619,15 +623,10 @@ include __DIR__ . '/header.php';
     </ul>
   </div>
   <div class="col-md-9">
+    <div class="small mb-2"><?= $myOverdue ?> overdue, <?= $myToday ?> today, <?= $myWeek ?> week</div>
+    <hr>
     <div class="d-flex justify-content-between mb-2 align-items-start">
-      <div class="d-flex align-items-start">
-        <div class="small me-3">
-          <?php foreach ($users as $u): ?>
-          <div><?= htmlspecialchars($u['username']) ?>: <?= $overdueCounts[$u['id']] ?? 0 ?> overdue, <?= $todayCounts[$u['id']] ?? 0 ?> today, <?= $weekCountsUser[$u['id']] ?? 0 ?> week</div>
-          <?php endforeach; ?>
-        </div>
-        <button id="addBtn" class="btn btn-success btn-sm ms-2" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
-      </div>
+      <button id="addBtn" class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
       <div>
         <a href="admin.php" class="btn btn-secondary btn-sm me-2" data-bs-toggle="tooltip" title="Admin">Admin</a>
         <a href="?logout=1" class="btn btn-outline-secondary btn-sm" data-bs-toggle="tooltip" title="Logout">Logout</a>
