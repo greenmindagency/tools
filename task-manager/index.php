@@ -415,7 +415,15 @@ try {
     $filterArchived = isset($_GET['archived']);
 
     $users = $pdo->query('SELECT id,username FROM users ORDER BY sort_order, username')->fetchAll(PDO::FETCH_ASSOC);
-    $clients = $pdo->query('SELECT id,name,priority FROM clients ORDER BY sort_order, name')->fetchAll(PDO::FETCH_ASSOC);
+    $userCounts = $pdo->query('SELECT assigned_to, COUNT(*) AS cnt FROM tasks WHERE status!="archived" GROUP BY assigned_to')->fetchAll(PDO::FETCH_KEY_PAIR);
+    $usersByTasks = $users;
+    foreach ($usersByTasks as &$u) {
+        $u['task_count'] = $userCounts[$u['id']] ?? 0;
+    }
+    unset($u);
+    usort($usersByTasks, fn($a, $b) => $b['task_count'] <=> $a['task_count'] ?: strcmp($a['username'], $b['username']));
+
+    $clients = $pdo->query('SELECT c.id,c.name,c.priority,COUNT(t.id) AS task_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id AND t.status!="archived" GROUP BY c.id,c.name,c.priority,c.sort_order ORDER BY c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
 
     $cond = [];
     $params = [];
@@ -479,13 +487,16 @@ include __DIR__ . '/header.php';
       <?php foreach ($clients as $c): ?>
       <?php $isActive = $filterClientName === $c['name']; ?>
       <li class="list-inline-item mb-2">
-        <a href="index.php?client=<?= urlencode($c['name']) ?>" class="btn btn-sm <?= $isActive ? 'btn-secondary' : 'btn-outline-secondary' ?> me-2"><?= htmlspecialchars($c['name']) ?></a>
+        <a href="index.php?client=<?= urlencode($c['name']) ?>" class="btn btn-sm <?= $isActive ? 'btn-secondary' : 'btn-outline-secondary' ?> me-2">
+          <?= htmlspecialchars($c['name']) ?>
+          <span class="badge bg-light text-dark ms-1"><?= $c['task_count'] ?></span>
+        </a>
       </li>
       <?php endforeach; ?>
     </ul>
     <h4>Team Members</h4>
     <ul class="list-inline">
-      <?php foreach ($users as $u): ?>
+      <?php foreach ($usersByTasks as $u): ?>
       <?php $uActive = $filterUserName === $u['username']; ?>
       <li class="list-inline-item mb-2">
         <a href="index.php?user=<?= urlencode($u['username']) ?>" class="btn btn-sm <?= $uActive ? 'btn-secondary' : 'btn-outline-secondary' ?> me-2"><?= htmlspecialchars($u['username']) ?></a>
