@@ -292,6 +292,7 @@ function duplicate_task_recursive($pdo, $taskId, $newParentId = null, $depth = 0
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_task'])) {
+        refresh_client_priorities($pdo);
         $title = trim($_POST['title'] ?? '');
         $assigned = (int)($_POST['assigned'] ?? 0);
         $due = $_POST['due_date'] ?? date('Y-m-d');

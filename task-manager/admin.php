@@ -68,10 +68,22 @@ try {
             $stmt = $pdo->prepare('DELETE FROM users WHERE id=?');
             $stmt->execute([$id]);
         } elseif (isset($_POST['add_client'])) {
-            $name = trim($_POST['client_name'] ?? '');
-            if ($name !== '') {
-                $stmt = $pdo->prepare('INSERT INTO clients (name) VALUES (?)');
-                $stmt->execute([$name]);
+            $namesText = trim($_POST['client_names'] ?? '');
+            if ($namesText !== '') {
+                $insertStmt = $pdo->prepare('INSERT INTO clients (name) VALUES (?)');
+                $updateStmt = $pdo->prepare('UPDATE clients SET name=? WHERE id=?');
+                $selectStmt = $pdo->prepare('SELECT id FROM clients WHERE name=?');
+                foreach (preg_split('/\r\n|\r|\n/', $namesText) as $n) {
+                    $name = trim($n);
+                    if ($name === '') continue;
+                    $selectStmt->execute([$name]);
+                    $id = $selectStmt->fetchColumn();
+                    if ($id) {
+                        $updateStmt->execute([$name, $id]);
+                    } else {
+                        $insertStmt->execute([$name]);
+                    }
+                }
             }
         } elseif (isset($_POST['save_client'])) {
             $id = (int)$_POST['save_client'];
@@ -91,27 +103,7 @@ try {
             $stmt = $pdo->prepare('DELETE FROM clients WHERE id=?');
             $stmt->execute([$id]);
         } elseif (isset($_POST['import_priorities'])) {
-            $url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQiesZdFZ-jCIcuz5J53buN5ACEepvOiKcDDbn66fQpxEe9dfKBL86FLXIPH1dYUR9N6pFaUcjPw0CX/pub?gid=542324811&single=true&output=csv';
-            $csv = @file_get_contents($url);
-            if ($csv !== false) {
-                $rows = array_map('str_getcsv', explode("\n", trim($csv)));
-                $stmt = $pdo->prepare('UPDATE clients SET priority=?, sort_order=? WHERE name=?');
-                foreach ($rows as $i => $row) {
-                    if ($i === 0) continue; // skip header
-                    if (count($row) >= 18) {
-                        $client = trim($row[16]);
-                        $prio = trim($row[17]);
-                        if ($client !== '') {
-                            $stmt->execute([
-                                $prio !== '' ? $prio : null,
-                                $i - 1,
-                                $client
-                            ]);
-                        }
-                    }
-                }
-                $pdo->exec('UPDATE tasks t JOIN clients c ON t.client_id=c.id SET t.priority=c.priority');
-            }
+            refresh_client_priorities($pdo);
         }
     }
 
@@ -158,7 +150,9 @@ include __DIR__ . '/header.php';
 <h4>Clients</h4>
 <form method="post" class="row g-2 mb-3">
   <input type="hidden" name="add_client" value="1">
-  <div class="col-md-6"><input type="text" name="client_name" class="form-control" placeholder="Client name" required></div>
+  <div class="col-md-6">
+    <textarea name="client_names" class="form-control" rows="4" placeholder="One client per line" required></textarea>
+  </div>
   <div class="col-md-2"><button class="btn btn-success w-100">Add</button></div>
 </form>
 <ul class="list-group mb-2" id="client-list">
