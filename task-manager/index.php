@@ -604,8 +604,30 @@ document.querySelectorAll('.complete-checkbox').forEach(cb=>{
   });
 });
 
-// The task header uses Bootstrap's data attributes for collapse; no extra
-// JavaScript needed to manage other open tasks.
+function collapseSiblings(currentLi, currentCollapse){
+  const parentUl = currentLi.parentElement;
+  parentUl.querySelectorAll(':scope > li .collapse.show').forEach(el=>{
+    if(el !== currentCollapse){
+      new bootstrap.Collapse(el, {toggle:false}).hide();
+      const li = el.closest('li');
+      const form = el.querySelector('.task-form');
+      const desc = el.querySelector('.description');
+      if(form && desc){
+        form.classList.add('d-none');
+        desc.classList.remove('d-none');
+      }
+      li.querySelector('.save-btn')?.classList.add('d-none');
+      li.querySelector('.add-subtask-toggle')?.classList.add('d-none');
+    }
+  });
+}
+
+document.querySelectorAll('.collapse[id^="task-"]').forEach(col=>{
+  col.addEventListener('show.bs.collapse', ()=>{
+    const li = col.closest('li');
+    collapseSiblings(li, col);
+  });
+});
 
 document.querySelectorAll('.edit-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -616,7 +638,6 @@ document.querySelectorAll('.edit-btn').forEach(btn=>{
     const desc = collapse.querySelector('.description');
     const saveBtn = li.querySelector('.save-btn');
     const subBtn = li.querySelector('.add-subtask-toggle');
-    // Do not collapse other tasks when editing; keep existing open sections visible
     form.classList.toggle('d-none');
     desc.classList.toggle('d-none');
     const editing = !form.classList.contains('d-none');
