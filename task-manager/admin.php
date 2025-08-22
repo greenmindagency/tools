@@ -179,12 +179,13 @@ include __DIR__ . '/header.php';
   <?php endforeach; ?>
 </ul>
 <button id="saveClientOrder" class="btn btn-success btn-sm mb-5">Save Order</button>
-<form method="post" class="d-inline">
-  <input type="hidden" name="import_priorities" value="1">
-  <button class="btn btn-info btn-sm mb-5 ms-2">Import Priorities &amp; Sorting</button>
-</form>
-
-<a href="index.php" class="btn btn-success btn-sm">Back to Tasks</a>
+<div class="mb-5">
+  <form method="post" class="d-inline">
+    <input type="hidden" name="import_priorities" value="1">
+    <button class="btn btn-info btn-sm ms-2">Import Priorities &amp; Sorting</button>
+  </form>
+  <a href="index.php" class="btn btn-dark btn-sm ms-2">Back to Tasks</a>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
