@@ -92,7 +92,7 @@ function next_due_date($current, $recurrence) {
     }
     return $date->format('Y-m-d');
 }
-function render_task($t, $users, $clients) {
+function render_task($t, $users, $clients, $filterUser = null) {
     $today = date('Y-m-d');
     $overdue = $t['due_date'] < $today && $t['status'] !== 'done';
     ob_start();
@@ -227,13 +227,20 @@ function render_task($t, $users, $clients) {
           </div>
           <?php
           global $pdo;
-          $childStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id=? AND t.status!="archived" ORDER BY t.order_index, t.due_date');
-          $childStmt->execute([$t['id']]);
+          $childSql = 'SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id=? AND t.status!="archived"';
+          $params = [$t['id']];
+          if ($filterUser) {
+            $childSql .= ' AND t.assigned_to=?';
+            $params[] = $filterUser;
+          }
+          $childSql .= ' ORDER BY t.order_index, t.due_date';
+          $childStmt = $pdo->prepare($childSql);
+          $childStmt->execute($params);
           $children = $childStmt->fetchAll(PDO::FETCH_ASSOC);
           if ($children): ?>
           <ul class="list-group ms-4 mt-2">
             <?php foreach ($children as $ch): ?>
-            <?= render_task($ch, $users, $clients); ?>
+            <?= render_task($ch, $users, $clients, $filterUser); ?>
             <?php endforeach; ?>
           </ul>
           <?php endif; ?>
@@ -247,16 +254,7 @@ function render_task($t, $users, $clients) {
 
 
 try {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['reorder'])) {
-        $order = $_POST['order'] ?? '';
-        $stmt = $pdo->prepare('UPDATE tasks SET order_index=? WHERE id=?');
-        foreach (explode(',', $order) as $pair) {
-            if (!$pair) continue;
-            [$id,$idx] = explode(':',$pair);
-            $stmt->execute([(int)$idx,(int)$id]);
-        }
-        exit;
-    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_task'])) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_task'])) {
         $title = trim($_POST['title'] ?? '');
         $assigned = (int)($_POST['assigned'] ?? 0);
         $due = $_POST['due_date'] ?? date('Y-m-d');
@@ -351,8 +349,7 @@ try {
     $cond = [];
     $params = [];
     if ($filterUser) {
-        $cond[] = '(t.assigned_to=? OR EXISTS (SELECT 1 FROM tasks st WHERE st.parent_id=t.id AND st.assigned_to=?))';
-        $params[] = $filterUser;
+        $cond[] = 't.assigned_to=?';
         $params[] = $filterUser;
     }
     if ($filterClient) { $cond[] = 't.client_id=?'; $params[] = $filterClient; }
@@ -370,10 +367,11 @@ try {
         $archivedStmt->execute($params);
         $archivedTasks = $archivedStmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
-        $todayStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id IS NULL AND due_date <= ?'.$where.' '.$order);
+        $parentCond = $filterUser ? '' : 'parent_id IS NULL AND ';
+        $todayStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE ' . $parentCond . 'due_date <= ?'.$where.' '.$order);
         $todayStmt->execute(array_merge([$today],$params));
         $todayTasks = $todayStmt->fetchAll(PDO::FETCH_ASSOC);
-        $upcomingStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id IS NULL AND due_date > ?'.$where.' '.$order);
+        $upcomingStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE ' . $parentCond . 'due_date > ?'.$where.' '.$order);
         $upcomingStmt->execute(array_merge([$today],$params));
         $upcomingTasks = $upcomingStmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -516,20 +514,20 @@ include __DIR__ . '/header.php';
     <?php elseif (!$filterUser && !$filterClient): ?>
       <ul id="all-list" class="list-group mb-4">
         <?php foreach ($allTasks as $t): ?>
-        <?= render_task($t, $users, $clients); ?>
+        <?= render_task($t, $users, $clients, $filterUser); ?>
         <?php endforeach; ?>
       </ul>
     <?php else: ?>
       <h3 class="mb-4">Today's & Overdue Tasks</h3>
       <ul id="today-list" class="list-group mb-4">
         <?php foreach ($todayTasks as $t): ?>
-        <?= render_task($t, $users, $clients); ?>
+        <?= render_task($t, $users, $clients, $filterUser); ?>
         <?php endforeach; ?>
       </ul>
       <h3 class="mb-4">Upcoming Tasks</h3>
       <ul id="upcoming-list" class="list-group mb-4">
         <?php foreach ($upcomingTasks as $t): ?>
-        <?= render_task($t, $users, $clients); ?>
+        <?= render_task($t, $users, $clients, $filterUser); ?>
         <?php endforeach; ?>
       </ul>
     <?php endif; ?>
@@ -539,7 +537,7 @@ include __DIR__ . '/header.php';
 <script>
 function saveOrder(id){
   const order = Array.from(document.getElementById(id).children).map((el,idx)=>el.dataset.taskId+':'+idx).join(',');
-  return fetch('index.php?reorder=1', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'order='+order});
+  return fetch('reorder.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'order='+order});
 }
   <?php if(!$filterUser && !$filterClient && !$filterArchived): ?>
   new Sortable(document.getElementById('all-list'), {animation:150, handle:'.task-main'});
