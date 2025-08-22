@@ -355,6 +355,14 @@ try {
                     }
                 }
             }
+            $cstmt = $pdo->prepare('SELECT c.id, c.content, u.username FROM comments c JOIN users u ON c.user_id=u.id WHERE c.id=?');
+            $cstmt->execute([$commentId]);
+            $comment = $cstmt->fetch(PDO::FETCH_ASSOC);
+            $fstmt = $pdo->prepare('SELECT file_path, original_name FROM comment_files WHERE comment_id=?');
+            $fstmt->execute([$commentId]);
+            $comment['files'] = $fstmt->fetchAll(PDO::FETCH_ASSOC);
+            header('Content-Type: application/json');
+            echo json_encode($comment);
         }
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_comment'])) {
@@ -364,6 +372,8 @@ try {
             $stmt = $pdo->prepare('UPDATE comments SET content=? WHERE id=? AND user_id=?');
             $stmt->execute([$content, $cid, $_SESSION['user_id']]);
         }
+        header('Content-Type: application/json');
+        echo json_encode(['success' => true, 'content' => $content, 'username' => $_SESSION['username']]);
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_comment'])) {
         $cid = (int)$_POST['delete_comment'];
@@ -377,6 +387,8 @@ try {
             $pdo->prepare('DELETE FROM comment_files WHERE comment_id=?')->execute([$cid]);
             $pdo->prepare('DELETE FROM comments WHERE id=? AND user_id=?')->execute([$cid, $_SESSION['user_id']]);
         }
+        header('Content-Type: application/json');
+        echo json_encode(['success' => true]);
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_task'])) {
         refresh_client_priorities($pdo);
@@ -782,25 +794,95 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
 </div>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
+function nl2br(str){
+  return str.replace(/\n/g,'<br>');
+}
+function escapeHtml(str){
+  return str.replace(/[&<>"']/g, function(m){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+  });
+}
+
 document.getElementById('recurrence').addEventListener('change', function(){
   document.getElementById('day-select').classList.toggle('d-none', this.value !== 'custom');
   document.getElementById('interval-count').classList.toggle('d-none', this.value !== 'interval');
   document.getElementById('interval-unit').classList.toggle('d-none', this.value !== 'interval');
 });
 
+function renderCommentHTML(c){
+  let files = '';
+  if(c.files && c.files.length){
+    files = '<ul class="list-inline small mb-0 mt-1">'+
+      c.files.map(f=>`<li class="list-inline-item"><a href="uploads/${escapeHtml(f.file_path)}" target="_blank">${escapeHtml(f.original_name)}</a></li>`).join('')+
+      '</ul>';
+  }
+  return `<div class="mb-2 comment-item" data-id="${c.id}">`+
+    `<span class="comment-text"><strong>${escapeHtml(c.username)}:</strong> ${nl2br(escapeHtml(c.content))}</span>`+
+    `<span class="float-end ms-2"><a href="#" class="text-decoration-none text-muted edit-comment" data-id="${c.id}" data-content="${escapeHtml(c.content)}"><i class="bi bi-pencil"></i></a>`+
+    ` <a href="#" class="text-decoration-none text-danger ms-2 delete-comment" data-id="${c.id}"><i class="bi bi-trash"></i></a></span>`+
+    files+
+    `</div>`;
+}
+
+function bindCommentActions(scope=document){
+  scope.querySelectorAll('.edit-comment').forEach(btn=>{
+    btn.addEventListener('click', async e=>{
+      e.preventDefault();
+      const id = btn.dataset.id;
+      const current = btn.dataset.content;
+      const content = prompt('Edit comment', current);
+      if(content !== null && content.trim() !== ''){
+        const fd = new FormData();
+        fd.append('edit_comment', id);
+        fd.append('content', content.trim());
+        const res = await fetch('index.php', {method:'POST', body:fd});
+        const data = await res.json();
+        if(data.success){
+          const item = btn.closest('.comment-item');
+          const name = item.querySelector('strong').textContent;
+          item.querySelector('.comment-text').innerHTML = '<strong>'+escapeHtml(name)+'</strong> '+nl2br(escapeHtml(data.content));
+          btn.dataset.content = data.content;
+          showToast('Comment updated');
+        }
+      }
+    });
+  });
+  scope.querySelectorAll('.delete-comment').forEach(btn=>{
+    btn.addEventListener('click', async e=>{
+      e.preventDefault();
+      if(!confirm('Remove comment?')) return;
+      const fd = new FormData();
+      fd.append('delete_comment', btn.dataset.id);
+      const res = await fetch('index.php', {method:'POST', body:fd});
+      const data = await res.json();
+      if(data.success){
+        btn.closest('.comment-item').remove();
+        showToast('Comment removed');
+      }
+    });
+  });
+}
+bindCommentActions();
+
 document.querySelectorAll('form.ajax').forEach(f=>{
   f.addEventListener('submit', async e=>{
     e.preventDefault();
     const fd = new FormData(f);
-    await fetch('index.php', {method:'POST', body:fd});
     if (fd.has('add_task')) {
+      await fetch('index.php', {method:'POST', body:fd});
       f.reset();
       showToast('Task added');
       location.reload();
     } else if (fd.has('add_comment')) {
+      const res = await fetch('index.php', {method:'POST', body:fd});
+      const data = await res.json();
+      const list = f.parentElement.querySelector('.comments-list');
+      list.insertAdjacentHTML('beforeend', renderCommentHTML(data));
+      bindCommentActions(list.lastElementChild);
       f.reset();
       showToast('Comment added');
-      location.reload();
+    } else {
+      await fetch('index.php', {method:'POST', body:fd});
     }
   });
 });
@@ -809,33 +891,6 @@ document.querySelectorAll('.upload-trigger').forEach(icon=>{
   icon.addEventListener('click', ()=>{
     const target = document.getElementById(icon.dataset.target);
     target?.click();
-  });
-});
-
-document.querySelectorAll('.edit-comment').forEach(btn=>{
-  btn.addEventListener('click', async e=>{
-    e.preventDefault();
-    const id = btn.dataset.id;
-    const current = btn.dataset.content;
-    const content = prompt('Edit comment', current);
-    if(content !== null && content.trim() !== ''){
-      const fd = new FormData();
-      fd.append('edit_comment', id);
-      fd.append('content', content.trim());
-      await fetch('index.php', {method:'POST', body:fd});
-      location.reload();
-    }
-  });
-});
-
-document.querySelectorAll('.delete-comment').forEach(btn=>{
-  btn.addEventListener('click', async e=>{
-    e.preventDefault();
-    if(!confirm('Remove comment?')) return;
-    const fd = new FormData();
-    fd.append('delete_comment', btn.dataset.id);
-    await fetch('index.php', {method:'POST', body:fd});
-    location.reload();
   });
 });
 

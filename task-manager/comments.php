@@ -6,10 +6,10 @@ $cstmt = $pdo->prepare('SELECT c.id, c.content, c.user_id, u.username FROM comme
 $cstmt->execute([$t['id']]);
 $comments = $cstmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
-<?php if ($comments): ?>
-  <div class="mb-2">
+<div class="comments-wrapper">
+  <div class="comments-list mb-2">
     <?php foreach ($comments as $cm): ?>
-      <div class="mb-2 comment-item">
+      <div class="mb-2 comment-item" data-id="<?= $cm['id'] ?>">
         <span class="comment-text"><strong><?= htmlspecialchars($cm['username']) ?>:</strong> <?= nl2br(htmlspecialchars($cm['content'])) ?></span>
         <?php if ($cm['user_id'] == $_SESSION['user_id']): ?>
         <span class="float-end ms-2">
@@ -31,13 +31,13 @@ $comments = $cstmt->fetchAll(PDO::FETCH_ASSOC);
       </div>
     <?php endforeach; ?>
   </div>
-<?php endif; ?>
-<form method="post" class="ajax mt-2" enctype="multipart/form-data">
-  <input type="hidden" name="add_comment" value="<?= $t['id'] ?>">
-  <div class="mb-2 position-relative">
-    <textarea name="comment" class="form-control form-control-sm ps-4" placeholder="Comment now" required></textarea>
-    <input type="file" name="files[]" multiple class="d-none" id="file-<?= $t['id'] ?>">
-    <i class="bi bi-paperclip position-absolute top-0 start-0 m-1 upload-trigger" data-target="file-<?= $t['id'] ?>" style="cursor:pointer;"></i>
-  </div>
-  <button type="submit" class="btn btn-secondary btn-sm">Comment</button>
-</form>
+  <form method="post" class="ajax mt-2" enctype="multipart/form-data">
+    <input type="hidden" name="add_comment" value="<?= $t['id'] ?>">
+    <div class="mb-2 position-relative">
+      <textarea name="comment" class="form-control form-control-sm ps-4" placeholder="Comment now" required></textarea>
+      <input type="file" name="files[]" multiple class="d-none" id="file-<?= $t['id'] ?>">
+      <i class="bi bi-paperclip position-absolute top-0 start-0 m-1 upload-trigger" data-target="file-<?= $t['id'] ?>" style="cursor:pointer;"></i>
+    </div>
+    <button type="submit" class="btn btn-secondary btn-sm">Comment</button>
+  </form>
+</div>
