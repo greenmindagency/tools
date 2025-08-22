@@ -357,6 +357,27 @@ try {
             }
         }
         exit;
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_comment'])) {
+        $cid = (int)$_POST['edit_comment'];
+        $content = trim($_POST['content'] ?? '');
+        if ($cid && $content !== '') {
+            $stmt = $pdo->prepare('UPDATE comments SET content=? WHERE id=? AND user_id=?');
+            $stmt->execute([$content, $cid, $_SESSION['user_id']]);
+        }
+        exit;
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_comment'])) {
+        $cid = (int)$_POST['delete_comment'];
+        if ($cid) {
+            $fstmt = $pdo->prepare('SELECT file_path FROM comment_files WHERE comment_id=?');
+            $fstmt->execute([$cid]);
+            $paths = $fstmt->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($paths as $p) {
+                @unlink(__DIR__ . '/uploads/' . $p);
+            }
+            $pdo->prepare('DELETE FROM comment_files WHERE comment_id=?')->execute([$cid]);
+            $pdo->prepare('DELETE FROM comments WHERE id=? AND user_id=?')->execute([$cid, $_SESSION['user_id']]);
+        }
+        exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_task'])) {
         refresh_client_priorities($pdo);
         $title = trim($_POST['title'] ?? '');
@@ -779,6 +800,40 @@ document.querySelectorAll('form.ajax').forEach(f=>{
       showToast('Comment added');
       location.reload();
     }
+  });
+});
+
+document.querySelectorAll('.upload-trigger').forEach(icon=>{
+  icon.addEventListener('click', ()=>{
+    const target = document.getElementById(icon.dataset.target);
+    target?.click();
+  });
+});
+
+document.querySelectorAll('.edit-comment').forEach(btn=>{
+  btn.addEventListener('click', async e=>{
+    e.preventDefault();
+    const id = btn.dataset.id;
+    const current = btn.dataset.content;
+    const content = prompt('Edit comment', current);
+    if(content !== null && content.trim() !== ''){
+      const fd = new FormData();
+      fd.append('edit_comment', id);
+      fd.append('content', content.trim());
+      await fetch('index.php', {method:'POST', body:fd});
+      location.reload();
+    }
+  });
+});
+
+document.querySelectorAll('.delete-comment').forEach(btn=>{
+  btn.addEventListener('click', async e=>{
+    e.preventDefault();
+    if(!confirm('Remove comment?')) return;
+    const fd = new FormData();
+    fd.append('delete_comment', btn.dataset.id);
+    await fetch('index.php', {method:'POST', body:fd});
+    location.reload();
   });
 });
 
