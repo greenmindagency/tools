@@ -121,6 +121,7 @@ function render_task($t, $users, $clients, $filterUser = null) {
             <div class="mb-1">
               <button type="button" class="btn btn-success btn-sm save-btn d-none" data-id="<?= $t['id'] ?>" title="Save" data-bs-toggle="tooltip"><i class="bi bi-check"></i></button>
               <button type="button" class="btn btn-light btn-sm edit-btn" data-id="<?= $t['id'] ?>" title="Edit" data-bs-toggle="tooltip"><i class="bi bi-pencil"></i></button>
+              <button type="button" class="btn btn-primary btn-sm add-subtask-toggle d-none" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>" title="Add Subtask"><i class="bi bi-plus-lg"></i></button>
               <button type="button" class="btn btn-secondary btn-sm duplicate-btn" data-id="<?= $t['id'] ?>" title="Duplicate" data-bs-toggle="tooltip"><i class="bi bi-files"></i></button>
               <button type="button" class="btn btn-warning btn-sm archive-btn" data-id="<?= $t['id'] ?>" title="Archive" data-bs-toggle="tooltip"><i class="bi bi-archive"></i></button>
             </div>
@@ -188,8 +189,6 @@ function render_task($t, $users, $clients, $filterUser = null) {
               </select>
             </div>
           </form>
-          <hr class="my-3">
-          <button class="btn btn-primary btn-sm add-subtask-toggle mt-3 d-none" type="button" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>">Add Subtask</button>
           <div class="collapse" id="subtask-form-<?= $t['id'] ?>">
             <form method="post" class="row g-2 mt-2 ajax">
               <input type="hidden" name="add_task" value="1">
@@ -598,7 +597,7 @@ document.querySelectorAll('.complete-checkbox').forEach(cb=>{
     } else {
       li.classList.toggle('opacity-50', cb.checked);
     }
-    showToast('Updated');
+    showToast('Task saved');
   });
 });
 
@@ -757,6 +756,7 @@ document.querySelectorAll('.quick-date').forEach(sel=>{
 });
 
 document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
+document.querySelectorAll('.add-subtask-toggle').forEach(el=>new bootstrap.Tooltip(el));
 new bootstrap.Tooltip(document.getElementById('addBtn'));
 <?php if(isset($_GET['saved'])): ?>
 document.addEventListener('DOMContentLoaded', ()=>{ showToast('Order saved'); });
