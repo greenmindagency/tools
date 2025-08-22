@@ -115,7 +115,7 @@ function render_task($t, $users, $clients, $filterUser = null) {
                 Others
               <?php endif; ?>
             </strong>
-            <span class="task-title-text fw-bold"><?= htmlspecialchars($t['title']) ?></span>
+            <span class="task-title-text"><?= htmlspecialchars($t['title']) ?></span>
             <div class="small text-muted due-date"><i class="bi bi-calendar-event me-1"></i><?= htmlspecialchars($t['due_date']) ?></div>
           </div>
           <div class="text-end ms-2">
@@ -126,7 +126,8 @@ function render_task($t, $users, $clients, $filterUser = null) {
               <button type="button" class="btn btn-secondary btn-sm duplicate-btn" data-id="<?= $t['id'] ?>" title="Duplicate" data-bs-toggle="tooltip"><i class="bi bi-files"></i></button>
               <button type="button" class="btn btn-warning btn-sm archive-btn" data-id="<?= $t['id'] ?>" title="Archive" data-bs-toggle="tooltip"><i class="bi bi-archive"></i></button>
             </div>
-            <div><span class="fw-bold assignee"><?= htmlspecialchars($t['username']) ?></span></div>
+            <?php $pc = strtolower($t['priority']); ?>
+            <div><span class="fw-bold assignee"><?= htmlspecialchars($t['username']) ?></span> - <span class="priority <?= $pc ?>"><?= htmlspecialchars($t['priority']) ?></span></div>
           </div>
         </div>
         <div class="collapse mt-2" id="task-<?= $t['id'] ?>">
@@ -189,6 +190,9 @@ function render_task($t, $users, $clients, $filterUser = null) {
               </select>
             </div>
           </form>
+          <?php if(!$isSub): ?>
+          <hr class="my-3">
+          <button class="btn btn-primary btn-sm add-subtask-toggle mt-3 d-none" type="button" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>">Add Subtask</button>
           <div class="collapse" id="subtask-form-<?= $t['id'] ?>">
             <form method="post" class="row g-2 mt-2 ajax">
               <input type="hidden" name="add_task" value="1">
@@ -564,7 +568,7 @@ include __DIR__ . '/header.php';
           <div class="flex-grow-1">
             <strong><?= $t['client_name'] ? htmlspecialchars($t['client_name']) : 'Others' ?></strong> <?= htmlspecialchars($t['title']) ?>
             <?php if ($t['description']) echo '<div class="text-muted small">'.htmlspecialchars($t['description']).'</div>'; ?>
-              <small><?= htmlspecialchars($t['username']) ?> — <?= htmlspecialchars($t['due_date']) ?></small>
+            <small><?= htmlspecialchars($t['username']) ?> — <?= htmlspecialchars($t['priority']) ?> — <?= htmlspecialchars($t['due_date']) ?></small>
           </div>
           <div class="ms-2 text-nowrap">
             <button type="button" class="btn btn-success btn-sm unarchive-btn" data-id="<?= $t['id'] ?>" title="Unarchive" data-bs-toggle="tooltip"><i class="bi bi-arrow-counterclockwise"></i></button>
@@ -692,7 +696,30 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
     li.querySelector('.due-date').textContent = form.querySelector('input[name=due_date]').value;
     li.querySelector('.assignee').textContent = form.querySelector('select[name=assigned]').selectedOptions[0].textContent;
     const clientSel = form.querySelector('select[name=client_id]');
-    li.querySelector('.client').textContent = clientSel.value ? clientSel.selectedOptions[0].textContent : 'Others';
+    if(clientSel){
+      const opt = clientSel.selectedOptions[0];
+      const cName = clientSel.value ? opt.textContent : 'Others';
+      const cPrio = clientSel.value ? (opt.dataset.priority || '') : '';
+      const clientWrapper = li.querySelector('.client');
+      let clientSpan = clientWrapper.querySelector('.client-priority');
+      if(clientSel.value){
+        if(!clientSpan){
+          clientSpan = document.createElement('span');
+          clientWrapper.textContent = '';
+          clientWrapper.appendChild(clientSpan);
+        }
+        clientSpan.textContent = cName;
+        clientSpan.className = 'client-priority ' + cPrio.toLowerCase();
+      } else {
+        if(clientSpan) clientSpan.remove();
+        clientWrapper.textContent = 'Others';
+      }
+      const prioritySpan = li.querySelector('.priority');
+      if(cPrio){
+        prioritySpan.textContent = cPrio;
+        prioritySpan.className = 'priority ' + cPrio.toLowerCase();
+      }
+    }
     form.classList.add('d-none');
     collapse.querySelector('.description').classList.remove('d-none');
     btn.classList.add('d-none');
