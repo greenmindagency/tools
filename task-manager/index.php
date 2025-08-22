@@ -107,7 +107,13 @@ function render_task($t, $users, $clients, $filterUser = null) {
       <div class="flex-grow-1">
         <div class="d-flex justify-content-between">
           <div class="task-main"<?= $toggleAttr ?>>
-            <strong class="client"><?= $t['client_name'] ? htmlspecialchars($t['client_name']) : 'Others' ?></strong>
+            <strong class="client">
+              <?php if ($t['client_name']): ?>
+                <span class="client-priority <?= strtolower($t['client_priority'] ?? '') ?>"><?= htmlspecialchars($t['client_name']) ?></span>
+              <?php else: ?>
+                Others
+              <?php endif; ?>
+            </strong>
             <span class="task-title-text"><?= htmlspecialchars($t['title']) ?></span>
             <div class="small text-muted due-date"><i class="bi bi-calendar-event me-1"></i><?= htmlspecialchars($t['due_date']) ?></div>
           </div>
@@ -229,7 +235,7 @@ function render_task($t, $users, $clients, $filterUser = null) {
           </div>
           <?php
           global $pdo;
-          $childSql = 'SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id=? AND t.status!="archived"';
+          $childSql = 'SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id=? AND t.status!="archived"';
           $params = [$t['id']];
           if ($filterUser) {
             $childSql .= ' AND t.assigned_to=?';
@@ -357,7 +363,7 @@ try {
     $filterArchived = isset($_GET['archived']);
 
     $users = $pdo->query('SELECT id,username FROM users ORDER BY sort_order, username')->fetchAll(PDO::FETCH_ASSOC);
-    $clients = $pdo->query('SELECT id,name FROM clients ORDER BY sort_order, name')->fetchAll(PDO::FETCH_ASSOC);
+    $clients = $pdo->query('SELECT id,name,priority FROM clients ORDER BY sort_order, name')->fetchAll(PDO::FETCH_ASSOC);
 
     $cond = [];
     $params = [];
@@ -372,19 +378,19 @@ try {
 
     $today = date('Y-m-d');
     if (!$filterUser && !$filterClient && !$filterArchived) {
-        $allStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id IS NULL'.$where.' '.$order);
+        $allStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE parent_id IS NULL'.$where.' '.$order);
         $allStmt->execute($params);
         $allTasks = $allStmt->fetchAll(PDO::FETCH_ASSOC);
     } elseif ($filterArchived) {
-        $archivedStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE 1'.$where.' '.$order);
+        $archivedStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE 1'.$where.' '.$order);
         $archivedStmt->execute($params);
         $archivedTasks = $archivedStmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
         $parentCond = $filterUser ? '' : 'parent_id IS NULL AND ';
-        $todayStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE ' . $parentCond . 'due_date <= ?'.$where.' '.$order);
+        $todayStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE ' . $parentCond . 'due_date <= ?'.$where.' '.$order);
         $todayStmt->execute(array_merge([$today],$params));
         $todayTasks = $todayStmt->fetchAll(PDO::FETCH_ASSOC);
-        $upcomingStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE ' . $parentCond . 'due_date > ?'.$where.' '.$order);
+        $upcomingStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE ' . $parentCond . 'due_date > ?'.$where.' '.$order);
         $upcomingStmt->execute(array_merge([$today],$params));
         $upcomingTasks = $upcomingStmt->fetchAll(PDO::FETCH_ASSOC);
     }

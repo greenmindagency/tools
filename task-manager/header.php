@@ -18,6 +18,11 @@ $hideBreadcrumb = $hideBreadcrumb ?? false;
     .priority.low { color: #198754 !important; }
     .priority.normal { color: #ffc107 !important; }
     .priority.high { color: #dc3545 !important; }
+    .client-priority { padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+    .client-priority.critical,
+    .client-priority.high { background-color: #832108; color: #fff; }
+    .client-priority.intermed,
+    .client-priority.low { background-color: #e8b839; color: #000; }
     .editable { min-height: 38px; white-space: pre-wrap; }
     .task-main[data-bs-target] { cursor: pointer; }
   </style>

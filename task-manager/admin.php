@@ -84,11 +84,28 @@ try {
             $id = (int)$_POST['delete_client'];
             $stmt = $pdo->prepare('DELETE FROM clients WHERE id=?');
             $stmt->execute([$id]);
+        } elseif (isset($_POST['import_priorities'])) {
+            $url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQiesZdFZ-jCIcuz5J53buN5ACEepvOiKcDDbn66fQpxEe9dfKBL86FLXIPH1dYUR9N6pFaUcjPw0CX/pub?gid=542324811&single=true&output=csv';
+            $csv = @file_get_contents($url);
+            if ($csv !== false) {
+                $rows = array_map('str_getcsv', explode("\n", trim($csv)));
+                $stmt = $pdo->prepare('UPDATE clients SET priority=? WHERE name=?');
+                foreach ($rows as $i => $row) {
+                    if ($i === 0) continue; // skip header
+                    if (count($row) >= 18) {
+                        $client = trim($row[16]);
+                        $prio = trim($row[17]);
+                        if ($client !== '' && $prio !== '') {
+                            $stmt->execute([$prio, $client]);
+                        }
+                    }
+                }
+            }
         }
     }
 
     $users = $pdo->query('SELECT id, username FROM users ORDER BY sort_order, username')->fetchAll(PDO::FETCH_ASSOC);
-    $clients = $pdo->query('SELECT id, name FROM clients ORDER BY sort_order, name')->fetchAll(PDO::FETCH_ASSOC);
+    $clients = $pdo->query('SELECT id, name, priority FROM clients ORDER BY sort_order, name')->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $error = $e->getMessage();
 }
@@ -137,7 +154,12 @@ include __DIR__ . '/header.php';
   <?php foreach ($clients as $c): ?>
   <li class="list-group-item" data-id="<?= $c['id'] ?>">
     <form method="post" class="row g-2 align-items-center">
-      <div class="col-md-8"><input type="text" name="client_name" class="form-control" value="<?= htmlspecialchars($c['name']) ?>"></div>
+      <div class="col-md-6"><input type="text" name="client_name" class="form-control" value="<?= htmlspecialchars($c['name']) ?>"></div>
+      <div class="col-md-2">
+        <?php if (!empty($c['priority'])): ?>
+          <span class="client-priority <?= strtolower($c['priority']) ?>"><?= htmlspecialchars($c['priority']) ?></span>
+        <?php endif; ?>
+      </div>
       <div class="col-md-2"><button class="btn btn-primary w-100 btn-sm" name="save_client" value="<?= $c['id'] ?>">Save</button></div>
       <div class="col-md-2"><button class="btn btn-danger w-100 btn-sm" name="delete_client" value="<?= $c['id'] ?>" onclick="return confirm('Delete client?')">Delete</button></div>
     </form>
@@ -145,6 +167,10 @@ include __DIR__ . '/header.php';
   <?php endforeach; ?>
 </ul>
 <button id="saveClientOrder" class="btn btn-success btn-sm mb-5">Save Order</button>
+<form method="post" class="d-inline">
+  <input type="hidden" name="import_priorities" value="1">
+  <button class="btn btn-info btn-sm mb-5 ms-2">Import Priorities</button>
+</form>
 
 <a href="index.php" class="btn btn-secondary">Back to Tasks</a>
 
