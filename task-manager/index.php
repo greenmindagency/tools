@@ -491,6 +491,12 @@ try {
         $userLoadClasses[$u['username']] = $class;
     }
 
+    $today = date('Y-m-d');
+    $weekEnd = date('Y-m-d', strtotime('+7 day'));
+    $overdueCounts = $pdo->query("SELECT assigned_to, COUNT(*) AS cnt FROM tasks WHERE status!='archived' AND status!='done' AND due_date < '$today' GROUP BY assigned_to")->fetchAll(PDO::FETCH_KEY_PAIR);
+    $todayCounts = $pdo->query("SELECT assigned_to, COUNT(*) AS cnt FROM tasks WHERE status!='archived' AND due_date = '$today' GROUP BY assigned_to")->fetchAll(PDO::FETCH_KEY_PAIR);
+    $weekCountsUser = $pdo->query("SELECT assigned_to, COUNT(*) AS cnt FROM tasks WHERE status!='archived' AND due_date > '$today' AND due_date <= '$weekEnd' GROUP BY assigned_to")->fetchAll(PDO::FETCH_KEY_PAIR);
+
     $clients = $pdo->query('SELECT c.id,c.name,c.priority,c.progress_percent,COUNT(t.id) AS task_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id AND t.status!="archived" GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.priority IS NULL), c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
 
     $cond = [];
@@ -505,8 +511,6 @@ try {
     $order = (!$filterUser && !$filterClient && !$filterArchived)
         ? 'ORDER BY (c.priority IS NULL), c.sort_order, t.due_date'
         : 'ORDER BY t.due_date';
-
-    $today = date('Y-m-d');
     if (!$filterUser && !$filterClient && !$filterArchived) {
         $allStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id IS NULL'.$where.' '.$order);
         $allStmt->execute($params);
@@ -543,6 +547,15 @@ try {
         }
     }
 
+    $targetAchieved = null;
+    $csv = @file_get_contents(CLIENT_SHEET_URL);
+    if ($csv !== false) {
+        $rows = array_map('str_getcsv', explode("\n", trim($csv)));
+        if (isset($rows[3][19])) {
+            $targetAchieved = rtrim($rows[3][19], '%');
+        }
+    }
+
 } catch (PDOException $e) {
     $title = 'Task Manager - Error';
     include __DIR__ . '/header.php';
@@ -557,7 +570,7 @@ include __DIR__ . '/header.php';
 <div class="row">
   <div class="col-md-3">
     <?php $isAllPage = basename($_SERVER['SCRIPT_NAME']) === 'alltasks.php'; ?>
-    <ul class="list-group mb-4">
+    <ul class="list-group mb-3">
       <li class="list-group-item <?= $filterUserName === ($_SESSION['username'] ?? '') && !$filterClientName && !$filterArchived ? 'active' : '' ?>">
         <a href="index.php?user=<?= urlencode($_SESSION['username'] ?? '') ?>" class="text-decoration-none<?= $filterUserName === ($_SESSION['username'] ?? '') && !$filterClientName && !$filterArchived ? ' text-white' : '' ?>">My Tasks</a>
       </li>
@@ -568,8 +581,9 @@ include __DIR__ . '/header.php';
         <a href="index.php?archived=1" class="text-decoration-none<?= $filterArchived ? ' text-white' : '' ?>">Archive</a>
       </li>
     </ul>
-    <h4>Clients</h4>
-    <ul class="list-inline mb-4">
+    <hr>
+    <h5>Clients</h5>
+    <ul class="list-inline mb-3">
       <?php foreach ($clients as $c): ?>
       <?php $isActive = $filterClientName === $c['name']; ?>
       <?php $pClass = $c['priority'] ? 'priority-'.strtolower($c['priority']) : 'btn-light border-secondary'; ?>
@@ -581,8 +595,9 @@ include __DIR__ . '/header.php';
       </li>
       <?php endforeach; ?>
     </ul>
-    <h4>Team Members</h4>
-    <ul class="list-inline">
+    <hr>
+    <h5>Team Members</h5>
+    <ul class="list-inline mb-3">
       <?php foreach ($usersByTasks as $u): ?>
       <?php $uActive = $filterUserName === $u['username']; $loadClass = $userLoadClasses[$u['username']] ?? 'btn-outline-secondary'; ?>
       <li class="list-inline-item mb-2">
@@ -590,7 +605,13 @@ include __DIR__ . '/header.php';
       </li>
       <?php endforeach; ?>
     </ul>
-    <h6 class="mt-4">Upcoming Week</h6>
+    <hr>
+    <?php if ($targetAchieved !== null): ?>
+    <h5>Status</h5>
+    <div class="small mb-3">Target Achieved: <?= htmlspecialchars($targetAchieved) ?>%</div>
+    <hr>
+    <?php endif; ?>
+    <h5>Upcoming Week</h5>
     <ul class="list-unstyled small">
       <?php foreach ($weekCounts as $day => $cnt): ?>
       <li><?= date('D', strtotime($day)) ?>: <?= $cnt ?></li>
@@ -598,15 +619,21 @@ include __DIR__ . '/header.php';
     </ul>
   </div>
   <div class="col-md-9">
-    <div class="d-flex justify-content-between mb-3">
-      <div>
-        <button id="addBtn" class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
+    <div class="d-flex justify-content-between mb-2 align-items-start">
+      <div class="d-flex align-items-start">
+        <div class="small me-3">
+          <?php foreach ($users as $u): ?>
+          <div><?= htmlspecialchars($u['username']) ?>: <?= $overdueCounts[$u['id']] ?? 0 ?> overdue, <?= $todayCounts[$u['id']] ?? 0 ?> today, <?= $weekCountsUser[$u['id']] ?? 0 ?> week</div>
+          <?php endforeach; ?>
+        </div>
+        <button id="addBtn" class="btn btn-success btn-sm ms-2" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
       </div>
       <div>
         <a href="admin.php" class="btn btn-secondary btn-sm me-2" data-bs-toggle="tooltip" title="Admin">Admin</a>
         <a href="?logout=1" class="btn btn-outline-secondary btn-sm" data-bs-toggle="tooltip" title="Logout">Logout</a>
       </div>
     </div>
+    <hr>
     <div id="addTask" class="collapse mb-4">
       <form method="post" class="row g-2 ajax">
         <input type="hidden" name="add_task" value="1">

@@ -25,6 +25,8 @@ $hideBreadcrumb = $hideBreadcrumb ?? false;
     .priority-low { color: #4e7c3a; border-color: #4e7c3a; }
     .editable { min-height: 38px; white-space: pre-wrap; }
     .task-main[data-bs-target] { cursor: pointer; }
+    .task-main .task-title-text { display: block; }
+    .due-date { font-size: 0.8rem; margin-top: -2px; }
   </style>
 </head>
 <body>

@@ -9,6 +9,9 @@ const ADMIN_USER = 'peter';
 // Uses the same hashed password as other tools so credentials stay consistent
 const ADMIN_PASS_HASH = '$2y$10$oLagrVLcLxtWr2K3Ghmq9euso7jSCVDxS4hCyZgVfUpCkAlj9RajW';
 
+// Google Sheets source for client priorities and progress
+const CLIENT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQiesZdFZ-jCIcuz5J53buN5ACEepvOiKcDDbn66fQpxEe9dfKBL86FLXIPH1dYUR9N6pFaUcjPw0CX/pub?gid=542324811&single=true&output=csv';
+
 function get_pdo(): PDO {
     static $pdo;
     if (!$pdo) {
@@ -28,8 +31,7 @@ function init_db(PDO $pdo): void {
 }
 
 function refresh_client_priorities(PDO $pdo): void {
-    $url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQiesZdFZ-jCIcuz5J53buN5ACEepvOiKcDDbn66fQpxEe9dfKBL86FLXIPH1dYUR9N6pFaUcjPw0CX/pub?gid=542324811&single=true&output=csv';
-    $csv = @file_get_contents($url);
+    $csv = @file_get_contents(CLIENT_SHEET_URL);
     if ($csv === false) return;
     $rows = array_map('str_getcsv', explode("\n", trim($csv)));
     $stmt = $pdo->prepare('UPDATE clients SET priority=?, sort_order=?, progress_percent=? WHERE name=?');
