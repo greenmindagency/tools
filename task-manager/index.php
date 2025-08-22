@@ -611,12 +611,8 @@ document.querySelectorAll('.complete-checkbox').forEach(cb=>{
   });
 });
 
-document.querySelectorAll('.task-main[data-bs-target]').forEach(main=>{
-  main.addEventListener('click', ()=>{
-    const target = document.querySelector(main.dataset.bsTarget);
-    document.querySelectorAll('.collapse.show').forEach(c=>{ if(c!==target) new bootstrap.Collapse(c,{toggle:false}).hide(); });
-  });
-});
+// The task header uses Bootstrap's data attributes for collapse; no extra
+// JavaScript needed to manage other open tasks.
 
 document.querySelectorAll('.edit-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -627,7 +623,7 @@ document.querySelectorAll('.edit-btn').forEach(btn=>{
     const desc = collapse.querySelector('.description');
     const saveBtn = li.querySelector('.save-btn');
     const subBtn = li.querySelector('.add-subtask-toggle');
-    document.querySelectorAll('.collapse.show').forEach(c=>{ if(c!==collapse) new bootstrap.Collapse(c,{toggle:false}).hide(); });
+    // Do not collapse other tasks when editing; keep existing open sections visible
     form.classList.toggle('d-none');
     desc.classList.toggle('d-none');
     const editing = !form.classList.contains('d-none');
