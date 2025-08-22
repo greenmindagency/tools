@@ -17,12 +17,12 @@ $hideBreadcrumb = $hideBreadcrumb ?? false;
     .client-priority { padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
     .client-priority.critical { background-color: #85200c; color: #fff; }
     .client-priority.high { background-color: #b40000; color: #fff; }
-    .client-priority.intermed { background-color: #f1c232; color: #000; }
-    .client-priority.low { background-color: #6aa84f; color: #000; }
-    .priority-critical { color: #85200c; }
-    .priority-high { color: #b40000; }
-    .priority-intermed { color: #f1c232; }
-    .priority-low { color: #6aa84f; }
+    .client-priority.intermed { background-color: #906f0a; color: #fff; }
+    .client-priority.low { background-color: #4e7c3a; color: #fff; }
+    .priority-critical { color: #85200c; border-color: #85200c; }
+    .priority-high { color: #b40000; border-color: #b40000; }
+    .priority-intermed { color: #906f0a; border-color: #906f0a; }
+    .priority-low { color: #4e7c3a; border-color: #4e7c3a; }
     .editable { min-height: 38px; white-space: pre-wrap; }
     .task-main[data-bs-target] { cursor: pointer; }
   </style>

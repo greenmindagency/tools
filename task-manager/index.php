@@ -363,6 +363,8 @@ try {
             $orderIdx = $currIdx > 100000 ? strtotime($due) : $currIdx;
             $stmt = $pdo->prepare('UPDATE tasks SET title=?,description=?,assigned_to=?,client_id=?,priority=?,due_date=?,recurrence=?,order_index=? WHERE id=?');
             $stmt->execute([$title,$desc,$assigned,$clientId,$priority,$due,$rec,$orderIdx,$id]);
+            $stmtSub = $pdo->prepare('UPDATE tasks SET client_id=?, priority=? WHERE parent_id=?');
+            $stmtSub->execute([$clientId,$priority,$id]);
         }
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_complete'])) {
