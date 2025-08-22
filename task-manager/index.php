@@ -96,7 +96,7 @@ function render_task($t, $users, $clients, $filterUser = null) {
     $today = date('Y-m-d');
     $overdue = $t['due_date'] < $today && $t['status'] !== 'done';
     $isSub = !empty($t['parent_id']);
-    $toggleAttr = $isSub ? '' : ' data-bs-toggle="collapse" data-bs-target="#task-'.$t['id'].'"';
+    $toggleAttr = ' data-bs-toggle="collapse" data-bs-target="#task-'.$t['id'].'"';
     ob_start();
     ?>
     <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>" data-recurrence="<?= htmlspecialchars($t['recurrence']) ?>">
@@ -142,14 +142,18 @@ function render_task($t, $users, $clients, $filterUser = null) {
                 <?php endforeach; ?>
               </select>
             </div>
+            <?php if(!$isSub): ?>
             <div class="col-md-3">
               <select name="client_id" class="form-select">
                 <option value="">Client</option>
                 <?php foreach ($clients as $c): ?>
-                <option value="<?= $c['id'] ?>" <?= $t['client_id']==$c['id']?'selected':'' ?>><?= htmlspecialchars($c['name']) ?></option>
+                <option value="<?= $c['id'] ?>" data-priority="<?= htmlspecialchars($c['priority']) ?>" <?= $t['client_id']==$c['id']?'selected':'' ?>><?= htmlspecialchars($c['name'])?></option>
                 <?php endforeach; ?>
               </select>
             </div>
+            <?php else: ?>
+            <input type="hidden" name="client_id" value="<?= $t['client_id'] ?>">
+            <?php endif; ?>
             <div class="col-md-3 mt-2">
               <?php $r=$t['recurrence']; $rcount=1;$runit='week'; if(strpos($r,'interval:')===0){[, $rcount,$runit]=explode(':',$r);} ?>
               <select name="recurrence" class="form-select recurrence-select">
@@ -189,6 +193,7 @@ function render_task($t, $users, $clients, $filterUser = null) {
             <form method="post" class="row g-2 mt-2 ajax">
               <input type="hidden" name="add_task" value="1">
               <input type="hidden" name="parent_id" value="<?= $t['id'] ?>">
+              <input type="hidden" name="client_id" value="<?= $t['client_id'] ?>">
               <div class="col-12"><input type="text" name="title" class="form-control" placeholder="Subtask title" required></div>
               <div class="col-12"><textarea name="description" class="form-control" placeholder="Description"></textarea></div>
               <div class="col-md-3"><input type="date" name="due_date" class="form-control" required></div>
@@ -205,14 +210,6 @@ function render_task($t, $users, $clients, $filterUser = null) {
                   <option value="">Assign to</option>
                   <?php foreach ($users as $u): ?>
                   <option value="<?= $u['id'] ?>"><?= htmlspecialchars($u['username']) ?></option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
-              <div class="col-md-3">
-                <select name="client_id" class="form-select">
-                  <option value="">Client</option>
-                  <?php foreach ($clients as $c): ?>
-                  <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
                   <?php endforeach; ?>
                 </select>
               </div>
@@ -495,7 +492,7 @@ include __DIR__ . '/header.php';
           <select name="client_id" class="form-select">
             <option value="">Client</option>
             <?php foreach ($clients as $c): ?>
-            <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
+            <option value="<?= $c['id'] ?>" data-priority="<?= htmlspecialchars($c['priority']) ?>"><?= htmlspecialchars($c['name']) ?></option>
             <?php endforeach; ?>
           </select>
         </div>
@@ -662,11 +659,30 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
     li.querySelector('.due-date').textContent = form.querySelector('input[name=due_date]').value;
     li.querySelector('.assignee').textContent = form.querySelector('select[name=assigned]').selectedOptions[0].textContent;
     const clientSel = form.querySelector('select[name=client_id]');
-    li.querySelector('.client').textContent = clientSel.value ? clientSel.selectedOptions[0].textContent : 'Others';
-    const newPriority = form.querySelector('select[name=priority]').value;
-    const prioritySpan = li.querySelector('.priority');
-    prioritySpan.textContent = newPriority;
-    prioritySpan.className = 'priority ' + newPriority.toLowerCase();
+    if(clientSel){
+      const opt = clientSel.selectedOptions[0];
+      const cName = clientSel.value ? opt.textContent : 'Others';
+      const cPrio = clientSel.value ? (opt.dataset.priority || '') : '';
+      const clientWrapper = li.querySelector('.client');
+      let clientSpan = clientWrapper.querySelector('.client-priority');
+      if(clientSel.value){
+        if(!clientSpan){
+          clientSpan = document.createElement('span');
+          clientWrapper.textContent = '';
+          clientWrapper.appendChild(clientSpan);
+        }
+        clientSpan.textContent = cName;
+        clientSpan.className = 'client-priority ' + cPrio.toLowerCase();
+      } else {
+        if(clientSpan) clientSpan.remove();
+        clientWrapper.textContent = 'Others';
+      }
+      const prioritySpan = li.querySelector('.priority');
+      if(cPrio){
+        prioritySpan.textContent = cPrio;
+        prioritySpan.className = 'priority ' + cPrio.toLowerCase();
+      }
+    }
     form.classList.add('d-none');
     collapse.querySelector('.description').classList.remove('d-none');
     btn.classList.add('d-none');
