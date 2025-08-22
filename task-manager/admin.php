@@ -96,6 +96,10 @@ try {
             $id = (int)$_POST['archive_client'];
             $stmt = $pdo->prepare('UPDATE tasks SET status="archived" WHERE client_id=? OR parent_id IN (SELECT id FROM (SELECT id FROM tasks WHERE client_id=?) AS t)');
             $stmt->execute([$id, $id]);
+        } elseif (isset($_POST['unarchive_client'])) {
+            $id = (int)$_POST['unarchive_client'];
+            $stmt = $pdo->prepare('UPDATE tasks SET status="pending" WHERE client_id=? OR parent_id IN (SELECT id FROM (SELECT id FROM tasks WHERE client_id=?) AS t)');
+            $stmt->execute([$id, $id]);
         } elseif (isset($_POST['delete_client'])) {
             $id = (int)$_POST['delete_client'];
             $stmt = $pdo->prepare('DELETE FROM tasks WHERE client_id=?');
@@ -108,7 +112,7 @@ try {
     }
 
     $users = $pdo->query('SELECT id, username FROM users ORDER BY sort_order, username')->fetchAll(PDO::FETCH_ASSOC);
-    $clients = $pdo->query('SELECT id, name, priority, progress_percent FROM clients ORDER BY (priority IS NULL), sort_order, name')->fetchAll(PDO::FETCH_ASSOC);
+    $clients = $pdo->query('SELECT c.id, c.name, c.priority, c.progress_percent, COALESCE(SUM(t.status != "archived"),0) AS active_count, COALESCE(SUM(t.status = "archived"),0) AS archived_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.priority IS NULL), c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
 
     $workerTotals = [];
     $clientStmt = $pdo->query('SELECT id, progress_percent FROM clients WHERE progress_percent IS NOT NULL');
@@ -177,9 +181,7 @@ include __DIR__ . '/header.php';
     <form method="post" class="row g-2 align-items-center">
       <div class="col-md-3"><input type="text" name="client_name" class="form-control" value="<?= htmlspecialchars($c['name']) ?>"></div>
       <div class="col-md-2">
-        <?php if (!empty($c['priority'])): ?>
-          <span class="client-priority <?= strtolower($c['priority']) ?>"><?= htmlspecialchars($c['priority']) ?></span>
-        <?php endif; ?>
+        <span class="client-priority <?= strtolower($c['priority'] ?? '') ?>"><?= $c['priority'] ? htmlspecialchars($c['priority']) : '&nbsp;' ?></span>
       </div>
       <div class="col-md-1">
         <?php if ($c['progress_percent'] !== null): ?>
@@ -187,7 +189,14 @@ include __DIR__ . '/header.php';
         <?php endif; ?>
       </div>
       <div class="col-md-2"><button class="btn btn-primary w-100 btn-sm" name="save_client" value="<?= $c['id'] ?>">Save</button></div>
-      <div class="col-md-2"><button class="btn btn-warning w-100 btn-sm" name="archive_client" value="<?= $c['id'] ?>" onclick="return confirm('Archive all tasks for this client?')">Archive</button></div>
+      <?php $archived = ($c['active_count'] == 0 && $c['archived_count'] > 0); ?>
+      <div class="col-md-2">
+        <?php if ($archived): ?>
+        <button class="btn btn-warning w-100 btn-sm" name="unarchive_client" value="<?= $c['id'] ?>" onclick="return confirm('Unarchive all tasks for this client?')">Unarchive</button>
+        <?php else: ?>
+        <button class="btn btn-warning w-100 btn-sm" name="archive_client" value="<?= $c['id'] ?>" onclick="return confirm('Archive all tasks for this client?')">Archive</button>
+        <?php endif; ?>
+      </div>
       <div class="col-md-2"><button class="btn btn-danger w-100 btn-sm" name="delete_client" value="<?= $c['id'] ?>" onclick="return confirm('Delete client?')">Delete</button></div>
     </form>
   </li>

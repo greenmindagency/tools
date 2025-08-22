@@ -523,7 +523,7 @@ include __DIR__ . '/header.php';
     <ul class="list-inline mb-4">
       <?php foreach ($clients as $c): ?>
       <?php $isActive = $filterClientName === $c['name']; ?>
-      <?php $pClass = $c['priority'] ? 'priority-'.strtolower($c['priority']) : 'btn-outline-secondary'; ?>
+      <?php $pClass = $c['priority'] ? 'priority-'.strtolower($c['priority']) : 'btn-light border-secondary'; ?>
       <li class="list-inline-item mb-2">
         <a href="index.php?client=<?= urlencode($c['name']) ?>" class="btn btn-sm <?= $pClass ?> me-2 <?= $isActive ? 'border-dark border-2' : '' ?>">
           <?= htmlspecialchars($c['name']) ?>

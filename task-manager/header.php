@@ -14,7 +14,7 @@ $hideBreadcrumb = $hideBreadcrumb ?? false;
   <style>
     body { padding: 30px; margin-top: 50px; }
     img.logo { width: 50px; margin-right: 10px; }
-    .client-priority { padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+    .client-priority { padding: 2px 6px; border-radius: 4px; font-size: 0.9em; background-color: #f8f9fa; color: #000; }
     .client-priority.critical { background-color: #85200c; color: #fff; }
     .client-priority.high { background-color: #b40000; color: #fff; }
     .client-priority.intermed { background-color: #906f0a; color: #fff; }
