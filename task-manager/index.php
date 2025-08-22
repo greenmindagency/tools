@@ -1,5 +1,6 @@
 <?php
 session_start();
+date_default_timezone_set('Africa/Cairo');
 require __DIR__ . '/config.php';
 
 try {
@@ -782,11 +783,18 @@ document.querySelectorAll('.quick-date').forEach(sel=>{
   sel.addEventListener('change', ()=>{
     const dateInput = sel.closest('form').querySelector('input[name=due_date]');
     const now = new Date();
-    if(sel.value==='tomorrow') now.setDate(now.getDate()+1);
-    if(sel.value==='nextweek') now.setDate(now.getDate()+7);
-    if(sel.value==='nextmonth') now.setMonth(now.getMonth()+1);
-    const d = nextWorkingDay(now);
-    dateInput.value = d.toISOString().split('T')[0];
+    const cairoNow = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Cairo' }));
+    let target = new Date(cairoNow);
+    if(sel.value === 'tomorrow') {
+      target.setDate(target.getDate() + 1);
+    } else if(sel.value === 'nextweek') {
+      const daysUntilSunday = (7 - target.getDay()) % 7 || 7;
+      target.setDate(target.getDate() + daysUntilSunday);
+    } else if(sel.value === 'nextmonth') {
+      target.setMonth(target.getMonth() + 1);
+    }
+    target = nextWorkingDay(target);
+    dateInput.value = target.toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
     sel.value='';
   });
 });
