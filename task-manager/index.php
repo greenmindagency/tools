@@ -125,6 +125,7 @@ function is_due_on($due, $recurrence, $target) {
     }
 }
 function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses = []) {
+    global $pdo;
     $today = date('Y-m-d');
     $overdue = $t['due_date'] < $today && $t['status'] !== 'done';
     $isSub = !empty($t['parent_id']);
@@ -220,6 +221,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
               </select>
             </div>
           </form>
+          <?php include __DIR__ . '/comments.php'; ?>
           <?php if(!$isSub): ?>
           <hr class="my-3">
           <button class="btn btn-primary btn-sm add-subtask-toggle mt-3 d-none" type="button" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>">Add Subtask</button>
@@ -271,7 +273,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
                 <label class="me-2"><input type="checkbox" name="days[]" value="<?= $d ?>"> <?= $d ?></label>
                 <?php endforeach; ?>
               </div>
-              <div class="col-md-2 mt-2"><button class="btn btn-primary w-100">Add</button></div>
+              <div class="col-auto mt-2"><button class="btn btn-primary btn-sm">Add</button></div>
             </form>
           </div>
           <?php
@@ -329,7 +331,31 @@ function duplicate_task_recursive($pdo, $taskId, $newParentId = null, $depth = 0
 
 
 try {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_task'])) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_comment'])) {
+        $taskId = (int)$_POST['add_comment'];
+        $content = trim($_POST['comment'] ?? '');
+        if ($taskId && $content !== '') {
+            $stmt = $pdo->prepare('INSERT INTO comments (task_id,user_id,content) VALUES (?,?,?)');
+            $stmt->execute([$taskId, $_SESSION['user_id'], $content]);
+            $commentId = $pdo->lastInsertId();
+            if (!empty($_FILES['files']['name'][0])) {
+                $dir = __DIR__ . '/uploads';
+                if (!is_dir($dir)) { mkdir($dir, 0777, true); }
+                foreach ($_FILES['files']['name'] as $i => $name) {
+                    if ($_FILES['files']['error'][$i] === UPLOAD_ERR_OK && $_FILES['files']['size'][$i] <= 5*1024*1024) {
+                        $tmp = $_FILES['files']['tmp_name'][$i];
+                        $safe = bin2hex(random_bytes(8)) . '_' . preg_replace('/[^A-Za-z0-9_.-]/', '_', $name);
+                        $dest = $dir . '/' . $safe;
+                        if (move_uploaded_file($tmp, $dest)) {
+                            $fstmt = $pdo->prepare('INSERT INTO comment_files (comment_id,file_path,original_name) VALUES (?,?,?)');
+                            $fstmt->execute([$commentId, $safe, $name]);
+                        }
+                    }
+                }
+            }
+        }
+        exit;
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_task'])) {
         refresh_client_priorities($pdo);
         $title = trim($_POST['title'] ?? '');
         $assigned = (int)($_POST['assigned'] ?? 0);
@@ -687,7 +713,7 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
           <label class="me-2"><input type="checkbox" name="days[]" value="<?= $d ?>"> <?= $d ?></label>
           <?php endforeach; ?>
         </div>
-        <div class="col-md-2 mt-2"><button class="btn btn-success w-100">Add</button></div>
+        <div class="col-auto mt-2"><button class="btn btn-success btn-sm">Add</button></div>
       </form>
     </div>
     <?php if ($filterArchived): ?>
@@ -745,6 +771,10 @@ document.querySelectorAll('form.ajax').forEach(f=>{
     if (fd.has('add_task')) {
       f.reset();
       showToast('Task added');
+      location.reload();
+    } else if (fd.has('add_comment')) {
+      f.reset();
+      showToast('Comment added');
       location.reload();
     }
   });
