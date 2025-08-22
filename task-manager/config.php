@@ -32,16 +32,18 @@ function refresh_client_priorities(PDO $pdo): void {
     $csv = @file_get_contents($url);
     if ($csv === false) return;
     $rows = array_map('str_getcsv', explode("\n", trim($csv)));
-    $stmt = $pdo->prepare('UPDATE clients SET priority=?, sort_order=? WHERE name=?');
+    $stmt = $pdo->prepare('UPDATE clients SET priority=?, sort_order=?, progress_percent=? WHERE name=?');
     foreach ($rows as $i => $row) {
         if ($i === 0) continue;
-        if (count($row) >= 18) {
+        if (count($row) >= 19) {
             $client = trim($row[16]);
             $prio = trim($row[17]);
+            $percent = trim($row[18]);
             if ($client !== '') {
                 $stmt->execute([
                     $prio !== '' ? $prio : null,
                     $i - 1,
+                    $percent !== '' ? rtrim($percent, '%') : null,
                     $client
                 ]);
             }

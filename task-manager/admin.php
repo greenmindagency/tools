@@ -108,7 +108,21 @@ try {
     }
 
     $users = $pdo->query('SELECT id, username FROM users ORDER BY sort_order, username')->fetchAll(PDO::FETCH_ASSOC);
-    $clients = $pdo->query('SELECT id, name, priority FROM clients ORDER BY sort_order, name')->fetchAll(PDO::FETCH_ASSOC);
+    $clients = $pdo->query('SELECT id, name, priority, progress_percent FROM clients ORDER BY (priority IS NULL), sort_order, name')->fetchAll(PDO::FETCH_ASSOC);
+
+    $workerTotals = [];
+    $clientStmt = $pdo->query('SELECT id, progress_percent FROM clients WHERE progress_percent IS NOT NULL');
+    $wStmt = $pdo->prepare('SELECT DISTINCT u.username FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE t.client_id=? AND t.status!="archived"');
+    while ($c = $clientStmt->fetch(PDO::FETCH_ASSOC)) {
+        $wStmt->execute([$c['id']]);
+        $workers = $wStmt->fetchAll(PDO::FETCH_COLUMN);
+        $count = count($workers);
+        if ($count === 0) continue;
+        $share = $c['progress_percent'] / $count;
+        foreach ($workers as $name) {
+            $workerTotals[$name] = ($workerTotals[$name] ?? 0) + $share;
+        }
+    }
 } catch (PDOException $e) {
     $error = $e->getMessage();
 }
@@ -180,6 +194,16 @@ include __DIR__ . '/header.php';
   </form>
   <a href="index.php" class="btn btn-dark btn-sm ms-2">Back to Tasks</a>
 </div>
+
+<h4>Status</h4>
+<table class="table w-auto">
+  <thead><tr><th>Team Member</th><th>Achieved %</th></tr></thead>
+  <tbody>
+    <?php foreach ($workerTotals as $name => $pct): ?>
+    <tr><td><?= htmlspecialchars($name) ?></td><td><?= number_format($pct, 2) ?>%</td></tr>
+    <?php endforeach; ?>
+  </tbody>
+</table>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>

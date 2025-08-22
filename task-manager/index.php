@@ -423,7 +423,7 @@ try {
     unset($u);
     usort($usersByTasks, fn($a, $b) => $b['task_count'] <=> $a['task_count'] ?: strcmp($a['username'], $b['username']));
 
-    $clients = $pdo->query('SELECT c.id,c.name,c.priority,COUNT(t.id) AS task_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id AND t.status!="archived" GROUP BY c.id,c.name,c.priority,c.sort_order ORDER BY c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
+    $clients = $pdo->query('SELECT c.id,c.name,c.priority,c.progress_percent,COUNT(t.id) AS task_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id AND t.status!="archived" GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.priority IS NULL), c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
 
     $cond = [];
     $params = [];
@@ -435,7 +435,7 @@ try {
     if ($filterArchived) { $cond[] = 't.status="archived"'; } else { $cond[] = 't.status!="archived"'; }
     $where = $cond ? ' AND '.implode(' AND ',$cond) : '';
     $order = (!$filterUser && !$filterClient && !$filterArchived)
-        ? 'ORDER BY (c.sort_order IS NULL), c.sort_order, t.due_date'
+        ? 'ORDER BY (c.priority IS NULL), c.sort_order, t.due_date'
         : 'ORDER BY t.due_date';
 
     $today = date('Y-m-d');
