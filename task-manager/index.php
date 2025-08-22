@@ -93,7 +93,7 @@ function next_due_date($current, $recurrence) {
     }
     return $date->format('Y-m-d');
 }
-function render_task($t, $users, $clients, $filterUser = null) {
+function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses = []) {
     $today = date('Y-m-d');
     $overdue = $t['due_date'] < $today && $t['status'] !== 'done';
     $isSub = !empty($t['parent_id']);
@@ -126,7 +126,7 @@ function render_task($t, $users, $clients, $filterUser = null) {
               <button type="button" class="btn btn-secondary btn-sm duplicate-btn" data-id="<?= $t['id'] ?>" title="Duplicate" data-bs-toggle="tooltip"><i class="bi bi-files"></i></button>
               <button type="button" class="btn btn-warning btn-sm archive-btn" data-id="<?= $t['id'] ?>" title="Archive" data-bs-toggle="tooltip"><i class="bi bi-archive"></i></button>
             </div>
-            <div><span class="fw-bold assignee"><?= htmlspecialchars($t['username']) ?></span></div>
+            <div><span class="fw-bold assignee <?= $userLoadClasses[$t['username']] ?? '' ?>"><?= htmlspecialchars($t['username']) ?></span></div>
           </div>
         </div>
         <div class="collapse mt-2" id="task-<?= $t['id'] ?>">
@@ -258,7 +258,7 @@ function render_task($t, $users, $clients, $filterUser = null) {
           if ($children): ?>
           <ul class="list-group ms-4 mt-3">
             <?php foreach ($children as $ch): ?>
-            <?= render_task($ch, $users, $clients, $filterUser); ?>
+            <?= render_task($ch, $users, $clients, $filterUser, $userLoadClasses); ?>
             <?php endforeach; ?>
           </ul>
           <?php endif; ?>
@@ -422,6 +422,16 @@ try {
     }
     unset($u);
     usort($usersByTasks, fn($a, $b) => $b['task_count'] <=> $a['task_count'] ?: strcmp($a['username'], $b['username']));
+    $maxTasks = $userCounts ? max($userCounts) : 0;
+    $userLoadClasses = [];
+    foreach ($usersByTasks as $u) {
+        $ratio = $maxTasks > 0 ? $u['task_count'] / $maxTasks : 0;
+        if ($ratio >= 0.75) $class = 'priority-critical';
+        elseif ($ratio >= 0.5) $class = 'priority-high';
+        elseif ($ratio >= 0.25) $class = 'priority-intermed';
+        else $class = 'priority-low';
+        $userLoadClasses[$u['username']] = $class;
+    }
 
     $clients = $pdo->query('SELECT c.id,c.name,c.priority,c.progress_percent,COUNT(t.id) AS task_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id AND t.status!="archived" GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.priority IS NULL), c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
 
@@ -486,8 +496,9 @@ include __DIR__ . '/header.php';
     <ul class="list-inline mb-4">
       <?php foreach ($clients as $c): ?>
       <?php $isActive = $filterClientName === $c['name']; ?>
+      <?php $pClass = $c['priority'] ? 'priority-'.strtolower($c['priority']) : 'btn-outline-secondary'; ?>
       <li class="list-inline-item mb-2">
-        <a href="index.php?client=<?= urlencode($c['name']) ?>" class="btn btn-sm <?= $isActive ? 'btn-secondary' : 'btn-outline-secondary' ?> me-2">
+        <a href="index.php?client=<?= urlencode($c['name']) ?>" class="btn btn-sm <?= $pClass ?> me-2 <?= $isActive ? 'border-dark border-2' : '' ?>">
           <?= htmlspecialchars($c['name']) ?>
           <span class="badge bg-light text-dark ms-1"><?= $c['task_count'] ?></span>
         </a>
@@ -497,9 +508,9 @@ include __DIR__ . '/header.php';
     <h4>Team Members</h4>
     <ul class="list-inline">
       <?php foreach ($usersByTasks as $u): ?>
-      <?php $uActive = $filterUserName === $u['username']; ?>
+      <?php $uActive = $filterUserName === $u['username']; $loadClass = $userLoadClasses[$u['username']] ?? 'btn-outline-secondary'; ?>
       <li class="list-inline-item mb-2">
-        <a href="index.php?user=<?= urlencode($u['username']) ?>" class="btn btn-sm <?= $uActive ? 'btn-secondary' : 'btn-outline-secondary' ?> me-2"><?= htmlspecialchars($u['username']) ?></a>
+        <a href="index.php?user=<?= urlencode($u['username']) ?>" class="btn btn-sm <?= $loadClass ?> me-2 <?= $uActive ? 'border-dark border-2' : '' ?>"><?= htmlspecialchars($u['username']) ?></a>
       </li>
       <?php endforeach; ?>
     </ul>
@@ -579,7 +590,7 @@ include __DIR__ . '/header.php';
           <div class="flex-grow-1">
             <strong><?= $t['client_name'] ? htmlspecialchars($t['client_name']) : 'Others' ?></strong> <strong><?= htmlspecialchars($t['title']) ?></strong>
             <?php if ($t['description']) echo '<div class="text-muted small">'.htmlspecialchars($t['description']).'</div>'; ?>
-            <small><?= htmlspecialchars($t['username']) ?> — <?= htmlspecialchars($t['due_date']) ?></small>
+            <small><span class="<?= $userLoadClasses[$t['username']] ?? '' ?> fw-bold"><?= htmlspecialchars($t['username']) ?></span> — <?= htmlspecialchars($t['due_date']) ?></small>
           </div>
           <div class="ms-2 text-nowrap">
             <button type="button" class="btn btn-success btn-sm unarchive-btn" data-id="<?= $t['id'] ?>" title="Unarchive" data-bs-toggle="tooltip"><i class="bi bi-arrow-counterclockwise"></i></button>
@@ -591,20 +602,20 @@ include __DIR__ . '/header.php';
     <?php elseif (!$filterUser && !$filterClient): ?>
       <ul id="all-list" class="list-group mb-4">
         <?php foreach ($allTasks as $t): ?>
-        <?= render_task($t, $users, $clients, $filterUser); ?>
+        <?= render_task($t, $users, $clients, $filterUser, $userLoadClasses); ?>
         <?php endforeach; ?>
       </ul>
     <?php else: ?>
       <h3 class="mb-4">Today's & Overdue Tasks</h3>
       <ul id="today-list" class="list-group mb-4">
         <?php foreach ($todayTasks as $t): ?>
-        <?= render_task($t, $users, $clients, $filterUser); ?>
+        <?= render_task($t, $users, $clients, $filterUser, $userLoadClasses); ?>
         <?php endforeach; ?>
       </ul>
       <h3 class="mb-4">Upcoming Tasks</h3>
       <ul id="upcoming-list" class="list-group mb-4">
         <?php foreach ($upcomingTasks as $t): ?>
-        <?= render_task($t, $users, $clients, $filterUser); ?>
+        <?= render_task($t, $users, $clients, $filterUser, $userLoadClasses); ?>
         <?php endforeach; ?>
       </ul>
     <?php endif; ?>

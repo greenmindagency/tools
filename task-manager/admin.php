@@ -173,10 +173,15 @@ include __DIR__ . '/header.php';
   <?php foreach ($clients as $c): ?>
   <li class="list-group-item" data-id="<?= $c['id'] ?>">
     <form method="post" class="row g-2 align-items-center">
-      <div class="col-md-4"><input type="text" name="client_name" class="form-control" value="<?= htmlspecialchars($c['name']) ?>"></div>
+      <div class="col-md-3"><input type="text" name="client_name" class="form-control" value="<?= htmlspecialchars($c['name']) ?>"></div>
       <div class="col-md-2">
         <?php if (!empty($c['priority'])): ?>
           <span class="client-priority <?= strtolower($c['priority']) ?>"><?= htmlspecialchars($c['priority']) ?></span>
+        <?php endif; ?>
+      </div>
+      <div class="col-md-1">
+        <?php if ($c['progress_percent'] !== null): ?>
+          <span><?= number_format($c['progress_percent'], 2) ?>%</span>
         <?php endif; ?>
       </div>
       <div class="col-md-2"><button class="btn btn-primary w-100 btn-sm" name="save_client" value="<?= $c['id'] ?>">Save</button></div>
