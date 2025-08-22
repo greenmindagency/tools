@@ -117,6 +117,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
             </strong>
             <strong class="task-title-text"><?= htmlspecialchars($t['title']) ?></strong>
             <div class="small text-muted due-date"><i class="bi bi-calendar-event me-1"></i><?= htmlspecialchars($t['due_date']) ?></div>
+            <div><span class="fw-bold assignee p-1 <?= $userLoadClasses[$t['username']] ?? '' ?>"><?= htmlspecialchars($t['username']) ?></span></div>
           </div>
           <div class="text-end ms-2">
             <div class="mb-1">
@@ -126,7 +127,6 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
               <button type="button" class="btn btn-secondary btn-sm duplicate-btn" data-id="<?= $t['id'] ?>" title="Duplicate" data-bs-toggle="tooltip"><i class="bi bi-files"></i></button>
               <button type="button" class="btn btn-warning btn-sm archive-btn" data-id="<?= $t['id'] ?>" title="Archive" data-bs-toggle="tooltip"><i class="bi bi-archive"></i></button>
             </div>
-            <div><span class="fw-bold assignee <?= $userLoadClasses[$t['username']] ?? '' ?>"><?= htmlspecialchars($t['username']) ?></span></div>
           </div>
         </div>
         <div class="collapse mt-2" id="task-<?= $t['id'] ?>">
