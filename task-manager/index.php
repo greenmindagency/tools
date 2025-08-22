@@ -188,7 +188,8 @@ function render_task($t, $users, $clients, $filterUser = null) {
               </select>
             </div>
           </form>
-          <button class="btn btn-primary btn-sm add-subtask-toggle mt-2 d-none" type="button" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>">Add Subtask</button>
+          <hr class="my-3">
+          <button class="btn btn-primary btn-sm add-subtask-toggle mt-3 d-none" type="button" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>">Add Subtask</button>
           <div class="collapse" id="subtask-form-<?= $t['id'] ?>">
             <form method="post" class="row g-2 mt-2 ajax">
               <input type="hidden" name="add_task" value="1">
@@ -229,7 +230,7 @@ function render_task($t, $users, $clients, $filterUser = null) {
           $childStmt->execute($params);
           $children = $childStmt->fetchAll(PDO::FETCH_ASSOC);
           if ($children): ?>
-          <ul class="list-group ms-4 mt-2">
+          <ul class="list-group ms-4 mt-3">
             <?php foreach ($children as $ch): ?>
             <?= render_task($ch, $users, $clients, $filterUser); ?>
             <?php endforeach; ?>
