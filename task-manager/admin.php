@@ -140,9 +140,19 @@ try {
         } elseif (isset($_POST['update_task'])) {
             $id = (int)$_POST['update_task'];
             $due = $_POST['due_date'] ?? '';
-            if ($due !== '') {
-                $stmt = $pdo->prepare('UPDATE tasks SET due_date=? WHERE id=?');
-                $stmt->execute([$due, $id]);
+            $assigned = (int)($_POST['assigned_to'] ?? 0) ?: null;
+            $rec = $_POST['recurrence'] ?? 'none';
+            if ($rec === 'custom') {
+                $days = $_POST['days'] ?? [];
+                $rec = 'custom:' . implode(',', array_map('htmlspecialchars',$days));
+            } elseif ($rec === 'interval') {
+                $cnt = max(1,(int)($_POST['interval_count'] ?? 1));
+                $unit = $_POST['interval_unit'] ?? 'week';
+                $rec = 'interval:' . $cnt . ':' . $unit;
+            }
+            if ($due !== '' && $id) {
+                $stmt = $pdo->prepare('UPDATE tasks SET due_date=?, assigned_to=?, recurrence=? WHERE id=?');
+                $stmt->execute([$due, $assigned, $rec, $id]);
             }
         }
     }
@@ -166,12 +176,22 @@ try {
     }
     arsort($workerTotals);
 
-    $tasks = $pdo->query('SELECT t.id,t.title,t.due_date,t.recurrence,u.username,pt.title AS parent_title FROM tasks t LEFT JOIN users u ON t.assigned_to=u.id LEFT JOIN tasks pt ON t.parent_id=pt.id WHERE t.status!="archived" ORDER BY t.due_date')->fetchAll(PDO::FETCH_ASSOC);
+    $taskCountsStmt = $pdo->query('SELECT u.username, COUNT(*) AS cnt FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE t.status!="archived" GROUP BY u.username');
+    $workerTaskCounts = [];
+    while ($row = $taskCountsStmt->fetch(PDO::FETCH_ASSOC)) {
+        $workerTaskCounts[$row['username']] = $row['cnt'];
+    }
+
+    $tasks = $pdo->query('SELECT t.id,t.title,t.due_date,t.recurrence,t.assigned_to,u.username,pt.title AS parent_title,c.name AS client_name,c.priority AS client_priority FROM tasks t LEFT JOIN users u ON t.assigned_to=u.id LEFT JOIN tasks pt ON t.parent_id=pt.id LEFT JOIN clients c ON t.client_id=c.id WHERE t.status!="archived"')->fetchAll(PDO::FETCH_ASSOC);
+
     $weekCounts = [];
     $start = new DateTime('today');
-    for ($i=0; $i<7; $i++) {
+    $i = 0;
+    while (count($weekCounts) < 5) {
         $d = clone $start; $d->modify("+{$i} day");
+        if (in_array($d->format('w'), ['5','6'])) { $i++; continue; }
         $weekCounts[$d->format('Y-m-d')] = 0;
+        $i++;
     }
     foreach ($tasks as $t) {
         foreach ($weekCounts as $day => $cnt) {
@@ -181,6 +201,22 @@ try {
         }
     }
     $maxWeekCount = max($weekCounts) ?: 1;
+
+    $tasksByDay = [];
+    $startTasks = new DateTime('today');
+    for ($i=0; $i<7; $i++) {
+        $d = clone $startTasks; $d->modify("+{$i} day");
+        $key = $d->format('Y-m-d');
+        $tasksByDay[$key] = ['label'=>$d->format('l'),'tasks'=>[]];
+    }
+    foreach ($tasks as $t) {
+        foreach ($tasksByDay as $day => &$info) {
+            if (is_due_on($t['due_date'],$t['recurrence'],$day)) {
+                $info['tasks'][] = $t;
+            }
+        }
+    }
+    unset($info);
 } catch (PDOException $e) {
     $error = $e->getMessage();
 }
@@ -268,48 +304,66 @@ include __DIR__ . '/header.php';
     <button id="saveUserOrder" class="btn btn-success btn-sm">Save Order</button>
   </div>
   <div class="tab-pane fade" id="status" role="tabpanel">
-    <table class="table table-borderless w-auto">
-      <thead><tr><th>Team Member</th><th>Achieved %</th></tr></thead>
-      <tbody>
-        <?php foreach ($workerTotals as $name => $pct):
-            $ratio = $pct / 100;
-            if ($ratio >= 0.75) $class = 'priority-critical';
-            elseif ($ratio >= 0.5) $class = 'priority-high';
-            elseif ($ratio >= 0.25) $class = 'priority-intermed';
-            else $class = 'priority-low';
-        ?>
-        <tr class="<?= $class ?>"><td><?= htmlspecialchars($name) ?></td><td><?= number_format($pct, 2) ?>%</td></tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-    <h5 class="mt-4">Upcoming Week</h5>
-    <table class="table table-borderless w-auto">
-      <tbody>
-        <?php foreach ($weekCounts as $day => $count):
-            $label = date('D', strtotime($day));
-            $width = ($count / $maxWeekCount) * 100;
-        ?>
-        <tr><td><?= $label ?></td><td class="w-100"><div class="progress" style="height:20px;"><div class="progress-bar" style="width:<?= (int)$width ?>%"><?= $count ?></div></div></td></tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
+    <div class="row">
+      <div class="col-md-6">
+        <table class="table table-borderless w-auto">
+          <thead><tr><th>Team Member</th><th>Achieved %</th><th>Tasks</th></tr></thead>
+          <tbody>
+            <?php foreach ($workerTotals as $name => $pct):
+                $ratio = $pct / 100;
+                if ($ratio >= 0.75) $class = 'priority-critical';
+                elseif ($ratio >= 0.5) $class = 'priority-high';
+                elseif ($ratio >= 0.25) $class = 'priority-intermed';
+                else $class = 'priority-low';
+                $count = $workerTaskCounts[$name] ?? 0;
+            ?>
+            <tr class="<?= $class ?>"><td><?= htmlspecialchars($name) ?></td><td><?= number_format($pct, 2) ?>%</td><td><?= $count ?></td></tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-6">
+        <table class="table table-borderless w-auto">
+          <tbody>
+            <?php foreach ($weekCounts as $day => $count):
+                $label = date('D', strtotime($day));
+                $width = ($count / $maxWeekCount) * 100;
+            ?>
+            <tr><td><?= $label ?></td><td class="w-100"><div class="progress" style="height:20px;"><div class="progress-bar" style="width:<?= (int)$width ?>%"><?= $count ?></div></div></td></tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
   <div class="tab-pane fade" id="overview" role="tabpanel">
-    <table class="table table-striped">
-      <thead><tr><th>Title</th><th>Worker</th><th>Due Date</th><th></th></tr></thead>
-      <tbody>
-        <?php foreach ($tasks as $t):
-            $title = $t['parent_title'] ? $t['parent_title'].' - '.$t['title'] : $t['title'];
-        ?>
-        <tr>
-          <td><?= htmlspecialchars($title) ?></td>
-          <td><?= htmlspecialchars($t['username']) ?></td>
-          <td><?= htmlspecialchars($t['due_date']) ?></td>
-          <td><button type="button" class="btn btn-sm btn-primary edit-task-btn" data-id="<?= $t['id'] ?>" data-due="<?= $t['due_date'] ?>">Edit</button></td>
-        </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
+    <div class="accordion" id="tasksByDay">
+      <?php $dayIndex=0; foreach ($tasksByDay as $day => $info): $count=count($info['tasks']); ?>
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#day-<?= $dayIndex ?>">
+            <?= $info['label'] ?> (<?= $count ?>)
+          </button>
+        </h2>
+        <div id="day-<?= $dayIndex ?>" class="accordion-collapse collapse" data-bs-parent="#tasksByDay">
+          <div class="accordion-body p-0">
+            <ul class="list-group list-group-flush">
+              <?php foreach ($info['tasks'] as $t):
+                    $title = $t['parent_title'] ? $t['parent_title'].' - '.$t['title'] : $t['title'];
+                    $clientName = $t['client_name'] ?? 'Others';
+                    $clientClass = strtolower($t['client_priority'] ?? '');
+              ?>
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span><span class="client-priority <?= $clientClass ?>"><?= htmlspecialchars($clientName) ?></span> <?= htmlspecialchars($title) ?></span>
+                <span class="ms-2"><?= htmlspecialchars($t['username']) ?> <button type="button" class="btn btn-sm btn-primary edit-task-btn ms-2" data-id="<?= $t['id'] ?>" data-due="<?= $t['due_date'] ?>" data-rec="<?= htmlspecialchars($t['recurrence']) ?>" data-user="<?= $t['assigned_to'] ?>">Edit</button></span>
+              </li>
+              <?php endforeach; ?>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <?php $dayIndex++; endforeach; ?>
+    </div>
   </div>
 </div>
 <div class="mt-3"><a href="index.php" class="btn btn-dark btn-sm">Back to Tasks</a></div>
@@ -321,6 +375,45 @@ include __DIR__ . '/header.php';
       <div class="modal-body">
         <input type="hidden" name="update_task" id="editTaskId">
         <div class="mb-3"><label for="editDueDate" class="form-label">Due Date</label><input type="date" class="form-control" name="due_date" id="editDueDate" required></div>
+        <div class="mb-3"><label class="form-label" for="editAssigned">Worker</label>
+          <select name="assigned_to" id="editAssigned" class="form-select">
+            <?php foreach ($users as $u): ?>
+            <option value="<?= $u['id'] ?>"><?= htmlspecialchars($u['username']) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="mb-3"><label class="form-label" for="editRecurrence">Recurrence</label>
+          <select name="recurrence" id="editRecurrence" class="form-select">
+            <option value="none">No repeat</option>
+            <option value="everyday">Every Day</option>
+            <option value="working">Working Days</option>
+            <option value="interval">Every N...</option>
+            <option value="custom">Specific Days</option>
+          </select>
+        </div>
+        <div class="row g-2 mb-3 recurrence-interval d-none">
+          <div class="col"><input type="number" min="1" name="interval_count" id="editIntervalCount" class="form-control" value="1"></div>
+          <div class="col">
+            <select name="interval_unit" id="editIntervalUnit" class="form-select">
+              <option value="week">week(s)</option>
+              <option value="month">month(s)</option>
+              <option value="year">year(s)</option>
+            </select>
+          </div>
+        </div>
+        <div class="mb-3 recurrence-days d-none">
+          <?php foreach(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $d): ?>
+          <label class="me-2"><input type="checkbox" name="days[]" value="<?= $d ?>"> <?= $d ?></label>
+          <?php endforeach; ?>
+        </div>
+        <div class="mb-3">
+          <select id="editQuickDate" class="form-select">
+            <option value="">Quick date</option>
+            <option value="tomorrow">Tomorrow</option>
+            <option value="nextweek">Next Week</option>
+            <option value="nextmonth">Next Month</option>
+          </select>
+        </div>
       </div>
       <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save</button></div>
     </form>
@@ -339,11 +432,51 @@ document.getElementById('saveClientOrder').addEventListener('click', ()=>{
   const order = Array.from(document.querySelectorAll('#client-list li')).map((el,idx)=>el.dataset.id+':'+idx).join(',');
   fetch('admin.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'reorder_clients=1&order='+order}).then(()=>location.reload());
 });
+const modalEl = document.getElementById('editTaskModal');
+const recSelect = document.getElementById('editRecurrence');
+const intervalRow = modalEl.querySelector('.recurrence-interval');
+const daysRow = modalEl.querySelector('.recurrence-days');
+function updateRecurrenceFields(){
+  const val = recSelect.value;
+  intervalRow.classList.toggle('d-none', val !== 'interval');
+  daysRow.classList.toggle('d-none', val !== 'custom');
+}
+recSelect.addEventListener('change', updateRecurrenceFields);
+document.getElementById('editQuickDate').addEventListener('change', function(){
+  const today = new Date();
+  let d = new Date(today);
+  if(this.value==='tomorrow'){ d.setDate(today.getDate()+1); }
+  else if(this.value==='nextweek'){ d.setDate(today.getDate()+7); }
+  else if(this.value==='nextmonth'){ d.setMonth(today.getMonth()+1); }
+  document.getElementById('editDueDate').value = d.toISOString().slice(0,10);
+  this.value='';
+});
 document.querySelectorAll('.edit-task-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.getElementById('editTaskId').value = btn.dataset.id;
     document.getElementById('editDueDate').value = btn.dataset.due;
-    new bootstrap.Modal(document.getElementById('editTaskModal')).show();
+    document.getElementById('editAssigned').value = btn.dataset.user;
+    const rec = btn.dataset.rec || 'none';
+    recSelect.value = 'none';
+    document.getElementById('editIntervalCount').value = 1;
+    document.getElementById('editIntervalUnit').value = 'week';
+    daysRow.querySelectorAll('input').forEach(cb=>cb.checked=false);
+    if(rec.startsWith('interval:')){
+      const parts = rec.split(':');
+      recSelect.value = 'interval';
+      document.getElementById('editIntervalCount').value = parts[1];
+      document.getElementById('editIntervalUnit').value = parts[2];
+    } else if(rec.startsWith('custom:')){
+      recSelect.value = 'custom';
+      rec.substring(7).split(',').forEach(day=>{
+        const cb = daysRow.querySelector(`input[value="${day}"]`);
+        if(cb) cb.checked = true;
+      });
+    } else if(rec !== 'none') {
+      recSelect.value = rec;
+    }
+    updateRecurrenceFields();
+    new bootstrap.Modal(modalEl).show();
   });
 });
 </script>
