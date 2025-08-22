@@ -112,14 +112,15 @@ try {
 
     $workerTotals = [];
     $clientStmt = $pdo->query('SELECT id, progress_percent FROM clients WHERE progress_percent IS NOT NULL');
-    $wStmt = $pdo->prepare('SELECT DISTINCT u.username FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE t.client_id=? AND t.status!="archived"');
+    $wStmt = $pdo->prepare('SELECT u.username, COUNT(*) AS task_count FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE t.client_id=? AND t.status!="archived" GROUP BY u.username');
     while ($c = $clientStmt->fetch(PDO::FETCH_ASSOC)) {
         $wStmt->execute([$c['id']]);
-        $workers = $wStmt->fetchAll(PDO::FETCH_COLUMN);
-        $count = count($workers);
-        if ($count === 0) continue;
-        $share = $c['progress_percent'] / $count;
-        foreach ($workers as $name) {
+        $rows = $wStmt->fetchAll(PDO::FETCH_ASSOC);
+        $totalTasks = array_sum(array_column($rows, 'task_count'));
+        if ($totalTasks === 0) continue;
+        foreach ($rows as $row) {
+            $share = $c['progress_percent'] * ($row['task_count'] / $totalTasks);
+            $name = $row['username'];
             $workerTotals[$name] = ($workerTotals[$name] ?? 0) + $share;
         }
     }
