@@ -189,6 +189,9 @@ function render_task($t, $users, $clients, $filterUser = null) {
               </select>
             </div>
           </form>
+          <?php if(!$isSub): ?>
+          <hr class="my-3">
+          <button class="btn btn-primary btn-sm add-subtask-toggle mt-3 d-none" type="button" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>">Add Subtask</button>
           <div class="collapse" id="subtask-form-<?= $t['id'] ?>">
             <form method="post" class="row g-2 mt-2 ajax">
               <input type="hidden" name="add_task" value="1">
@@ -213,6 +216,30 @@ function render_task($t, $users, $clients, $filterUser = null) {
                   <?php endforeach; ?>
                 </select>
               </div>
+              <div class="col-md-3 mt-2">
+                <select name="recurrence" class="form-select recurrence-select">
+                  <option value="none" selected>No repeat</option>
+                  <option value="everyday">Every Day</option>
+                  <option value="working">Working Days</option>
+                  <option value="interval">Every N...</option>
+                  <option value="custom">Specific Days</option>
+                </select>
+              </div>
+              <div class="col-md-3 mt-2 recurrence-interval d-none">
+                <input type="number" min="1" name="interval_count" value="1" class="form-control">
+              </div>
+              <div class="col-md-3 mt-2 recurrence-unit d-none">
+                <select name="interval_unit" class="form-select">
+                  <option value="week">week(s)</option>
+                  <option value="month">month(s)</option>
+                  <option value="year">year(s)</option>
+                </select>
+              </div>
+              <div class="col-md-12 mt-2 recurrence-days d-none">
+                <?php foreach(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $d): ?>
+                <label class="me-2"><input type="checkbox" name="days[]" value="<?= $d ?>"> <?= $d ?></label>
+                <?php endforeach; ?>
+              </div>
               <div class="col-md-2 mt-2"><button class="btn btn-primary w-100">Add</button></div>
             </form>
           </div>
@@ -235,13 +262,14 @@ function render_task($t, $users, $clients, $filterUser = null) {
             <?php endforeach; ?>
           </ul>
           <?php endif; ?>
+          <?php endif; ?>
         </div>
       </div>
     </li>
     <?php
     return ob_get_clean();
 }
-function duplicate_task_recursive($pdo, $taskId, $newParentId = null) {
+function duplicate_task_recursive($pdo, $taskId, $newParentId = null, $depth = 0) {
     $stmt = $pdo->prepare('SELECT title,description,assigned_to,client_id,priority,due_date,recurrence FROM tasks WHERE id=?');
     $stmt->execute([$taskId]);
     $task = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -250,10 +278,12 @@ function duplicate_task_recursive($pdo, $taskId, $newParentId = null) {
     $insert = $pdo->prepare('INSERT INTO tasks (title,description,assigned_to,client_id,priority,due_date,recurrence,parent_id,order_index) VALUES (?,?,?,?,?,?,?,?,?)');
     $insert->execute([$task['title'],$task['description'],$task['assigned_to'],$task['client_id'],$task['priority'],$task['due_date'],$task['recurrence'],$newParentId,$orderIdx]);
     $newId = $pdo->lastInsertId();
-    $childStmt = $pdo->prepare('SELECT id FROM tasks WHERE parent_id=?');
-    $childStmt->execute([$taskId]);
-    while ($child = $childStmt->fetch(PDO::FETCH_ASSOC)) {
-        duplicate_task_recursive($pdo, $child['id'], $newId);
+    if ($depth < 1) {
+        $childStmt = $pdo->prepare('SELECT id FROM tasks WHERE parent_id=?');
+        $childStmt->execute([$taskId]);
+        while ($child = $childStmt->fetch(PDO::FETCH_ASSOC)) {
+            duplicate_task_recursive($pdo, $child['id'], $newId, $depth + 1);
+        }
     }
     return $newId;
 }
@@ -276,6 +306,12 @@ try {
         $desc = trim($_POST['description'] ?? '');
         $rec = $_POST['recurrence'] ?? 'none';
         $parentId = (int)($_POST['parent_id'] ?? 0) ?: null;
+        if ($parentId) {
+            $pcheck = $pdo->prepare('SELECT parent_id FROM tasks WHERE id=?');
+            $pcheck->execute([$parentId]);
+            $grand = $pcheck->fetchColumn();
+            if ($grand) { $parentId = $grand; }
+        }
         if ($rec === 'custom') {
             $days = $_POST['days'] ?? [];
             $rec = 'custom:' . implode(',', array_map('htmlspecialchars',$days));
@@ -639,7 +675,7 @@ document.querySelectorAll('.edit-btn').forEach(btn=>{
     desc.classList.toggle('d-none');
     const editing = !form.classList.contains('d-none');
     saveBtn.classList.toggle('d-none', !editing);
-    subBtn.classList.toggle('d-none', !editing);
+    subBtn?.classList.toggle('d-none', !editing);
     new bootstrap.Collapse(collapse, {toggle:false}).show();
   });
 });
@@ -686,7 +722,7 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
     form.classList.add('d-none');
     collapse.querySelector('.description').classList.remove('d-none');
     btn.classList.add('d-none');
-    li.querySelector('.add-subtask-toggle').classList.add('d-none');
+    li.querySelector('.add-subtask-toggle')?.classList.add('d-none');
     showToast('Task saved');
   });
 });
