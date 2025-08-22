@@ -274,7 +274,13 @@ function duplicate_task_recursive($pdo, $taskId, $newParentId = null, $depth = 0
     $stmt->execute([$taskId]);
     $task = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$task) return null;
-    $orderIdx = strtotime($task['due_date']);
+    if ($newParentId) {
+        $oStmt = $pdo->prepare('SELECT COALESCE(MAX(order_index),0)+1 FROM tasks WHERE parent_id=?');
+        $oStmt->execute([$newParentId]);
+        $orderIdx = (int)$oStmt->fetchColumn();
+    } else {
+        $orderIdx = strtotime($task['due_date']);
+    }
     $insert = $pdo->prepare('INSERT INTO tasks (title,description,assigned_to,client_id,priority,due_date,recurrence,parent_id,order_index) VALUES (?,?,?,?,?,?,?,?,?)');
     $insert->execute([$task['title'],$task['description'],$task['assigned_to'],$task['client_id'],$task['priority'],$task['due_date'],$task['recurrence'],$newParentId,$orderIdx]);
     $newId = $pdo->lastInsertId();
@@ -398,7 +404,19 @@ try {
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['duplicate_task'])) {
         $id = (int)$_POST['duplicate_task'];
-        duplicate_task_recursive($pdo, $id);
+        $pstmt = $pdo->prepare('SELECT parent_id FROM tasks WHERE id=?');
+        $pstmt->execute([$id]);
+        $parentId = $pstmt->fetchColumn() ?: null;
+        duplicate_task_recursive($pdo, $id, $parentId);
+        exit;
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reorder_subtasks'])) {
+        $parentId = (int)($_POST['parent_id'] ?? 0);
+        $order = $_POST['order'] ?? '';
+        $ids = array_filter(explode(',', $order));
+        $stmt = $pdo->prepare('UPDATE tasks SET order_index=? WHERE id=? AND parent_id=?');
+        foreach ($ids as $idx => $taskId) {
+            $stmt->execute([$idx, (int)$taskId, $parentId]);
+        }
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reorder_subtasks'])) {
         $parentId = (int)($_POST['parent_id'] ?? 0);
