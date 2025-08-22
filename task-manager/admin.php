@@ -424,6 +424,19 @@ include __DIR__ . '/header.php';
 <script>
 new Sortable(document.getElementById('user-list'), {animation:150});
 new Sortable(document.getElementById('client-list'), {animation:150});
+document.addEventListener('DOMContentLoaded', () => {
+  const tabKey = 'admin-active-tab';
+  const stored = localStorage.getItem(tabKey);
+  if (stored) {
+    const trigger = document.querySelector(`#adminTabs button[data-bs-target="${stored}"]`);
+    if (trigger) new bootstrap.Tab(trigger).show();
+  }
+  document.querySelectorAll('#adminTabs button[data-bs-toggle="tab"]').forEach(btn => {
+    btn.addEventListener('shown.bs.tab', e => {
+      localStorage.setItem(tabKey, e.target.getAttribute('data-bs-target'));
+    });
+  });
+});
 document.getElementById('saveUserOrder').addEventListener('click', ()=>{
   const order = Array.from(document.querySelectorAll('#user-list li')).map((el,idx)=>el.dataset.id+':'+idx).join(',');
   fetch('admin.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'reorder_users=1&order='+order}).then(()=>location.reload());
