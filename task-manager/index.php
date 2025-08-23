@@ -620,6 +620,10 @@ try {
         $archivedStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE t.parent_id IS NULL'.$where.' '.$order);
         $archivedStmt->execute($params);
         $archivedTasks = $archivedStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $archivedSubStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id IS NOT NULL AND p.status!="archived"'.$where.' '.$order);
+        $archivedSubStmt->execute($params);
+        $archivedSubs = $archivedSubStmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
         $parentCond = $filterUser ? '' : 't.parent_id IS NULL AND ';
         $todayStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE ' . $parentCond . 't.due_date <= ?'.$where.' '.$order);
@@ -829,8 +833,14 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
     </div>
     <?php if ($filterArchived): ?>
       <h3 class="mb-4">Archived Tasks</h3>
-      <ul class="list-group" id="archived-list">
+      <ul class="list-group mb-4" id="archived-list">
         <?php foreach ($archivedTasks as $t): ?>
+        <?= render_task($t, $users, $clients, $filterUser, $userLoadClasses, true); ?>
+        <?php endforeach; ?>
+      </ul>
+      <h3 class="mb-4">Archived Sub Tasks</h3>
+      <ul class="list-group" id="archived-sub-list">
+        <?php foreach ($archivedSubs as $t): ?>
         <?= render_task($t, $users, $clients, $filterUser, $userLoadClasses, true); ?>
         <?php endforeach; ?>
       </ul>
@@ -1131,11 +1141,16 @@ document.querySelectorAll('.archive-btn').forEach(btn=>{
     const li = btn.closest('li');
     li.remove();
     const archList = document.getElementById('archived-list');
-    if(archList && html){
+    const archSubList = document.getElementById('archived-sub-list');
+    if((archList || archSubList) && html){
       const tmp = document.createElement('div');
       tmp.innerHTML = html;
       const newLi = tmp.firstElementChild;
-      archList.prepend(newLi);
+      if(newLi.dataset.parentTitle && archSubList){
+        archSubList.prepend(newLi);
+      } else if(archList){
+        archList.prepend(newLi);
+      }
       initTask(newLi);
     }
     showToast('Task archived');
@@ -1446,11 +1461,16 @@ function initTask(li){
       const liEl = btn.closest('li');
       liEl.remove();
       const archList = document.getElementById('archived-list');
-      if(archList && html){
+      const archSubList = document.getElementById('archived-sub-list');
+      if((archList || archSubList) && html){
         const tmp = document.createElement('div');
         tmp.innerHTML = html;
         const newLi = tmp.firstElementChild;
-        archList.prepend(newLi);
+        if(newLi.dataset.parentTitle && archSubList){
+          archSubList.prepend(newLi);
+        } else if(archList){
+          archList.prepend(newLi);
+        }
         initTask(newLi);
       }
       showToast('Task archived');
