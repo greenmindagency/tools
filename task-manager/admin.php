@@ -263,6 +263,45 @@ try {
     }
     arsort($loadPercent);
 
+    $archivedCountsStmt = $pdo->query('SELECT u.username, COUNT(*) AS cnt FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE t.status="archived" GROUP BY u.username');
+    $workerArchivedCounts = [];
+    while ($row = $archivedCountsStmt->fetch(PDO::FETCH_ASSOC)) {
+        $workerArchivedCounts[$row['username']] = $row['cnt'];
+        if (!isset($workerTotals[$row['username']])) {
+            $workerTotals[$row['username']] = 0;
+        }
+        if (!isset($workerTaskCounts[$row['username']])) {
+            $workerTaskCounts[$row['username']] = 0;
+        }
+    }
+
+    $allWorkers = array_unique(array_merge(array_keys($workerTotals), array_keys($workerTaskCounts), array_keys($workerArchivedCounts)));
+    foreach ($allWorkers as $name) {
+        if (!isset($workerTotals[$name])) $workerTotals[$name] = 0;
+        if (!isset($workerTaskCounts[$name])) $workerTaskCounts[$name] = 0;
+        if (!isset($workerArchivedCounts[$name])) $workerArchivedCounts[$name] = 0;
+    }
+
+    $tasksPercent = [];
+    foreach ($workerTaskCounts as $name => $cnt) {
+        $tasksPercent[$name] = $totalTasks ? ($cnt / $totalTasks * 100) : 0;
+    }
+    foreach ($allWorkers as $name) {
+        if (!isset($tasksPercent[$name])) $tasksPercent[$name] = 0;
+    }
+    $loadScores = [];
+    foreach ($allWorkers as $name) {
+        $ach = $workerTotals[$name];
+        $taskPct = $tasksPercent[$name];
+        $loadScores[$name] = ($ach + $taskPct) / 2;
+    }
+    $loadSum = array_sum($loadScores);
+    $loadPercent = [];
+    foreach ($loadScores as $name => $score) {
+        $loadPercent[$name] = $loadSum ? ($score / $loadSum * 100) : 0;
+    }
+    arsort($loadPercent);
+
     $tasks = $pdo->query('SELECT t.id,t.title,t.due_date,t.recurrence,t.assigned_to,u.username,pt.title AS parent_title,c.name AS client_name,c.priority AS client_priority FROM tasks t LEFT JOIN users u ON t.assigned_to=u.id LEFT JOIN tasks pt ON t.parent_id=pt.id LEFT JOIN clients c ON t.client_id=c.id WHERE t.status!="archived"')->fetchAll(PDO::FETCH_ASSOC);
 
     $weekCounts = [];
