@@ -725,7 +725,7 @@ try {
     if ($filterArchived) { $cond[] = 't.status="archived"'; } else { $cond[] = 't.status!="archived"'; }
     $where = $cond ? ' AND '.implode(' AND ',$cond) : '';
     if ($filterUser) {
-        $order = 'ORDER BY t.due_date, t.priority';
+        $order = 'ORDER BY t.client_id, t.due_date, t.priority, t.parent_id IS NOT NULL, t.parent_id';
     } else {
         $order = 'ORDER BY (c.progress_percent IS NULL), c.progress_percent DESC, t.due_date';
     }
