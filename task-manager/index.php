@@ -346,24 +346,82 @@ function duplicate_task_recursive($pdo, $taskId, $newParentId = null, $depth = 0
 
 function load_meta($pdo) {
     $users = $pdo->query('SELECT id,username FROM users ORDER BY sort_order, username')->fetchAll(PDO::FETCH_ASSOC);
-    $userCounts = $pdo->query('SELECT assigned_to, COUNT(*) AS cnt FROM tasks WHERE status!="archived" GROUP BY assigned_to')->fetchAll(PDO::FETCH_KEY_PAIR);
-    $usersByTasks = $users;
-    foreach ($usersByTasks as &$u) {
-        $u['task_count'] = $userCounts[$u['id']] ?? 0;
+    $clients = $pdo->query('SELECT c.id,c.name,c.priority,c.progress_percent,COUNT(t.id) AS task_count FROM clients c JOIN tasks t ON t.client_id=c.id AND t.status!="archived" GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.priority IS NULL), c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
+
+    $workerTotals = [];
+    $clientStmt = $pdo->query('SELECT id, progress_percent FROM clients WHERE progress_percent IS NOT NULL');
+    $uStmt = $pdo->prepare('SELECT u.username, COUNT(*) AS cnt FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE t.client_id=? GROUP BY u.username');
+    while ($c = $clientStmt->fetch(PDO::FETCH_ASSOC)) {
+        $uStmt->execute([$c['id']]);
+        $rows = $uStmt->fetchAll(PDO::FETCH_ASSOC);
+        $total = array_sum(array_column($rows, 'cnt'));
+        if ($total === 0) continue;
+        foreach ($rows as $r) {
+            $share = $c['progress_percent'] * ($r['cnt'] / $total);
+            $workerTotals[$r['username']] = ($workerTotals[$r['username']] ?? 0) + $share;
+        }
     }
-    unset($u);
-    usort($usersByTasks, fn($a, $b) => $b['task_count'] <=> $a['task_count'] ?: strcmp($a['username'], $b['username']));
-    $maxTasks = $userCounts ? max($userCounts) : 0;
+
+    $workerTaskCounts = [];
+    $totalTasks = 0;
+    $taskCountsStmt = $pdo->query('SELECT u.username, COUNT(*) AS cnt FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE t.status!="archived" GROUP BY u.username');
+    while ($row = $taskCountsStmt->fetch(PDO::FETCH_ASSOC)) {
+        $workerTaskCounts[$row['username']] = $row['cnt'];
+        $totalTasks += $row['cnt'];
+        if (!isset($workerTotals[$row['username']])) $workerTotals[$row['username']] = 0;
+    }
+
+    $workerArchivedCounts = [];
+    $archivedCountsStmt = $pdo->query('SELECT u.username, COUNT(*) AS cnt FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE t.status="archived" GROUP BY u.username');
+    while ($row = $archivedCountsStmt->fetch(PDO::FETCH_ASSOC)) {
+        $workerArchivedCounts[$row['username']] = $row['cnt'];
+        if (!isset($workerTotals[$row['username']])) $workerTotals[$row['username']] = 0;
+        if (!isset($workerTaskCounts[$row['username']])) $workerTaskCounts[$row['username']] = 0;
+    }
+
+    $allWorkers = array_unique(array_merge(array_column($users, 'username'), array_keys($workerTotals), array_keys($workerTaskCounts), array_keys($workerArchivedCounts)));
+    foreach ($allWorkers as $name) {
+        if (!isset($workerTotals[$name])) $workerTotals[$name] = 0;
+        if (!isset($workerTaskCounts[$name])) $workerTaskCounts[$name] = 0;
+        if (!isset($workerArchivedCounts[$name])) $workerArchivedCounts[$name] = 0;
+    }
+
+    $tasksPercent = [];
+    foreach ($workerTaskCounts as $name => $cnt) {
+        $tasksPercent[$name] = $totalTasks ? ($cnt / $totalTasks * 100) : 0;
+    }
+    foreach ($allWorkers as $name) {
+        if (!isset($tasksPercent[$name])) $tasksPercent[$name] = 0;
+    }
+
+    $loadScores = [];
+    foreach ($allWorkers as $name) {
+        $ach = $workerTotals[$name];
+        $taskPct = $tasksPercent[$name];
+        $loadScores[$name] = ($ach + $taskPct) / 2;
+    }
+    $loadSum = array_sum($loadScores);
+    $loadPercent = [];
+    foreach ($loadScores as $name => $score) {
+        $loadPercent[$name] = $loadSum ? ($score / $loadSum * 100) : 0;
+    }
+    arsort($loadPercent);
+
     $userLoadClasses = [];
-    foreach ($usersByTasks as $u) {
-        $ratio = $maxTasks > 0 ? $u['task_count'] / $maxTasks : 0;
+    foreach ($loadPercent as $name => $load) {
+        $ratio = $load / 100;
         if ($ratio >= 0.75) $class = 'priority-critical';
         elseif ($ratio >= 0.5) $class = 'priority-high';
         elseif ($ratio >= 0.25) $class = 'priority-intermed';
         else $class = 'priority-low';
-        $userLoadClasses[$u['username']] = $class;
+        $userLoadClasses[$name] = $class;
     }
-    $clients = $pdo->query('SELECT c.id,c.name,c.priority,c.progress_percent,COUNT(t.id) AS task_count FROM clients c JOIN tasks t ON t.client_id=c.id AND t.status!="archived" GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.priority IS NULL), c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
+
+    $usersByTasks = [];
+    foreach ($loadPercent as $name => $load) {
+        $usersByTasks[] = ['username' => $name];
+    }
+
     return [$users, $clients, $userLoadClasses, $usersByTasks];
 }
 
