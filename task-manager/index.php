@@ -1097,6 +1097,8 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
           if(subSpan) subSpan.remove();
           subClient.textContent = 'Others';
         }
+        const subInput = sub.querySelector('input[name=client_id]');
+        if(subInput) subInput.value = clientSel.value;
       });
       // Priority display removed
     }
@@ -1421,6 +1423,8 @@ function initTask(li){
             if(subSpan) subSpan.remove();
             subClient.textContent = 'Others';
           }
+          const subInput = sub.querySelector('input[name=client_id]');
+          if(subInput) subInput.value = clientSel.value;
         });
       }
       form.classList.add('d-none');
