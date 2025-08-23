@@ -324,6 +324,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
             </form>
           </div>
           <?php endif; ?>
+          <?php if(!$filterUser): ?>
           <?php
           global $pdo;
           $childSql = 'SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id=?';
@@ -343,6 +344,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
             <?= render_task($ch, $users, $clients, $filterUser, $userLoadClasses, $archivedView); ?>
             <?php endforeach; ?>
           </ul>
+          <?php endif; ?>
           <?php endif; ?>
           <?php endif; ?>
         </div>
