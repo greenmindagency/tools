@@ -729,9 +729,9 @@ try {
     if ($filterArchived) { $cond[] = 't.status="archived"'; } else { $cond[] = 't.status!="archived"'; }
     $where = $cond ? ' AND '.implode(' AND ',$cond) : '';
     if ($filterUser && !$filterArchived) {
-        $order = 'ORDER BY t.due_date, FIELD(t.priority, "Critical","High","Normal","Low")';
+        $order = 'ORDER BY (t.priority IS NULL OR t.priority="" OR t.priority IN ("Unprioritized","Normal")), t.due_date, FIELD(t.priority, "Critical","High","Intermed","Low")';
     } else {
-        $order = 'ORDER BY FIELD(t.priority, "Critical","High","Normal","Low")';
+        $order = 'ORDER BY (t.priority IS NULL OR t.priority="" OR t.priority IN ("Unprioritized","Normal")), FIELD(t.priority, "Critical","High","Intermed","Low"), t.due_date';
     }
     if (!$filterUser && !$filterClient && !$filterArchived) {
         $allStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id IS NULL'.$where.' '.$order);
