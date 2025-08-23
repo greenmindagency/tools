@@ -443,9 +443,10 @@ function load_meta($pdo) {
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['clock_in'])) {
-        $now = date('Y-m-d H:i:s');
+        $nowObj = new DateTime('now', new DateTimeZone('Africa/Cairo'));
+        $now = $nowObj->format('Y-m-d H:i:s');
         $stmt = $pdo->prepare('INSERT INTO work_logs (user_id, log_date, clock_in) VALUES (?, ?, ?)');
-        $stmt->execute([$_SESSION['user_id'], date('Y-m-d'), $now]);
+        $stmt->execute([$_SESSION['user_id'], $nowObj->format('Y-m-d'), $now]);
         if (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
             echo json_encode(['clock_in' => $now]);
             exit;
@@ -453,7 +454,7 @@ try {
         header('Location: ' . $_SERVER['REQUEST_URI']);
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['clock_out'])) {
-        $now = date('Y-m-d H:i:s');
+        $now = (new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m-d H:i:s');
         $stmt = $pdo->prepare('UPDATE work_logs SET clock_out=? WHERE user_id=? AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1');
         $stmt->execute([$now, $_SESSION['user_id']]);
         if (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
@@ -866,8 +867,8 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
         </div>
       </form>
       <div class="mb-2">
-        <span id="current-time" class="me-3 fw-bold"></span>
-        <span id="work-timer" class="me-2 fw-bold">00:00:00</span>
+        <span id="date-time" class="me-3 fw-bold"></span>
+        <span id="work-timer" class="me-2 fw-bold">Shift: 00:00:00</span>
         <form method="post" class="d-inline ajax" id="clock-form">
           <?php if ($currentLog): ?>
           <button type="submit" name="clock_out" class="btn btn-danger btn-sm">Clock Out</button>
@@ -991,9 +992,9 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
           <tbody>
             <?php foreach ($monthLogs as $log): $duration = $log['clock_out'] ? gmdate('H:i:s', strtotime($log['clock_out']) - strtotime($log['clock_in'])) : ''; ?>
             <tr>
-              <td><?= htmlspecialchars($log['log_date']) ?></td>
-              <td><?= htmlspecialchars(date('H:i:s', strtotime($log['clock_in']))) ?></td>
-              <td><?= $log['clock_out'] ? htmlspecialchars(date('H:i:s', strtotime($log['clock_out']))) : '' ?></td>
+              <td><?= htmlspecialchars(date('Y/m/d', strtotime($log['log_date']))) ?></td>
+              <td><?= htmlspecialchars(date('h:i A', strtotime($log['clock_in']))) ?></td>
+              <td><?= $log['clock_out'] ? htmlspecialchars(date('h:i A', strtotime($log['clock_out']))) : '' ?></td>
               <td><?= $duration ?></td>
             </tr>
             <?php endforeach; ?>
@@ -1006,14 +1007,16 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
 let cairoNow = new Date('<?php echo date('c'); ?>');
-const currentEl = document.getElementById('current-time');
-if (currentEl) {
-  function updateCurrent(){
-    currentEl.textContent = new Intl.DateTimeFormat('en-GB', {timeZone:'Africa/Cairo', hour:'2-digit', minute:'2-digit', second:'2-digit'}).format(cairoNow);
+const dtEl = document.getElementById('date-time');
+if (dtEl) {
+  function updateDT(){
+    const dateStr = new Intl.DateTimeFormat('en-CA', {timeZone:'Africa/Cairo', year:'numeric', month:'2-digit', day:'2-digit'}).format(cairoNow).replace(/-/g,'/');
+    const timeStr = new Intl.DateTimeFormat('en-US', {timeZone:'Africa/Cairo', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true}).format(cairoNow);
+    dtEl.textContent = `Date: ${dateStr} - Time: ${timeStr}`;
     cairoNow.setSeconds(cairoNow.getSeconds()+1);
   }
-  updateCurrent();
-  setInterval(updateCurrent,1000);
+  updateDT();
+  setInterval(updateDT,1000);
 }
 let workSeconds = <?php echo $currentLog ? (time() - strtotime($currentLog['clock_in'])) : 0; ?>;
 const timerEl = document.getElementById('work-timer');
@@ -1023,7 +1026,7 @@ function updateWorkTimer(){
   const h = String(Math.floor(workSeconds/3600)).padStart(2,'0');
   const m = String(Math.floor((workSeconds%3600)/60)).padStart(2,'0');
   const s = String(workSeconds%60).padStart(2,'0');
-  timerEl.textContent = h+':'+m+':'+s;
+  timerEl.textContent = `Shift: ${h}:${m}:${s}`;
   workSeconds++;
 }
 updateWorkTimer();
