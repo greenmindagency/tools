@@ -158,7 +158,7 @@ try {
     }
 
     $users = $pdo->query('SELECT id, username FROM users ORDER BY sort_order, username')->fetchAll(PDO::FETCH_ASSOC);
-    $clients = $pdo->query('SELECT c.id, c.name, c.priority, c.progress_percent, COALESCE(SUM(t.status != "archived"),0) AS active_count, COALESCE(SUM(t.status = "archived"),0) AS archived_count, COUNT(DISTINCT CASE WHEN t.status != "archived" THEN t.assigned_to END) AS member_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent HAVING active_count > 0 ORDER BY (c.priority IS NULL), c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
+    $clients = $pdo->query('SELECT c.id, c.name, c.priority, c.progress_percent, COALESCE(SUM(t.status != "archived"),0) AS active_count, COALESCE(SUM(t.status = "archived"),0) AS archived_count, COUNT(DISTINCT CASE WHEN t.status != "archived" THEN t.assigned_to END) AS member_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.priority IS NULL), c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
 
     $clientMaxTasks = 0;
     $clientMaxMembers = 0;
@@ -193,8 +193,6 @@ try {
             $workerTotals[$row['username']] = 0;
         }
     }
-    arsort($workerTotals);
-
     $tasksPercent = [];
     foreach ($workerTaskCounts as $name => $cnt) {
         $tasksPercent[$name] = $totalTasks ? ($cnt / $totalTasks * 100) : 0;
@@ -209,6 +207,7 @@ try {
     foreach ($loadScores as $name => $score) {
         $loadPercent[$name] = $loadSum ? ($score / $loadSum * 100) : 0;
     }
+    arsort($loadPercent);
 
     $tasks = $pdo->query('SELECT t.id,t.title,t.due_date,t.recurrence,t.assigned_to,u.username,pt.title AS parent_title,c.name AS client_name,c.priority AS client_priority FROM tasks t LEFT JOIN users u ON t.assigned_to=u.id LEFT JOIN tasks pt ON t.parent_id=pt.id LEFT JOIN clients c ON t.client_id=c.id WHERE t.status!="archived"')->fetchAll(PDO::FETCH_ASSOC);
 
@@ -340,7 +339,8 @@ include __DIR__ . '/header.php';
         <table class="table table-borderless w-auto">
           <thead><tr><th>Team Member</th><th>Achieved %</th><th>Tasks</th><th>Load %</th></tr></thead>
           <tbody>
-            <?php foreach ($workerTotals as $name => $pct):
+            <?php foreach ($loadPercent as $name => $load):
+                $pct = $workerTotals[$name] ?? 0;
                 $ratio = $pct / 100;
                 if ($ratio >= 0.75) $class = 'priority-critical';
                 elseif ($ratio >= 0.5) $class = 'priority-high';
