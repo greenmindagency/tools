@@ -493,14 +493,20 @@ try {
             $rec = 'interval:' . $cnt . ':' . $unit;
         }
         if ($id && $assigned && $title !== '') {
-            $stmtCur = $pdo->prepare('SELECT order_index FROM tasks WHERE id=?');
+            $stmtCur = $pdo->prepare('SELECT order_index, title FROM tasks WHERE id=?');
             $stmtCur->execute([$id]);
-            $currIdx = (int)$stmtCur->fetchColumn();
+            $curr = $stmtCur->fetch(PDO::FETCH_ASSOC);
+            $currIdx = (int)($curr['order_index'] ?? 0);
+            $oldTitle = $curr['title'] ?? '';
             $orderIdx = $currIdx > 100000 ? strtotime($due) : $currIdx;
             $stmt = $pdo->prepare('UPDATE tasks SET title=?,description=?,assigned_to=?,client_id=?,priority=?,due_date=?,recurrence=?,order_index=? WHERE id=?');
             $stmt->execute([$title,$desc,$assigned,$clientId,$priority,$due,$rec,$orderIdx,$id]);
             $stmtSub = $pdo->prepare('UPDATE tasks SET client_id=?, priority=? WHERE parent_id=?');
             $stmtSub->execute([$clientId,$priority,$id]);
+            if (strpos($oldTitle, ' (duplicated)') !== false && strpos($title, ' (duplicated)') === false) {
+                $stmtRename = $pdo->prepare("UPDATE tasks SET title = REPLACE(title, ' (duplicated)', '') WHERE parent_id=?");
+                $stmtRename->execute([$id]);
+            }
         }
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_complete'])) {
@@ -1030,8 +1036,13 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
       li.querySelector('.task-title-text').textContent = li.dataset.parentTitle + ' - ' + newTitle;
     } else {
       li.querySelector('.task-title-text').textContent = newTitle;
+      const removeDup = !newTitle.includes('(duplicated)');
       li.querySelectorAll('.subtask-list li').forEach(sub=>{
-        const subTitle = sub.dataset.subTitle || '';
+        let subTitle = sub.dataset.subTitle || '';
+        if(removeDup){
+          subTitle = subTitle.replace(/\s*\(duplicated\)$/,'').trim();
+          sub.dataset.subTitle = subTitle;
+        }
         sub.dataset.parentTitle = newTitle;
         sub.querySelector('.task-title-text').textContent = newTitle + ' - ' + subTitle;
       });
