@@ -161,9 +161,9 @@ try {
     $clients = $pdo->query('SELECT c.id, c.name, c.priority, c.progress_percent, COALESCE(SUM(t.status != "archived"),0) AS active_count, COALESCE(SUM(t.status = "archived"),0) AS archived_count, COUNT(DISTINCT CASE WHEN t.status != "archived" THEN t.assigned_to END) AS member_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.priority IS NULL), c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
 
     $clientWorkers = [];
-    $workerMap = $pdo->query('SELECT t.client_id, u.username FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE t.status!="archived" GROUP BY t.client_id,u.username')->fetchAll(PDO::FETCH_ASSOC);
+    $workerMap = $pdo->query('SELECT t.client_id, u.username, COUNT(*) AS cnt FROM tasks t JOIN users u ON t.assigned_to=u.id GROUP BY t.client_id,u.username')->fetchAll(PDO::FETCH_ASSOC);
     foreach ($workerMap as $row) {
-        $clientWorkers[$row['client_id']][] = $row['username'];
+        $clientWorkers[$row['client_id']][$row['username']] = $row['cnt'];
     }
 
     $clientMaxTasks = 0;
@@ -312,8 +312,7 @@ include __DIR__ . '/header.php';
     <ul class="list-group mb-2" id="client-list">
       <?php foreach ($clients as $c):
             $workers = $clientWorkers[$c['id']] ?? [];
-            $memberCount = count($workers);
-            $share = $memberCount ? (($c['progress_percent'] ?? 0) / $memberCount) : 0;
+            $totalTasksForClient = array_sum($workers);
       ?>
       <li class="list-group-item" data-id="<?= $c['id'] ?>">
         <form method="post" class="row g-2 align-items-center">
@@ -329,7 +328,8 @@ include __DIR__ . '/header.php';
           <div class="col-md-3 small text-muted">
             <?php
               $splits = [];
-              foreach ($workers as $w) {
+              foreach ($workers as $w => $cnt) {
+                  $share = $totalTasksForClient ? (($c['progress_percent'] ?? 0) * ($cnt / $totalTasksForClient)) : 0;
                   $splits[] = htmlspecialchars($w) . ': ' . number_format($share, 2) . '%';
               }
               echo implode(' - ', $splits);
