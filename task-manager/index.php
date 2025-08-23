@@ -33,7 +33,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     if ($row && password_verify($pass, $row['password_hash'])) {
         $_SESSION['user_id'] = $row['id'];
         $_SESSION['username'] = $row['username'];
-        header('Location: index.php?user=' . urlencode($row['username']));
+        if ($row['id'] == 1) {
+            header('Location: index.php');
+        } else {
+            header('Location: index.php?user=' . urlencode($row['username']));
+        }
         exit;
     } else {
         $loginError = 'Invalid username or password.';
@@ -149,7 +153,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
                 Others
               <?php endif; ?>
             </strong>
-            <strong class="task-title-text"><?= htmlspecialchars($isSub ? ($t['parent_title'] . ' - ' . $t['title']) : $t['title']) ?></strong>
+            <strong class="task-title-text my-2"><?= htmlspecialchars($isSub ? ($t['parent_title'] . ' - ' . $t['title']) : $t['title']) ?></strong>
             <div class="small text-muted due-date"><i class="bi bi-calendar-event me-1"></i><?= htmlspecialchars($t['due_date']) ?></div>
             <div><small class="fw-bold assignee p-1 <?= $userLoadClasses[$t['username']] ?? '' ?>"><?= htmlspecialchars($t['username']) ?></small></div>
           </div>
@@ -170,6 +174,14 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
             <div class="col-12"><div class="form-control editable" data-field="title" contenteditable="true"><?= htmlspecialchars($t['title']) ?></div></div>
             <div class="col-12 mt-2"><div class="form-control editable" data-field="description" contenteditable="true"><?= htmlspecialchars($t['description'] ?? '') ?></div></div>
             <div class="col-md-3"><input type="date" name="due_date" class="form-control" value="<?= htmlspecialchars($t['due_date']) ?>"></div>
+            <div class="col-md-3">
+              <select class="form-select quick-date">
+                <option value="">Quick date</option>
+                <option value="tomorrow">Tomorrow</option>
+                <option value="nextweek">Next Week</option>
+                <option value="nextmonth">Next Month</option>
+              </select>
+            </div>
             <div class="col-md-3">
               <select name="assigned" class="form-select">
                 <?php foreach ($users as $u): ?>
@@ -213,14 +225,6 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
               <?php $selDays=strpos($r,'custom:')===0?explode(',',substr($r,7)):[]; foreach(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $d): ?>
               <label class="me-2"><input type="checkbox" name="days[]" value="<?= $d ?>" <?= in_array($d,$selDays)?'checked':'' ?>> <?= $d ?></label>
               <?php endforeach; ?>
-            </div>
-            <div class="col-md-3 mt-2">
-              <select class="form-select quick-date">
-                <option value="">Quick date</option>
-                <option value="tomorrow">Tomorrow</option>
-                <option value="nextweek">Next Week</option>
-                <option value="nextmonth">Next Month</option>
-              </select>
             </div>
           </form>
           <?php include __DIR__ . '/comments.php'; ?>
@@ -520,6 +524,7 @@ try {
 
     $filterUserName = $_GET['user'] ?? null;
     $filterClientName = $_GET['client'] ?? null;
+    $range = $_GET['range'] ?? 'all';
     $filterUser = $filterClient = null;
     if ($filterUserName) {
         $stmt = $pdo->prepare('SELECT id FROM users WHERE username=?');
@@ -590,6 +595,29 @@ try {
         $upcomingTasks = $upcomingStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    if ($range === 'overdue') {
+        if (isset($allTasks)) {
+            $allTasks = array_values(array_filter($allTasks, fn($t) => $t['due_date'] < $today && $t['status'] !== 'done'));
+        } else {
+            $todayTasks = array_values(array_filter($todayTasks ?? [], fn($t) => $t['due_date'] < $today && $t['status'] !== 'done'));
+            $upcomingTasks = [];
+        }
+    } elseif ($range === 'today') {
+        if (isset($allTasks)) {
+            $allTasks = array_values(array_filter($allTasks, fn($t) => $t['due_date'] === $today));
+        } else {
+            $todayTasks = array_values(array_filter($todayTasks ?? [], fn($t) => $t['due_date'] === $today));
+            $upcomingTasks = [];
+        }
+    } elseif ($range === 'week') {
+        if (isset($allTasks)) {
+            $allTasks = array_values(array_filter($allTasks, fn($t) => $t['due_date'] >= $today && $t['due_date'] <= $weekEnd));
+        } else {
+            $todayTasks = array_values(array_filter($todayTasks ?? [], fn($t) => $t['due_date'] >= $today && $t['due_date'] <= $weekEnd));
+            $upcomingTasks = array_values(array_filter($upcomingTasks ?? [], fn($t) => $t['due_date'] > $today && $t['due_date'] <= $weekEnd));
+        }
+    }
+
     $weekCounts = [];
     $start = new DateTime('today');
     $i = 0;
@@ -646,46 +674,59 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
         <a href="index.php?archived=1" class="text-decoration-none<?= $filterArchived ? ' text-white' : '' ?>">Archive</a>
       </li>
     </ul>
-    <hr>
-    <h5>Clients</h5>
-    <ul class="list-inline mb-3">
-      <?php foreach ($clients as $c): ?>
-      <?php $isActive = $filterClientName === $c['name']; ?>
-      <?php $pClass = $c['priority'] ? 'priority-'.strtolower($c['priority']) : 'btn-light border-secondary'; ?>
-      <li class="list-inline-item mb-2">
-        <a href="index.php?client=<?= urlencode($c['name']) ?>" class="btn btn-sm <?= $pClass ?> me-2 <?= $isActive ? 'border-dark border-2' : '' ?>">
-          <?= htmlspecialchars($c['name']) ?>
-          <span class="badge bg-light text-dark ms-1"><?= $c['task_count'] ?></span>
-        </a>
-      </li>
-      <?php endforeach; ?>
-    </ul>
-    <hr>
-    <h5>Team Members</h5>
-    <ul class="list-inline mb-3">
-      <?php foreach ($usersByTasks as $u): ?>
-      <?php $uActive = $filterUserName === $u['username']; $loadClass = $userLoadClasses[$u['username']] ?? 'btn-outline-secondary'; ?>
-      <li class="list-inline-item mb-2">
-        <a href="index.php?user=<?= urlencode($u['username']) ?>" class="btn btn-sm <?= $loadClass ?> me-2 <?= $uActive ? 'border-dark border-2' : '' ?>"><?= htmlspecialchars($u['username']) ?></a>
-      </li>
-      <?php endforeach; ?>
-    </ul>
-    <hr>
-    <?php if ($targetAchieved !== null): ?>
-    <h5>Status</h5>
-    <div class="small mb-3">Target Achieved: <?= htmlspecialchars($targetAchieved) ?>%</div>
-    <hr>
-    <?php endif; ?>
-    <h5>Upcoming Week</h5>
-    <ul class="list-unstyled small">
-      <?php foreach ($weekCounts as $day => $cnt): ?>
-      <li><?= date('D', strtotime($day)) ?>: <?= $cnt ?></li>
-      <?php endforeach; ?>
-    </ul>
+    <div class="d-none d-md-block">
+      <hr>
+      <h5>Clients</h5>
+      <ul class="list-inline mb-3">
+        <?php foreach ($clients as $c): ?>
+        <?php $isActive = $filterClientName === $c['name']; ?>
+        <?php $pClass = $c['priority'] ? 'priority-'.strtolower($c['priority']) : 'btn-light border-secondary'; ?>
+        <li class="list-inline-item mb-2">
+          <a href="index.php?client=<?= urlencode($c['name']) ?>" class="btn btn-sm <?= $pClass ?> me-2 <?= $isActive ? 'border-dark border-2' : '' ?>">
+            <?= htmlspecialchars($c['name']) ?>
+            <span class="badge bg-light text-dark ms-1"><?= $c['task_count'] ?></span>
+          </a>
+        </li>
+        <?php endforeach; ?>
+      </ul>
+      <hr>
+      <h5>Team Members</h5>
+      <ul class="list-inline mb-3">
+        <?php foreach ($usersByTasks as $u): ?>
+        <?php $uActive = $filterUserName === $u['username']; $loadClass = $userLoadClasses[$u['username']] ?? 'btn-outline-secondary'; ?>
+        <li class="list-inline-item mb-2">
+          <a href="index.php?user=<?= urlencode($u['username']) ?>" class="btn btn-sm <?= $loadClass ?> me-2 <?= $uActive ? 'border-dark border-2' : '' ?>"><?= htmlspecialchars($u['username']) ?></a>
+        </li>
+        <?php endforeach; ?>
+      </ul>
+      <hr>
+      <?php if ($targetAchieved !== null): ?>
+      <h5>Status</h5>
+      <div class="small mb-3">Target Achieved: <?= htmlspecialchars($targetAchieved) ?>%</div>
+      <hr>
+      <?php endif; ?>
+      <h5>Upcoming Week</h5>
+      <ul class="list-unstyled small">
+        <?php foreach ($weekCounts as $day => $cnt): ?>
+        <li><?= date('D', strtotime($day)) ?>: <?= $cnt ?></li>
+        <?php endforeach; ?>
+      </ul>
+    </div>
   </div>
   <div class="col-md-9">
     <div class="small mb-2"><?= $myOverdue ?> overdue, <?= $myToday ?> today, <?= $myWeek ?> week</div>
     <hr>
+    <form method="get" class="mb-2">
+      <?php if ($filterUserName): ?><input type="hidden" name="user" value="<?= htmlspecialchars($filterUserName) ?>"><?php endif; ?>
+      <?php if ($filterClientName): ?><input type="hidden" name="client" value="<?= htmlspecialchars($filterClientName) ?>"><?php endif; ?>
+      <?php if ($filterArchived): ?><input type="hidden" name="archived" value="1"><?php endif; ?>
+      <div class="btn-group btn-group-sm" role="group">
+        <button type="submit" name="range" value="overdue" class="btn btn-outline-secondary<?= $range==='overdue'?' active':'' ?>">Overdue</button>
+        <button type="submit" name="range" value="today" class="btn btn-outline-secondary<?= $range==='today'?' active':'' ?>">Today</button>
+        <button type="submit" name="range" value="week" class="btn btn-outline-secondary<?= $range==='week'?' active':'' ?>">Week</button>
+        <button type="submit" name="range" value="all" class="btn btn-outline-secondary<?= $range==='all'?' active':'' ?>">All</button>
+      </div>
+    </form>
     <div class="d-flex justify-content-between mb-2 align-items-start">
       <button id="addBtn" class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
       <div>
@@ -1024,6 +1065,7 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
     btn.classList.add('d-none');
     li.querySelector('.add-subtask-toggle')?.classList.add('d-none');
     showToast('Task saved');
+    location.reload();
   });
 });
 
