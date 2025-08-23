@@ -289,19 +289,35 @@ if (isset($error)) {
     exit;
 }
 
+$tab = $_GET['tab'] ?? 'clients';
+$logUser = (int)($_GET['log_user'] ?? 0);
+$logStart = $_GET['start_date'] ?? '';
+$logEnd = $_GET['end_date'] ?? '';
+$logEntries = [];
+if ($logStart && $logEnd) {
+    $sql = 'SELECT l.log_date, l.clock_in, l.clock_out, u.username FROM work_logs l JOIN users u ON l.user_id=u.id WHERE l.log_date BETWEEN ? AND ?';
+    $params = [$logStart, $logEnd];
+    if ($logUser) { $sql .= ' AND l.user_id=?'; $params[] = $logUser; }
+    $sql .= ' ORDER BY l.log_date, u.username';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $logEntries = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 $title = 'Task Manager - Admin';
 include __DIR__ . '/header.php';
 ?>
 <h2>Admin Panel</h2>
 
 <ul class="nav nav-tabs" id="adminTabs" role="tablist">
-  <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#clients" type="button" role="tab">Clients</button></li>
-  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#team" type="button" role="tab">Team Members</button></li>
-  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#status" type="button" role="tab">Status</button></li>
-  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">Tasks</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link<?= $tab==='clients'?' active':'' ?>" data-bs-toggle="tab" data-bs-target="#clients" type="button" role="tab">Clients</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link<?= $tab==='team'?' active':'' ?>" data-bs-toggle="tab" data-bs-target="#team" type="button" role="tab">Team Members</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link<?= $tab==='status'?' active':'' ?>" data-bs-toggle="tab" data-bs-target="#status" type="button" role="tab">Status</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link<?= $tab==='overview'?' active':'' ?>" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">Tasks</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link<?= $tab==='attendance'?' active':'' ?>" data-bs-toggle="tab" data-bs-target="#attendance" type="button" role="tab">Attendance</button></li>
 </ul>
 <div class="tab-content pt-3">
-  <div class="tab-pane fade show active" id="clients" role="tabpanel">
+  <div class="tab-pane fade<?= $tab==='clients'?' show active':'' ?>" id="clients" role="tabpanel">
     <form method="post" class="row g-2 mb-3">
       <input type="hidden" name="add_client" value="1">
       <div class="col-md-6">
@@ -355,7 +371,7 @@ include __DIR__ . '/header.php';
       <button class="btn btn-info btn-sm ms-2">Import Priorities &amp; Sorting</button>
     </form>
   </div>
-  <div class="tab-pane fade" id="team" role="tabpanel">
+  <div class="tab-pane fade<?= $tab==='team'?' show active':'' ?>" id="team" role="tabpanel">
     <form method="post" class="row g-2 mb-3">
       <input type="hidden" name="add_user" value="1">
       <div class="col-md-4"><input type="text" name="username" class="form-control" placeholder="Name" required></div>
@@ -376,7 +392,7 @@ include __DIR__ . '/header.php';
     </ul>
     <button id="saveUserOrder" class="btn btn-success btn-sm">Save Order</button>
   </div>
-  <div class="tab-pane fade" id="status" role="tabpanel">
+  <div class="tab-pane fade<?= $tab==='status'?' show active':'' ?>" id="status" role="tabpanel">
     <div class="row">
       <div class="col-md-6">
         <table class="table table-borderless w-auto">
@@ -447,7 +463,7 @@ include __DIR__ . '/header.php';
       </div>
     </div>
   </div>
-  <div class="tab-pane fade" id="overview" role="tabpanel">
+  <div class="tab-pane fade<?= $tab==='overview'?' show active':'' ?>" id="overview" role="tabpanel">
     <div class="accordion" id="tasksByDay">
       <?php $dayIndex=0; foreach ($tasksByDay as $day => $info): $count=count($info['tasks']); ?>
       <div class="accordion-item">
@@ -475,6 +491,36 @@ include __DIR__ . '/header.php';
       </div>
       <?php $dayIndex++; endforeach; ?>
     </div>
+  </div>
+  <div class="tab-pane fade<?= $tab==='attendance'?' show active':'' ?>" id="attendance" role="tabpanel">
+    <form method="get" class="row g-2 mb-3">
+      <input type="hidden" name="tab" value="attendance">
+      <div class="col-md-3"><input type="date" name="start_date" class="form-control" value="<?= htmlspecialchars($logStart) ?>" required></div>
+      <div class="col-md-3"><input type="date" name="end_date" class="form-control" value="<?= htmlspecialchars($logEnd) ?>" required></div>
+      <div class="col-md-3">
+        <select name="log_user" class="form-select">
+          <option value="">All Users</option>
+          <?php foreach ($users as $u): ?>
+          <option value="<?= $u['id'] ?>" <?= $logUser==$u['id']?'selected':'' ?>><?= htmlspecialchars($u['username']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div class="col-md-3"><button class="btn btn-primary w-100">Filter</button></div>
+    </form>
+    <table class="table table-striped">
+      <thead><tr><th>Date</th><th>User</th><th>Clock In</th><th>Clock Out</th><th>Duration</th></tr></thead>
+      <tbody>
+        <?php foreach ($logEntries as $l): $dur = $l['clock_out'] ? gmdate('H:i:s', strtotime($l['clock_out']) - strtotime($l['clock_in'])) : ''; ?>
+        <tr>
+          <td><?= htmlspecialchars($l['log_date']) ?></td>
+          <td><?= htmlspecialchars($l['username']) ?></td>
+          <td><?= htmlspecialchars(date('H:i:s', strtotime($l['clock_in']))) ?></td>
+          <td><?= $l['clock_out'] ? htmlspecialchars(date('H:i:s', strtotime($l['clock_out']))) : '' ?></td>
+          <td><?= $dur ?></td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
   </div>
 </div>
 <div class="mt-3"><a href="index.php" class="btn btn-dark btn-sm">Back to Tasks</a></div>
