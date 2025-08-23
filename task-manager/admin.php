@@ -548,7 +548,7 @@ include __DIR__ . '/header.php';
               <input type="hidden" name="end_date" value="<?= htmlspecialchars($logEnd) ?>">
               <input type="hidden" name="log_user" value="<?= $logUser ?>">
               <button name="save_log" class="btn btn-primary btn-sm me-1">Save</button>
-              <button name="delete_log" class="btn btn-danger btn-sm" onclick="return confirm('Delete log?')">Delete</button>
+              <button name="delete_log" value="<?= $l['id'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('Delete log?')">Delete</button>
             </form>
           </td>
         </tr>

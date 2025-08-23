@@ -1102,6 +1102,10 @@ document.querySelectorAll('form.ajax').forEach(f=>{
   f.addEventListener('submit', async e=>{
     e.preventDefault();
     const fd = new FormData(f);
+    const submitter = e.submitter;
+    if (submitter && submitter.name && !fd.has(submitter.name)) {
+      fd.append(submitter.name, submitter.value);
+    }
     if (fd.has('add_task')) {
       await fetch('index.php', {method:'POST', body:fd});
       f.reset();
