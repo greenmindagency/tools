@@ -182,7 +182,7 @@ try {
     }
 
     $users = $pdo->query('SELECT id, username FROM users ORDER BY sort_order, username')->fetchAll(PDO::FETCH_ASSOC);
-    $clients = $pdo->query('SELECT c.id, c.name, c.priority, c.progress_percent, COALESCE(SUM(t.status != "archived"),0) AS active_count, COALESCE(SUM(t.status = "archived"),0) AS archived_count, COUNT(DISTINCT CASE WHEN t.status != "archived" THEN t.assigned_to END) AS member_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.priority IS NULL), c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
+    $clients = $pdo->query('SELECT c.id, c.name, c.priority, c.progress_percent, COALESCE(SUM(t.status != "archived"),0) AS active_count, COALESCE(SUM(t.status = "archived"),0) AS archived_count, COUNT(DISTINCT CASE WHEN t.status != "archived" THEN t.assigned_to END) AS member_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.progress_percent IS NULL), c.progress_percent DESC, c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
 
     $clientWorkers = [];
     $workerMap = $pdo->query('SELECT t.client_id, u.username, COUNT(*) AS cnt FROM tasks t JOIN users u ON t.assigned_to=u.id GROUP BY t.client_id,u.username')->fetchAll(PDO::FETCH_ASSOC);

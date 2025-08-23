@@ -449,12 +449,7 @@ function load_meta($pdo) {
         else $class = 'priority-low';
         $userLoadClasses[$name] = $class;
     }
-
-    $usersByTasks = [];
-    foreach ($loadPercent as $name => $load) {
-        $usersByTasks[] = ['username' => $name];
-    }
-
+    $clients = $pdo->query('SELECT c.id,c.name,c.priority,c.progress_percent,COUNT(t.id) AS task_count FROM clients c JOIN tasks t ON t.client_id=c.id AND t.status!="archived" GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.progress_percent IS NULL), c.progress_percent DESC, c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
     return [$users, $clients, $userLoadClasses, $usersByTasks];
 }
 
@@ -729,28 +724,28 @@ try {
     if ($filterArchived) { $cond[] = 't.status="archived"'; } else { $cond[] = 't.status!="archived"'; }
     $where = $cond ? ' AND '.implode(' AND ',$cond) : '';
     if ($filterUser && !$filterArchived) {
-        $order = 'ORDER BY (t.priority IS NULL OR t.priority="" OR t.priority IN ("Unprioritized","Normal")), t.due_date, FIELD(t.priority, "Critical","High","Intermed","Low")';
+        $order = 'ORDER BY (c.progress_percent IS NULL), t.due_date, c.progress_percent DESC';
     } else {
-        $order = 'ORDER BY (t.priority IS NULL OR t.priority="" OR t.priority IN ("Unprioritized","Normal")), FIELD(t.priority, "Critical","High","Intermed","Low"), t.due_date';
+        $order = 'ORDER BY (c.progress_percent IS NULL), c.progress_percent DESC, t.due_date';
     }
     if (!$filterUser && !$filterClient && !$filterArchived) {
-        $allStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id IS NULL'.$where.' '.$order);
+        $allStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,c.progress_percent AS client_percent,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id IS NULL'.$where.' '.$order);
         $allStmt->execute($params);
         $allTasks = $allStmt->fetchAll(PDO::FETCH_ASSOC);
     } elseif ($filterArchived) {
-        $archivedStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE t.parent_id IS NULL'.$where.' '.$order);
+        $archivedStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,c.progress_percent AS client_percent FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE t.parent_id IS NULL'.$where.' '.$order);
         $archivedStmt->execute($params);
         $archivedTasks = $archivedStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $archivedSubStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id IS NOT NULL AND p.status!="archived"'.$where.' '.$order);
+        $archivedSubStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,c.progress_percent AS client_percent,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id IS NOT NULL AND p.status!="archived"'.$where.' '.$order);
         $archivedSubStmt->execute($params);
         $archivedSubs = $archivedSubStmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
         $parentCond = $filterUser ? '' : 't.parent_id IS NULL AND ';
-        $todayStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE ' . $parentCond . 't.due_date <= ?'.$where.' '.$order);
+        $todayStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,c.progress_percent AS client_percent,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE ' . $parentCond . 't.due_date <= ?'.$where.' '.$order);
         $todayStmt->execute(array_merge([$today],$params));
         $todayTasks = $todayStmt->fetchAll(PDO::FETCH_ASSOC);
-        $upcomingStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE ' . $parentCond . 't.due_date > ?'.$where.' '.$order);
+        $upcomingStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,c.progress_percent AS client_percent,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE ' . $parentCond . 't.due_date > ?'.$where.' '.$order);
         $upcomingStmt->execute(array_merge([$today],$params));
         $upcomingTasks = $upcomingStmt->fetchAll(PDO::FETCH_ASSOC);
     }
