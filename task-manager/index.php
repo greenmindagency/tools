@@ -130,6 +130,20 @@ function is_due_on($due, $recurrence, $target) {
             return $targetDate >= $dueDate && $targetDate->format('w') === $dueDate->format('w');
     }
 }
+function current_log_range() {
+    $today = new DateTime();
+    $year = (int)$today->format('Y');
+    $month = (int)$today->format('m');
+    $day = (int)$today->format('d');
+    if ($day >= 26) {
+        $start = new DateTime("$year-$month-26");
+        $end = (clone $start)->modify('+1 month')->modify('-1 day');
+    } else {
+        $start = (new DateTime("$year-$month-26"))->modify('-1 month');
+        $end = new DateTime("$year-$month-25");
+    }
+    return [$start->format('Y-m-d'), $end->format('Y-m-d')];
+}
 function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses = [], $archivedView = false) {
     $today = date('Y-m-d');
     $overdue = $t['due_date'] < $today && $t['status'] !== 'done';
@@ -156,7 +170,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
             </strong>
             <strong class="task-title-text my-2"><?= htmlspecialchars($isSub ? ($t['parent_title'] . ' - ' . $t['title']) : $t['title']) ?></strong>
             <div class="small text-muted due-date"><i class="bi bi-calendar-event me-1"></i><?= htmlspecialchars($t['due_date']) ?></div>
-            <div><small class="fw-bold assignee p-1 border rounded <?= $userLoadClasses[$t['username']] ?? '' ?>"><?= htmlspecialchars($t['username']) ?></small></div>
+            <div><small class="fw-bold assignee p-1 <?= $userLoadClasses[$t['username']] ?? '' ?>"><?= htmlspecialchars($t['username']) ?></small></div>
           </div>
           <div class="text-end ms-2">
             <div class="mb-1">
@@ -672,6 +686,14 @@ try {
 
     list($users, $clients, $userLoadClasses, $usersByTasks) = load_meta($pdo);
 
+    $logStmt = $pdo->prepare('SELECT id, clock_in FROM work_logs WHERE user_id=? AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1');
+    $logStmt->execute([$_SESSION['user_id']]);
+    $currentLog = $logStmt->fetch(PDO::FETCH_ASSOC);
+    [$monthStart, $monthEnd] = current_log_range();
+    $statusStmt = $pdo->prepare('SELECT log_date, clock_in, clock_out FROM work_logs WHERE user_id=? AND log_date BETWEEN ? AND ? ORDER BY log_date');
+    $statusStmt->execute([$_SESSION['user_id'], $monthStart, $monthEnd]);
+    $monthLogs = $statusStmt->fetchAll(PDO::FETCH_ASSOC);
+
     $today = date('Y-m-d');
     $weekEnd = date('Y-m-d', strtotime('+7 day'));
     $overdueCounts = $pdo->query("SELECT assigned_to, COUNT(*) AS cnt FROM tasks WHERE status!='archived' AND status!='done' AND due_date < '$today' GROUP BY assigned_to")->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -810,9 +832,9 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
       <h5>Team Members</h5>
       <ul class="list-inline mb-3">
         <?php foreach ($usersByTasks as $u): ?>
-        <?php $uActive = $filterUserName === $u['username']; $loadClass = $userLoadClasses[$u['username']] ?? ''; ?>
+        <?php $uActive = $filterUserName === $u['username']; $loadClass = $userLoadClasses[$u['username']] ?? 'btn-outline-secondary'; ?>
         <li class="list-inline-item mb-2">
-          <a href="index.php?user=<?= urlencode($u['username']) ?>" class="btn btn-sm btn-outline-secondary <?= $loadClass ?> me-2 <?= $uActive ? 'border-dark border-2' : '' ?>"><?= htmlspecialchars($u['username']) ?></a>
+          <a href="index.php?user=<?= urlencode($u['username']) ?>" class="btn btn-sm <?= $loadClass ?> me-2 <?= $uActive ? 'border-dark border-2' : '' ?>"><?= htmlspecialchars($u['username']) ?></a>
         </li>
         <?php endforeach; ?>
       </ul>
@@ -831,17 +853,32 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
     </div>
   </div>
   <div class="col-md-9">
-    <form method="get" class="mb-2">
-      <?php if ($filterUserName): ?><input type="hidden" name="user" value="<?= htmlspecialchars($filterUserName) ?>"><?php endif; ?>
-      <?php if ($filterClientName): ?><input type="hidden" name="client" value="<?= htmlspecialchars($filterClientName) ?>"><?php endif; ?>
-      <?php if ($filterArchived): ?><input type="hidden" name="archived" value="1"><?php endif; ?>
-      <div class="btn-group btn-group-sm" role="group">
-        <button type="submit" name="range" value="overdue" class="btn btn-outline-secondary<?= $range==='overdue'?' active':'' ?>">Overdue</button>
-        <button type="submit" name="range" value="today" class="btn btn-outline-secondary<?= $range==='today'?' active':'' ?>">Today</button>
-        <button type="submit" name="range" value="week" class="btn btn-outline-secondary<?= $range==='week'?' active':'' ?>">Week</button>
-        <button type="submit" name="range" value="all" class="btn btn-outline-secondary<?= $range==='all'?' active':'' ?>">All</button>
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+      <form method="get" class="mb-2">
+        <?php if ($filterUserName): ?><input type="hidden" name="user" value="<?= htmlspecialchars($filterUserName) ?>"><?php endif; ?>
+        <?php if ($filterClientName): ?><input type="hidden" name="client" value="<?= htmlspecialchars($filterClientName) ?>"><?php endif; ?>
+        <?php if ($filterArchived): ?><input type="hidden" name="archived" value="1"><?php endif; ?>
+        <div class="btn-group btn-group-sm" role="group">
+          <button type="submit" name="range" value="overdue" class="btn btn-outline-secondary<?= $range==='overdue'?' active':'' ?>">Overdue</button>
+          <button type="submit" name="range" value="today" class="btn btn-outline-secondary<?= $range==='today'?' active':'' ?>">Today</button>
+          <button type="submit" name="range" value="week" class="btn btn-outline-secondary<?= $range==='week'?' active':'' ?>">Week</button>
+          <button type="submit" name="range" value="all" class="btn btn-outline-secondary<?= $range==='all'?' active':'' ?>">All</button>
+        </div>
+      </form>
+      <div class="mb-2">
+        <span id="current-time" class="me-3 fw-bold"></span>
+        <span id="work-timer" class="me-2 fw-bold">00:00:00</span>
+        <form method="post" class="d-inline ajax" id="clock-form">
+          <?php if ($currentLog): ?>
+          <button type="submit" name="clock_out" class="btn btn-danger btn-sm">Clock Out</button>
+          <?php else: ?>
+          <button type="submit" name="clock_in" class="btn btn-success btn-sm">Clock In</button>
+          <?php endif; ?>
+        </form>
+        <button type="button" class="btn btn-secondary btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#statusModal">Status</button>
       </div>
-    </form>
+    </div>
+    <hr class="my-3">
     <div class="d-flex justify-content-between mb-2 align-items-start">
       <button id="addBtn" class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
       <div>
