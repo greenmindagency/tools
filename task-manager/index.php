@@ -714,8 +714,6 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
     </div>
   </div>
   <div class="col-md-9">
-    <div class="small mb-2"><?= $myOverdue ?> overdue, <?= $myToday ?> today, <?= $myWeek ?> week</div>
-    <hr>
     <form method="get" class="mb-2">
       <?php if ($filterUserName): ?><input type="hidden" name="user" value="<?= htmlspecialchars($filterUserName) ?>"><?php endif; ?>
       <?php if ($filterClientName): ?><input type="hidden" name="client" value="<?= htmlspecialchars($filterClientName) ?>"><?php endif; ?>
