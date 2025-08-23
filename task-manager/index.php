@@ -443,13 +443,23 @@ function load_meta($pdo) {
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['clock_in'])) {
-        $stmt = $pdo->prepare('INSERT INTO work_logs (user_id, log_date, clock_in) VALUES (?, CURDATE(), NOW())');
-        $stmt->execute([$_SESSION['user_id']]);
+        $now = date('Y-m-d H:i:s');
+        $stmt = $pdo->prepare('INSERT INTO work_logs (user_id, log_date, clock_in) VALUES (?, ?, ?)');
+        $stmt->execute([$_SESSION['user_id'], date('Y-m-d'), $now]);
+        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+            echo json_encode(['clock_in' => $now]);
+            exit;
+        }
         header('Location: ' . $_SERVER['REQUEST_URI']);
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['clock_out'])) {
-        $stmt = $pdo->prepare('UPDATE work_logs SET clock_out=NOW() WHERE user_id=? AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1');
-        $stmt->execute([$_SESSION['user_id']]);
+        $now = date('Y-m-d H:i:s');
+        $stmt = $pdo->prepare('UPDATE work_logs SET clock_out=? WHERE user_id=? AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1');
+        $stmt->execute([$now, $_SESSION['user_id']]);
+        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+            echo json_encode(['clock_out' => $now]);
+            exit;
+        }
         header('Location: ' . $_SERVER['REQUEST_URI']);
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_comment'])) {
@@ -856,8 +866,9 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
         </div>
       </form>
       <div class="mb-2">
+        <span id="current-time" class="me-3 fw-bold"></span>
         <span id="work-timer" class="me-2 fw-bold">00:00:00</span>
-        <form method="post" class="d-inline">
+        <form method="post" class="d-inline ajax" id="clock-form">
           <?php if ($currentLog): ?>
           <button type="submit" name="clock_out" class="btn btn-danger btn-sm">Clock Out</button>
           <?php else: ?>
@@ -867,6 +878,7 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
         <button type="button" class="btn btn-secondary btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#statusModal">Status</button>
       </div>
     </div>
+    <hr class="my-3">
     <div class="d-flex justify-content-between mb-2 align-items-start">
       <button id="addBtn" class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#addTask" title="Add Task"><i class="bi bi-plus"></i></button>
       <div>
@@ -993,19 +1005,29 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
 </div>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
+let cairoNow = new Date('<?php echo date('c'); ?>');
+const currentEl = document.getElementById('current-time');
+if (currentEl) {
+  function updateCurrent(){
+    currentEl.textContent = new Intl.DateTimeFormat('en-GB', {timeZone:'Africa/Cairo', hour:'2-digit', minute:'2-digit', second:'2-digit'}).format(cairoNow);
+    cairoNow.setSeconds(cairoNow.getSeconds()+1);
+  }
+  updateCurrent();
+  setInterval(updateCurrent,1000);
+}
 let workSeconds = <?php echo $currentLog ? (time() - strtotime($currentLog['clock_in'])) : 0; ?>;
 const timerEl = document.getElementById('work-timer');
-if (timerEl) {
-  function updateWorkTimer(){
-    const h = String(Math.floor(workSeconds/3600)).padStart(2,'0');
-    const m = String(Math.floor((workSeconds%3600)/60)).padStart(2,'0');
-    const s = String(workSeconds%60).padStart(2,'0');
-    timerEl.textContent = h+':'+m+':'+s;
-    workSeconds++;
-  }
-  updateWorkTimer();
-  <?php if ($currentLog): ?>setInterval(updateWorkTimer,1000);<?php endif; ?>
+let timerInterval = null;
+function updateWorkTimer(){
+  if(!timerEl) return;
+  const h = String(Math.floor(workSeconds/3600)).padStart(2,'0');
+  const m = String(Math.floor((workSeconds%3600)/60)).padStart(2,'0');
+  const s = String(workSeconds%60).padStart(2,'0');
+  timerEl.textContent = h+':'+m+':'+s;
+  workSeconds++;
 }
+updateWorkTimer();
+<?php if ($currentLog): ?>timerInterval = setInterval(updateWorkTimer,1000);<?php endif; ?>
 function nl2br(str){
   return str.replace(/\n/g,'<br>');
 }
@@ -1093,6 +1115,28 @@ document.querySelectorAll('form.ajax').forEach(f=>{
       bindCommentActions(list.lastElementChild);
       f.reset();
       showToast('Comment added');
+    } else if (fd.has('clock_in')) {
+      await fetch('index.php', {method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'}});
+      workSeconds = 0;
+      updateWorkTimer();
+      timerInterval = setInterval(updateWorkTimer,1000);
+      const btn = f.querySelector('button');
+      btn.name = 'clock_out';
+      btn.textContent = 'Clock Out';
+      btn.classList.remove('btn-success');
+      btn.classList.add('btn-danger');
+      showToast('Clocked in');
+    } else if (fd.has('clock_out')) {
+      await fetch('index.php', {method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'}});
+      clearInterval(timerInterval);
+      workSeconds = 0;
+      updateWorkTimer();
+      const btn = f.querySelector('button');
+      btn.name = 'clock_in';
+      btn.textContent = 'Clock In';
+      btn.classList.remove('btn-danger');
+      btn.classList.add('btn-success');
+      showToast('Clocked out');
     } else {
       await fetch('index.php', {method:'POST', body:fd});
     }

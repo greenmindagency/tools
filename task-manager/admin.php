@@ -1,5 +1,6 @@
 <?php
 session_start();
+date_default_timezone_set('Africa/Cairo');
 require __DIR__ . '/config.php';
 
 if (!isset($_SESSION['user_id']) || (int)$_SESSION['user_id'] !== 1) {
@@ -154,6 +155,29 @@ try {
                 $stmt = $pdo->prepare('UPDATE tasks SET due_date=?, assigned_to=?, recurrence=? WHERE id=?');
                 $stmt->execute([$due, $assigned, $rec, $id]);
             }
+        } elseif (isset($_POST['save_log'])) {
+            $id = (int)$_POST['log_id'];
+            $stmt = $pdo->prepare('SELECT log_date FROM work_logs WHERE id=?');
+            $stmt->execute([$id]);
+            $logDate = $stmt->fetchColumn();
+            if ($logDate) {
+                $in = $_POST['clock_in'] ? $logDate . ' ' . $_POST['clock_in'] : null;
+                $out = $_POST['clock_out'] ? $logDate . ' ' . $_POST['clock_out'] : null;
+                $stmt = $pdo->prepare('UPDATE work_logs SET clock_in=?, clock_out=? WHERE id=?');
+                $stmt->execute([$in, $out, $id]);
+            }
+            $qs = '?tab=attendance&start_date=' . urlencode($_POST['start_date']) . '&end_date=' . urlencode($_POST['end_date']);
+            if (!empty($_POST['log_user'])) { $qs .= '&log_user=' . urlencode($_POST['log_user']); }
+            header('Location: admin.php' . $qs);
+            exit;
+        } elseif (isset($_POST['delete_log'])) {
+            $id = (int)$_POST['delete_log'];
+            $stmt = $pdo->prepare('DELETE FROM work_logs WHERE id=?');
+            $stmt->execute([$id]);
+            $qs = '?tab=attendance&start_date=' . urlencode($_POST['start_date']) . '&end_date=' . urlencode($_POST['end_date']);
+            if (!empty($_POST['log_user'])) { $qs .= '&log_user=' . urlencode($_POST['log_user']); }
+            header('Location: admin.php' . $qs);
+            exit;
         }
     }
 
@@ -295,7 +319,7 @@ $logStart = $_GET['start_date'] ?? '';
 $logEnd = $_GET['end_date'] ?? '';
 $logEntries = [];
 if ($logStart && $logEnd) {
-    $sql = 'SELECT l.log_date, l.clock_in, l.clock_out, u.username FROM work_logs l JOIN users u ON l.user_id=u.id WHERE l.log_date BETWEEN ? AND ?';
+    $sql = 'SELECT l.id, l.log_date, l.clock_in, l.clock_out, u.username FROM work_logs l JOIN users u ON l.user_id=u.id WHERE l.log_date BETWEEN ? AND ?';
     $params = [$logStart, $logEnd];
     if ($logUser) { $sql .= ' AND l.user_id=?'; $params[] = $logUser; }
     $sql .= ' ORDER BY l.log_date, u.username';
@@ -508,15 +532,25 @@ include __DIR__ . '/header.php';
       <div class="col-md-3"><button class="btn btn-primary w-100">Filter</button></div>
     </form>
     <table class="table table-striped">
-      <thead><tr><th>Date</th><th>User</th><th>Clock In</th><th>Clock Out</th><th>Duration</th></tr></thead>
+      <thead><tr><th>Date</th><th>User</th><th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Actions</th></tr></thead>
       <tbody>
         <?php foreach ($logEntries as $l): $dur = $l['clock_out'] ? gmdate('H:i:s', strtotime($l['clock_out']) - strtotime($l['clock_in'])) : ''; ?>
         <tr>
           <td><?= htmlspecialchars($l['log_date']) ?></td>
           <td><?= htmlspecialchars($l['username']) ?></td>
-          <td><?= htmlspecialchars(date('H:i:s', strtotime($l['clock_in']))) ?></td>
-          <td><?= $l['clock_out'] ? htmlspecialchars(date('H:i:s', strtotime($l['clock_out']))) : '' ?></td>
+          <td><input type="time" name="clock_in" value="<?= htmlspecialchars(date('H:i:s', strtotime($l['clock_in']))) ?>" form="log<?= $l['id'] ?>" class="form-control form-control-sm"></td>
+          <td><input type="time" name="clock_out" value="<?= $l['clock_out'] ? htmlspecialchars(date('H:i:s', strtotime($l['clock_out']))) : '' ?>" form="log<?= $l['id'] ?>" class="form-control form-control-sm"></td>
           <td><?= $dur ?></td>
+          <td>
+            <form id="log<?= $l['id'] ?>" method="post" class="d-inline">
+              <input type="hidden" name="log_id" value="<?= $l['id'] ?>">
+              <input type="hidden" name="start_date" value="<?= htmlspecialchars($logStart) ?>">
+              <input type="hidden" name="end_date" value="<?= htmlspecialchars($logEnd) ?>">
+              <input type="hidden" name="log_user" value="<?= $logUser ?>">
+              <button name="save_log" class="btn btn-primary btn-sm me-1">Save</button>
+              <button name="delete_log" class="btn btn-danger btn-sm" onclick="return confirm('Delete log?')">Delete</button>
+            </form>
+          </td>
         </tr>
         <?php endforeach; ?>
       </tbody>
