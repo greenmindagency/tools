@@ -324,15 +324,12 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
             </form>
           </div>
           <?php endif; ?>
+          <?php if (!$filterUser): ?>
           <?php
           global $pdo;
           $childSql = 'SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id=?';
           $childSql .= $archivedView ? ' AND t.status="archived"' : ' AND t.status!="archived"';
           $params = [$t['id']];
-          if ($filterUser) {
-            $childSql .= ' AND t.assigned_to=?';
-            $params[] = $filterUser;
-          }
           $childSql .= ' ORDER BY t.order_index, t.due_date';
           $childStmt = $pdo->prepare($childSql);
           $childStmt->execute($params);
@@ -343,6 +340,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
             <?= render_task($ch, $users, $clients, $filterUser, $userLoadClasses, $archivedView); ?>
             <?php endforeach; ?>
           </ul>
+          <?php endif; ?>
           <?php endif; ?>
           <?php endif; ?>
         </div>
@@ -719,12 +717,15 @@ try {
     if ($filterUser) {
         $cond[] = 't.assigned_to=?';
         $params[] = $filterUser;
+        if (!$filterArchived) {
+            $cond[] = '(t.parent_id IS NULL OR p.assigned_to IS NULL OR p.assigned_to != t.assigned_to)';
+        }
     }
     if ($filterClient) { $cond[] = 't.client_id=?'; $params[] = $filterClient; }
     if ($filterArchived) { $cond[] = 't.status="archived"'; } else { $cond[] = 't.status!="archived"'; }
     $where = $cond ? ' AND '.implode(' AND ',$cond) : '';
-    if ($filterUser && !$filterArchived) {
-        $order = 'ORDER BY (c.progress_percent IS NULL), t.due_date, c.progress_percent DESC';
+    if ($filterUser) {
+        $order = 'ORDER BY t.due_date, t.priority';
     } else {
         $order = 'ORDER BY (c.progress_percent IS NULL), c.progress_percent DESC, t.due_date';
     }
