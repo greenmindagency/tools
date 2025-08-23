@@ -506,7 +506,7 @@ include __DIR__ . '/header.php';
               ?>
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 <span><span class="client-priority <?= $clientClass ?>"><?= htmlspecialchars($clientName) ?></span> <?= htmlspecialchars($title) ?></span>
-                <span class="ms-2"><?= htmlspecialchars($t['username']) ?> <button type="button" class="btn btn-sm btn-primary edit-task-btn ms-2" data-id="<?= $t['id'] ?>" data-due="<?= $t['due_date'] ?>" data-rec="<?= htmlspecialchars($t['recurrence']) ?>" data-user="<?= $t['assigned_to'] ?>">Edit</button></span>
+                <span class="ms-2 text-dark"><i class="bi bi-person me-1"></i><?= htmlspecialchars($t['username']) ?> <button type="button" class="btn btn-sm btn-primary edit-task-btn ms-2" data-id="<?= $t['id'] ?>" data-due="<?= $t['due_date'] ?>" data-rec="<?= htmlspecialchars($t['recurrence']) ?>" data-user="<?= $t['assigned_to'] ?>">Edit</button></span>
               </li>
               <?php endforeach; ?>
             </ul>
@@ -537,7 +537,7 @@ include __DIR__ . '/header.php';
         <?php foreach ($logEntries as $l): $dur = $l['clock_out'] ? gmdate('H:i:s', strtotime($l['clock_out']) - strtotime($l['clock_in'])) : ''; ?>
         <tr>
           <td><?= htmlspecialchars($l['log_date']) ?></td>
-          <td><?= htmlspecialchars($l['username']) ?></td>
+          <td class="text-dark"><i class="bi bi-person me-1"></i><?= htmlspecialchars($l['username']) ?></td>
           <td><input type="time" name="clock_in" value="<?= htmlspecialchars(date('H:i:s', strtotime($l['clock_in']))) ?>" form="log<?= $l['id'] ?>" class="form-control form-control-sm"></td>
           <td><input type="time" name="clock_out" value="<?= $l['clock_out'] ? htmlspecialchars(date('H:i:s', strtotime($l['clock_out']))) : '' ?>" form="log<?= $l['id'] ?>" class="form-control form-control-sm"></td>
           <td><?= $dur ?></td>

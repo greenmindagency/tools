@@ -144,6 +144,25 @@ function current_log_range() {
     }
     return [$start->format('Y-m-d'), $end->format('Y-m-d')];
 }
+function month_logs_html($pdo, $userId) {
+    [$start, $end] = current_log_range();
+    $stmt = $pdo->prepare('SELECT log_date, clock_in, clock_out FROM work_logs WHERE user_id=? AND log_date BETWEEN ? AND ? ORDER BY log_date');
+    $stmt->execute([$userId, $start, $end]);
+    $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    ob_start();
+    foreach ($logs as $log) {
+        $duration = $log['clock_out'] ? gmdate('H:i:s', strtotime($log['clock_out']) - strtotime($log['clock_in'])) : '';
+        ?>
+        <tr>
+          <td><?= htmlspecialchars(date('Y/m/d', strtotime($log['log_date']))) ?></td>
+          <td><?= htmlspecialchars(date('h:i A', strtotime($log['clock_in']))) ?></td>
+          <td><?= $log['clock_out'] ? htmlspecialchars(date('h:i A', strtotime($log['clock_out']))) : '' ?></td>
+          <td><?= $duration ?></td>
+        </tr>
+        <?php
+    }
+    return ob_get_clean();
+}
 function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses = [], $archivedView = false) {
     $today = date('Y-m-d');
     $overdue = $t['due_date'] < $today && $t['status'] !== 'done';
@@ -170,7 +189,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
             </strong>
             <strong class="task-title-text my-2"><?= htmlspecialchars($isSub ? ($t['parent_title'] . ' - ' . $t['title']) : $t['title']) ?></strong>
             <div class="small text-muted due-date"><i class="bi bi-calendar-event me-1"></i><?= htmlspecialchars($t['due_date']) ?></div>
-            <div><small class="fw-bold assignee p-1 <?= $userLoadClasses[$t['username']] ?? '' ?>"><?= htmlspecialchars($t['username']) ?></small></div>
+            <div><small class="fw-bold assignee p-1 text-dark <?= $userLoadClasses[$t['username']] ?? '' ?>"><i class="bi bi-person me-1"></i><?= htmlspecialchars($t['username']) ?></small></div>
           </div>
           <div class="text-end ms-2">
             <div class="mb-1">
@@ -448,7 +467,8 @@ try {
         $stmt = $pdo->prepare('INSERT INTO work_logs (user_id, log_date, clock_in) VALUES (?, ?, ?)');
         $stmt->execute([$_SESSION['user_id'], $nowObj->format('Y-m-d'), $now]);
         if (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
-            echo json_encode(['clock_in' => $now]);
+            $statusRows = month_logs_html($pdo, $_SESSION['user_id']);
+            echo json_encode(['clock_in' => $now, 'status_html' => $statusRows]);
             exit;
         }
         header('Location: ' . $_SERVER['REQUEST_URI']);
@@ -458,7 +478,8 @@ try {
         $stmt = $pdo->prepare('UPDATE work_logs SET clock_out=? WHERE user_id=? AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1');
         $stmt->execute([$now, $_SESSION['user_id']]);
         if (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
-            echo json_encode(['clock_out' => $now]);
+            $statusRows = month_logs_html($pdo, $_SESSION['user_id']);
+            echo json_encode(['clock_out' => $now, 'status_html' => $statusRows]);
             exit;
         }
         header('Location: ' . $_SERVER['REQUEST_URI']);
@@ -690,10 +711,7 @@ try {
     $logStmt = $pdo->prepare('SELECT id, clock_in FROM work_logs WHERE user_id=? AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1');
     $logStmt->execute([$_SESSION['user_id']]);
     $currentLog = $logStmt->fetch(PDO::FETCH_ASSOC);
-    [$monthStart, $monthEnd] = current_log_range();
-    $statusStmt = $pdo->prepare('SELECT log_date, clock_in, clock_out FROM work_logs WHERE user_id=? AND log_date BETWEEN ? AND ? ORDER BY log_date');
-    $statusStmt->execute([$_SESSION['user_id'], $monthStart, $monthEnd]);
-    $monthLogs = $statusStmt->fetchAll(PDO::FETCH_ASSOC);
+    $statusRows = month_logs_html($pdo, $_SESSION['user_id']);
 
     $today = date('Y-m-d');
     $weekEnd = date('Y-m-d', strtotime('+7 day'));
@@ -835,7 +853,7 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
         <?php foreach ($usersByTasks as $u): ?>
         <?php $uActive = $filterUserName === $u['username']; $loadClass = $userLoadClasses[$u['username']] ?? 'btn-outline-secondary'; ?>
         <li class="list-inline-item mb-2">
-          <a href="index.php?user=<?= urlencode($u['username']) ?>" class="btn btn-sm <?= $loadClass ?> me-2 <?= $uActive ? 'border-dark border-2' : '' ?>"><?= htmlspecialchars($u['username']) ?></a>
+          <a href="index.php?user=<?= urlencode($u['username']) ?>" class="btn btn-sm <?= $loadClass ?> text-dark me-2 <?= $uActive ? 'border-dark border-2' : '' ?>"><i class="bi bi-person me-1"></i><?= htmlspecialchars($u['username']) ?></a>
         </li>
         <?php endforeach; ?>
       </ul>
@@ -989,15 +1007,8 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
       <div class="modal-body">
         <table class="table table-sm">
           <thead><tr><th>Date</th><th>Clock In</th><th>Clock Out</th><th>Duration</th></tr></thead>
-          <tbody>
-            <?php foreach ($monthLogs as $log): $duration = $log['clock_out'] ? gmdate('H:i:s', strtotime($log['clock_out']) - strtotime($log['clock_in'])) : ''; ?>
-            <tr>
-              <td><?= htmlspecialchars(date('Y/m/d', strtotime($log['log_date']))) ?></td>
-              <td><?= htmlspecialchars(date('h:i A', strtotime($log['clock_in']))) ?></td>
-              <td><?= $log['clock_out'] ? htmlspecialchars(date('h:i A', strtotime($log['clock_out']))) : '' ?></td>
-              <td><?= $duration ?></td>
-            </tr>
-            <?php endforeach; ?>
+          <tbody id="status-body">
+            <?= $statusRows ?>
           </tbody>
         </table>
       </div>
@@ -1123,7 +1134,9 @@ document.querySelectorAll('form.ajax').forEach(f=>{
       f.reset();
       showToast('Comment added');
     } else if (fd.has('clock_in')) {
-      await fetch('index.php', {method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'}});
+      const res = await fetch('index.php', {method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'}});
+      const data = await res.json();
+      document.getElementById('status-body').innerHTML = data.status_html;
       workSeconds = 0;
       updateWorkTimer();
       timerInterval = setInterval(updateWorkTimer,1000);
@@ -1134,7 +1147,9 @@ document.querySelectorAll('form.ajax').forEach(f=>{
       btn.classList.add('btn-danger');
       showToast('Clocked in');
     } else if (fd.has('clock_out')) {
-      await fetch('index.php', {method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'}});
+      const res = await fetch('index.php', {method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'}});
+      const data = await res.json();
+      document.getElementById('status-body').innerHTML = data.status_html;
       clearInterval(timerInterval);
       workSeconds = 0;
       updateWorkTimer();
