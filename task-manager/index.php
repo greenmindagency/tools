@@ -451,6 +451,7 @@ function load_meta($pdo) {
         else $class = 'priority-low';
         $userLoadClasses[$name] = $class;
     }
+    $usersByTasks = array_map(fn($name) => ['username' => $name], array_keys($loadPercent));
     $clients = $pdo->query('SELECT c.id,c.name,c.priority,c.progress_percent,COUNT(t.id) AS task_count FROM clients c JOIN tasks t ON t.client_id=c.id AND t.status!="archived" GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.progress_percent IS NULL), c.progress_percent DESC, c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
     return [$users, $clients, $userLoadClasses, $usersByTasks];
 }
