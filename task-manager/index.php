@@ -1044,6 +1044,8 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
           sub.dataset.subTitle = subTitle;
         }
         sub.dataset.parentTitle = newTitle;
+        const editTitle = sub.querySelector('[data-field=title]');
+        if(editTitle) editTitle.textContent = subTitle;
         sub.querySelector('.task-title-text').textContent = newTitle + ' - ' + subTitle;
       });
     }
@@ -1353,9 +1355,16 @@ function initTask(li){
         liEl.querySelector('.task-title-text').textContent = liEl.dataset.parentTitle + ' - ' + newTitle;
       } else {
         liEl.querySelector('.task-title-text').textContent = newTitle;
+        const removeDup = !newTitle.includes('(duplicated)');
         liEl.querySelectorAll('.subtask-list li').forEach(sub=>{
-          const subTitle = sub.dataset.subTitle || '';
+          let subTitle = sub.dataset.subTitle || '';
+          if(removeDup){
+            subTitle = subTitle.replace(/\s*\(duplicated\)$/,'').trim();
+            sub.dataset.subTitle = subTitle;
+          }
           sub.dataset.parentTitle = newTitle;
+          const editTitle = sub.querySelector('[data-field=title]');
+          if(editTitle) editTitle.textContent = subTitle;
           sub.querySelector('.task-title-text').textContent = newTitle + ' - ' + subTitle;
         });
       }
