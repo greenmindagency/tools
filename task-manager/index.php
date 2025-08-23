@@ -344,6 +344,29 @@ function duplicate_task_recursive($pdo, $taskId, $newParentId = null, $depth = 0
     return $newId;
 }
 
+function load_meta($pdo) {
+    $users = $pdo->query('SELECT id,username FROM users ORDER BY sort_order, username')->fetchAll(PDO::FETCH_ASSOC);
+    $userCounts = $pdo->query('SELECT assigned_to, COUNT(*) AS cnt FROM tasks WHERE status!="archived" GROUP BY assigned_to')->fetchAll(PDO::FETCH_KEY_PAIR);
+    $usersByTasks = $users;
+    foreach ($usersByTasks as &$u) {
+        $u['task_count'] = $userCounts[$u['id']] ?? 0;
+    }
+    unset($u);
+    usort($usersByTasks, fn($a, $b) => $b['task_count'] <=> $a['task_count'] ?: strcmp($a['username'], $b['username']));
+    $maxTasks = $userCounts ? max($userCounts) : 0;
+    $userLoadClasses = [];
+    foreach ($usersByTasks as $u) {
+        $ratio = $maxTasks > 0 ? $u['task_count'] / $maxTasks : 0;
+        if ($ratio >= 0.75) $class = 'priority-critical';
+        elseif ($ratio >= 0.5) $class = 'priority-high';
+        elseif ($ratio >= 0.25) $class = 'priority-intermed';
+        else $class = 'priority-low';
+        $userLoadClasses[$u['username']] = $class;
+    }
+    $clients = $pdo->query('SELECT c.id,c.name,c.priority,c.progress_percent,COUNT(t.id) AS task_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id AND t.status!="archived" GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.priority IS NULL), c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
+    return [$users, $clients, $userLoadClasses, $usersByTasks];
+}
+
 
 
 try {
@@ -503,18 +526,33 @@ try {
         $id = (int)$_POST['archive_task'];
         $stmt = $pdo->prepare('UPDATE tasks SET status="archived" WHERE id=? OR parent_id=?');
         $stmt->execute([$id,$id]);
+        list($users, $clients, $userLoadClasses, $usersByTasks) = load_meta($pdo);
+        $stmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE t.id=?');
+        $stmt->execute([$id]);
+        $task = $stmt->fetch(PDO::FETCH_ASSOC);
+        echo render_task($task, $users, $clients, null, $userLoadClasses, true);
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['unarchive_task'])) {
         $id = (int)$_POST['unarchive_task'];
         $stmt = $pdo->prepare('UPDATE tasks SET status="pending" WHERE id=? OR parent_id=?');
         $stmt->execute([$id,$id]);
+        list($users, $clients, $userLoadClasses, $usersByTasks) = load_meta($pdo);
+        $stmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE t.id=?');
+        $stmt->execute([$id]);
+        $task = $stmt->fetch(PDO::FETCH_ASSOC);
+        echo render_task($task, $users, $clients, null, $userLoadClasses);
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['duplicate_task'])) {
         $id = (int)$_POST['duplicate_task'];
         $pstmt = $pdo->prepare('SELECT parent_id FROM tasks WHERE id=?');
         $pstmt->execute([$id]);
         $parentId = $pstmt->fetchColumn() ?: null;
-        duplicate_task_recursive($pdo, $id, $parentId);
+        $newId = duplicate_task_recursive($pdo, $id, $parentId);
+        list($users, $clients, $userLoadClasses, $usersByTasks) = load_meta($pdo);
+        $stmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE t.id=?');
+        $stmt->execute([$newId]);
+        $task = $stmt->fetch(PDO::FETCH_ASSOC);
+        echo render_task($task, $users, $clients, null, $userLoadClasses);
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reorder_subtasks'])) {
         $parentId = (int)($_POST['parent_id'] ?? 0);
@@ -548,32 +586,13 @@ try {
     }
     $filterArchived = isset($_GET['archived']);
 
-    $users = $pdo->query('SELECT id,username FROM users ORDER BY sort_order, username')->fetchAll(PDO::FETCH_ASSOC);
-    $userCounts = $pdo->query('SELECT assigned_to, COUNT(*) AS cnt FROM tasks WHERE status!="archived" GROUP BY assigned_to')->fetchAll(PDO::FETCH_KEY_PAIR);
-    $usersByTasks = $users;
-    foreach ($usersByTasks as &$u) {
-        $u['task_count'] = $userCounts[$u['id']] ?? 0;
-    }
-    unset($u);
-    usort($usersByTasks, fn($a, $b) => $b['task_count'] <=> $a['task_count'] ?: strcmp($a['username'], $b['username']));
-    $maxTasks = $userCounts ? max($userCounts) : 0;
-    $userLoadClasses = [];
-    foreach ($usersByTasks as $u) {
-        $ratio = $maxTasks > 0 ? $u['task_count'] / $maxTasks : 0;
-        if ($ratio >= 0.75) $class = 'priority-critical';
-        elseif ($ratio >= 0.5) $class = 'priority-high';
-        elseif ($ratio >= 0.25) $class = 'priority-intermed';
-        else $class = 'priority-low';
-        $userLoadClasses[$u['username']] = $class;
-    }
+    list($users, $clients, $userLoadClasses, $usersByTasks) = load_meta($pdo);
 
     $today = date('Y-m-d');
     $weekEnd = date('Y-m-d', strtotime('+7 day'));
     $overdueCounts = $pdo->query("SELECT assigned_to, COUNT(*) AS cnt FROM tasks WHERE status!='archived' AND status!='done' AND due_date < '$today' GROUP BY assigned_to")->fetchAll(PDO::FETCH_KEY_PAIR);
     $todayCounts = $pdo->query("SELECT assigned_to, COUNT(*) AS cnt FROM tasks WHERE status!='archived' AND due_date = '$today' GROUP BY assigned_to")->fetchAll(PDO::FETCH_KEY_PAIR);
     $weekCountsUser = $pdo->query("SELECT assigned_to, COUNT(*) AS cnt FROM tasks WHERE status!='archived' AND due_date > '$today' AND due_date <= '$weekEnd' GROUP BY assigned_to")->fetchAll(PDO::FETCH_KEY_PAIR);
-
-    $clients = $pdo->query('SELECT c.id,c.name,c.priority,c.progress_percent,COUNT(t.id) AS task_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id AND t.status!="archived" GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.priority IS NULL), c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
 
     $cond = [];
     $params = [];
@@ -1094,8 +1113,18 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
 document.querySelectorAll('.archive-btn').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
     const id = btn.dataset.id;
-    await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'archive_task='+id});
-    btn.closest('li').remove();
+    const res = await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'archive_task='+id});
+    const html = (await res.text()).trim();
+    const li = btn.closest('li');
+    li.remove();
+    const archList = document.getElementById('archived-list');
+    if(archList && html){
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      const newLi = tmp.firstElementChild;
+      archList.prepend(newLi);
+      initTask(newLi);
+    }
     showToast('Task archived');
   });
 });
@@ -1103,8 +1132,40 @@ document.querySelectorAll('.archive-btn').forEach(btn=>{
 document.querySelectorAll('.unarchive-btn').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
     const id = btn.dataset.id;
-    await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'unarchive_task='+id});
-    btn.closest('li').remove();
+    const res = await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'unarchive_task='+id});
+    const html = (await res.text()).trim();
+    const li = btn.closest('li');
+    li.remove();
+    const activeList = document.getElementById('all-list') || document.getElementById('today-list') || document.getElementById('upcoming-list');
+    if(activeList && html){
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      const newLi = tmp.firstElementChild;
+      activeList.prepend(newLi);
+      initTask(newLi);
+      const range = new URLSearchParams(window.location.search).get('range') || 'all';
+      const newDate = newLi.querySelector('.due-date').textContent.trim();
+      const now = new Date();
+      const cairoNow = new Date(now.toLocaleString('en-US', {timeZone:'Africa/Cairo'}));
+      const todayStr = cairoNow.toLocaleDateString('en-CA');
+      const weekEnd = new Date(cairoNow);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+      const weekEndStr = weekEnd.toLocaleDateString('en-CA');
+      let keep = true;
+      if(range === 'overdue') keep = newDate < todayStr;
+      else if(range === 'today') keep = newDate === todayStr;
+      else if(range === 'week') keep = newDate >= todayStr && newDate <= weekEndStr;
+      if(!keep){ newLi.remove(); return; }
+      const todayList = document.getElementById('today-list');
+      const upcomingList = document.getElementById('upcoming-list');
+      if(todayList && upcomingList){
+        if(newDate > todayStr){
+          upcomingList.appendChild(newLi);
+        } else {
+          todayList.appendChild(newLi);
+        }
+      }
+    }
     showToast('Task unarchived');
   });
 });
@@ -1112,9 +1173,40 @@ document.querySelectorAll('.unarchive-btn').forEach(btn=>{
 document.querySelectorAll('.duplicate-btn').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
     const id = btn.dataset.id;
-    await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'duplicate_task='+id});
+    const res = await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'duplicate_task='+id});
+    const html = (await res.text()).trim();
+    if(html){
+      const li = btn.closest('li');
+      const parentList = li.parentElement;
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      const newLi = tmp.firstElementChild;
+      parentList.insertBefore(newLi, li.nextSibling);
+      initTask(newLi);
+      const range = new URLSearchParams(window.location.search).get('range') || 'all';
+      const newDate = newLi.querySelector('.due-date').textContent.trim();
+      const now = new Date();
+      const cairoNow = new Date(now.toLocaleString('en-US', {timeZone:'Africa/Cairo'}));
+      const todayStr = cairoNow.toLocaleDateString('en-CA');
+      const weekEnd = new Date(cairoNow);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+      const weekEndStr = weekEnd.toLocaleDateString('en-CA');
+      let keep = true;
+      if(range === 'overdue') keep = newDate < todayStr;
+      else if(range === 'today') keep = newDate === todayStr;
+      else if(range === 'week') keep = newDate >= todayStr && newDate <= weekEndStr;
+      if(!keep){ newLi.remove(); return; }
+      const todayList = document.getElementById('today-list');
+      const upcomingList = document.getElementById('upcoming-list');
+      if(todayList && upcomingList){
+        if(newDate > todayStr){
+          upcomingList.appendChild(newLi);
+        } else {
+          todayList.appendChild(newLi);
+        }
+      }
+    }
     showToast('Task duplicated');
-    location.reload();
   });
 });
 
@@ -1175,6 +1267,313 @@ document.querySelectorAll('.quick-date').forEach(sel=>{
     sel.value='';
   });
 });
+
+function initTask(li){
+  li.querySelectorAll('form.ajax').forEach(f=>{
+    f.addEventListener('submit', async e=>{
+      e.preventDefault();
+      const fd = new FormData(f);
+      await fetch('index.php', {method:'POST', body:fd});
+      if(fd.has('add_task')){
+        f.reset();
+        showToast('Task added');
+        location.reload();
+      }
+    });
+  });
+
+  li.querySelectorAll('.complete-checkbox').forEach(cb=>{
+    cb.addEventListener('change', async ()=>{
+      const form = cb.closest('form');
+      const fd = new FormData(form);
+      if(cb.checked) fd.set('completed','1');
+      const res = await fetch('index.php', {method:'POST', body:fd});
+      const text = (await res.text()).trim();
+      const liEl = form.closest('li');
+      if(/^\\d{4}-\\d{2}-\\d{2}$/.test(text)){
+        liEl.querySelector('.due-date').innerHTML = '<i class="bi bi-calendar-event me-1"></i>' + text;
+        cb.checked = false;
+        liEl.classList.remove('opacity-50');
+      } else {
+        liEl.classList.toggle('opacity-50', cb.checked);
+      }
+      showToast('Task saved');
+    });
+  });
+
+  li.querySelectorAll('.collapse[id^="task-"]').forEach(col=>{
+    col.addEventListener('show.bs.collapse', ()=>{
+      const liEl = col.closest('li');
+      collapseSiblings(liEl, col);
+    });
+  });
+
+  li.querySelectorAll('.edit-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.id;
+      const liEl = btn.closest('li');
+      const collapse = document.getElementById('task-'+id);
+      const form = collapse.querySelector('form');
+      const desc = collapse.querySelector('.description');
+      const saveBtn = liEl.querySelector('.save-btn');
+      const subBtn = liEl.querySelector('.add-subtask-toggle');
+      form.classList.toggle('d-none');
+      desc.classList.toggle('d-none');
+      const editing = !form.classList.contains('d-none');
+      saveBtn.classList.toggle('d-none', !editing);
+      subBtn?.classList.toggle('d-none', !editing);
+      new bootstrap.Collapse(collapse, {toggle:false}).show();
+    });
+  });
+
+  li.querySelectorAll('.save-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.dataset.id;
+      const liEl = btn.closest('li');
+      const collapse = document.getElementById('task-'+id);
+      const form = collapse.querySelector('form');
+      const fd = new FormData(form);
+      fd.set('title', form.querySelector('[data-field=title]').textContent.trim());
+      fd.set('description', form.querySelector('[data-field=description]').textContent.trim());
+      await fetch('index.php', {method:'POST', body:fd});
+      const newTitle = form.querySelector('[data-field=title]').textContent.trim();
+      liEl.dataset.subTitle = newTitle;
+      if(liEl.dataset.parentTitle){
+        liEl.querySelector('.task-title-text').textContent = liEl.dataset.parentTitle + ' - ' + newTitle;
+      } else {
+        liEl.querySelector('.task-title-text').textContent = newTitle;
+        liEl.querySelectorAll('.subtask-list li').forEach(sub=>{
+          const subTitle = sub.dataset.subTitle || '';
+          sub.dataset.parentTitle = newTitle;
+          sub.querySelector('.task-title-text').textContent = newTitle + ' - ' + subTitle;
+        });
+      }
+      liEl.querySelector('.description').innerHTML = form.querySelector('[data-field=description]').textContent.replace(/\\n/g,'<br>');
+      const newDate = form.querySelector('input[name=due_date]').value;
+      liEl.querySelector('.due-date').innerHTML = '<i class="bi bi-calendar-event me-1"></i>' + newDate;
+      liEl.querySelector('.assignee').textContent = form.querySelector('select[name=assigned]').selectedOptions[0].textContent;
+      const clientSel = form.querySelector('select[name=client_id]');
+      if(clientSel){
+        const opt = clientSel.selectedOptions[0];
+        const cName = clientSel.value ? opt.textContent : 'Others';
+        const cPrio = clientSel.value ? (opt.dataset.priority || '') : '';
+        const clientWrapper = liEl.querySelector('.client');
+        let clientSpan = clientWrapper.querySelector('.client-priority');
+        if(clientSel.value){
+          if(!clientSpan){
+            clientSpan = document.createElement('span');
+            clientWrapper.textContent = '';
+            clientWrapper.appendChild(clientSpan);
+          }
+          clientSpan.textContent = cName;
+          clientSpan.className = 'client-priority ' + cPrio.toLowerCase();
+        } else {
+          if(clientSpan) clientSpan.remove();
+          clientWrapper.textContent = 'Others';
+        }
+        liEl.querySelectorAll('.subtask-list li').forEach(sub=>{
+          const subClient = sub.querySelector('.client');
+          let subSpan = subClient.querySelector('.client-priority');
+          if(clientSel.value){
+            if(!subSpan){
+              subSpan = document.createElement('span');
+              subClient.textContent = '';
+              subClient.appendChild(subSpan);
+            }
+            subSpan.textContent = cName;
+            subSpan.className = 'client-priority ' + cPrio.toLowerCase();
+          } else {
+            if(subSpan) subSpan.remove();
+            subClient.textContent = 'Others';
+          }
+        });
+      }
+      form.classList.add('d-none');
+      collapse.querySelector('.description').classList.remove('d-none');
+      btn.classList.add('d-none');
+      liEl.querySelector('.add-subtask-toggle')?.classList.add('d-none');
+      showToast('Task saved');
+      const params = new URLSearchParams(window.location.search);
+      const range = params.get('range') || 'all';
+      const now = new Date();
+      const cairoNow = new Date(now.toLocaleString('en-US', {timeZone:'Africa/Cairo'}));
+      const todayStr = cairoNow.toLocaleDateString('en-CA');
+      const weekEnd = new Date(cairoNow);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+      const weekEndStr = weekEnd.toLocaleDateString('en-CA');
+      let keep = true;
+      if(range === 'overdue') keep = newDate < todayStr;
+      else if(range === 'today') keep = newDate === todayStr;
+      else if(range === 'week') keep = newDate >= todayStr && newDate <= weekEndStr;
+      if(!keep){ liEl.remove(); return; }
+      const todayList = document.getElementById('today-list');
+      const upcomingList = document.getElementById('upcoming-list');
+      if(todayList && upcomingList){
+        if(newDate > todayStr){
+          upcomingList.appendChild(liEl);
+        } else {
+          todayList.appendChild(liEl);
+        }
+      }
+    });
+  });
+
+  li.querySelectorAll('.archive-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.dataset.id;
+      const res = await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'archive_task='+id});
+      const html = (await res.text()).trim();
+      const liEl = btn.closest('li');
+      liEl.remove();
+      const archList = document.getElementById('archived-list');
+      if(archList && html){
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        const newLi = tmp.firstElementChild;
+        archList.prepend(newLi);
+        initTask(newLi);
+      }
+      showToast('Task archived');
+    });
+  });
+
+  li.querySelectorAll('.unarchive-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.dataset.id;
+      const res = await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'unarchive_task='+id});
+      const html = (await res.text()).trim();
+      const liEl = btn.closest('li');
+      liEl.remove();
+      const activeList = document.getElementById('all-list') || document.getElementById('today-list') || document.getElementById('upcoming-list');
+      if(activeList && html){
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        const newLi = tmp.firstElementChild;
+        activeList.prepend(newLi);
+        initTask(newLi);
+        const range = new URLSearchParams(window.location.search).get('range') || 'all';
+        const newDate = newLi.querySelector('.due-date').textContent.trim();
+        const now = new Date();
+        const cairoNow = new Date(now.toLocaleString('en-US', {timeZone:'Africa/Cairo'}));
+        const todayStr = cairoNow.toLocaleDateString('en-CA');
+        const weekEnd = new Date(cairoNow);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        const weekEndStr = weekEnd.toLocaleDateString('en-CA');
+        let keep = true;
+        if(range === 'overdue') keep = newDate < todayStr;
+        else if(range === 'today') keep = newDate === todayStr;
+        else if(range === 'week') keep = newDate >= todayStr && newDate <= weekEndStr;
+        if(!keep){ newLi.remove(); return; }
+        const todayList = document.getElementById('today-list');
+        const upcomingList = document.getElementById('upcoming-list');
+        if(todayList && upcomingList){
+          if(newDate > todayStr){
+            upcomingList.appendChild(newLi);
+          } else {
+            todayList.appendChild(newLi);
+          }
+        }
+      }
+      showToast('Task unarchived');
+    });
+  });
+
+  li.querySelectorAll('.duplicate-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.dataset.id;
+      const res = await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'duplicate_task='+id});
+      const html = (await res.text()).trim();
+      if(html){
+        const liEl = btn.closest('li');
+        const parentList = liEl.parentElement;
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        const newLi = tmp.firstElementChild;
+        parentList.insertBefore(newLi, liEl.nextSibling);
+        initTask(newLi);
+        const range = new URLSearchParams(window.location.search).get('range') || 'all';
+        const newDate = newLi.querySelector('.due-date').textContent.trim();
+        const now = new Date();
+        const cairoNow = new Date(now.toLocaleString('en-US', {timeZone:'Africa/Cairo'}));
+        const todayStr = cairoNow.toLocaleDateString('en-CA');
+        const weekEnd = new Date(cairoNow);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        const weekEndStr = weekEnd.toLocaleDateString('en-CA');
+        let keep = true;
+        if(range === 'overdue') keep = newDate < todayStr;
+        else if(range === 'today') keep = newDate === todayStr;
+        else if(range === 'week') keep = newDate >= todayStr && newDate <= weekEndStr;
+        if(!keep){ newLi.remove(); return; }
+        const todayList = document.getElementById('today-list');
+        const upcomingList = document.getElementById('upcoming-list');
+        if(todayList && upcomingList){
+          if(newDate > todayStr){
+            upcomingList.appendChild(newLi);
+          } else {
+            todayList.appendChild(newLi);
+          }
+        }
+      }
+      showToast('Task duplicated');
+    });
+  });
+
+  li.querySelectorAll('.delete-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if(!confirm('Delete this task?')) return;
+      const id = btn.dataset.id;
+      await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'delete_task='+id});
+      btn.closest('li').remove();
+      showToast('Task deleted');
+    });
+  });
+
+  li.querySelectorAll('.subtask-list').forEach(list=>{
+    new Sortable(list, {
+      animation:150,
+      onEnd: async ()=>{
+        const order = Array.from(list.children).map(li=>li.dataset.taskId).join(',');
+        const params = new URLSearchParams();
+        params.set('reorder_subtasks','1');
+        params.set('parent_id', list.dataset.parent);
+        params.set('order', order);
+        await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:params.toString()});
+      }
+    });
+  });
+
+  li.querySelectorAll('.recurrence-select').forEach(sel=>{
+    sel.addEventListener('change', function(){
+      const parent = this.closest('form');
+      parent.querySelector('.recurrence-days')?.classList.toggle('d-none', this.value !== 'custom');
+      parent.querySelector('.recurrence-interval')?.classList.toggle('d-none', this.value !== 'interval');
+      parent.querySelector('.recurrence-unit')?.classList.toggle('d-none', this.value !== 'interval');
+    });
+  });
+
+  li.querySelectorAll('.quick-date').forEach(sel=>{
+    sel.addEventListener('change', ()=>{
+      const dateInput = sel.closest('form').querySelector('input[name=due_date]');
+      const now = new Date();
+      const cairoNow = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Cairo' }));
+      let target = new Date(cairoNow);
+      if(sel.value === 'tomorrow') {
+        target.setDate(target.getDate() + 1);
+      } else if(sel.value === 'nextweek') {
+        const daysUntilSunday = (7 - target.getDay()) % 7 || 7;
+        target.setDate(target.getDate() + daysUntilSunday);
+      } else if(sel.value === 'nextmonth') {
+        target.setMonth(target.getMonth() + 1);
+      }
+      target = nextWorkingDay(target);
+      dateInput.value = target.toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
+      sel.value='';
+    });
+  });
+
+  li.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+  li.querySelectorAll('.add-subtask-toggle').forEach(el => new bootstrap.Tooltip(el));
+}
 
 window.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
