@@ -177,15 +177,15 @@ try {
 
     $workerTotals = [];
     $clientStmt = $pdo->query('SELECT id, progress_percent FROM clients WHERE progress_percent IS NOT NULL');
-    $uStmt = $pdo->prepare('SELECT u.username FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE t.client_id=? AND t.status!="archived" GROUP BY u.username');
+    $uStmt = $pdo->prepare('SELECT u.username, COUNT(*) AS cnt FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE t.client_id=? GROUP BY u.username');
     while ($c = $clientStmt->fetch(PDO::FETCH_ASSOC)) {
         $uStmt->execute([$c['id']]);
-        $usersForClient = $uStmt->fetchAll(PDO::FETCH_COLUMN);
-        $memberCount = count($usersForClient);
-        if ($memberCount === 0) continue;
-        $share = $c['progress_percent'] / $memberCount;
-        foreach ($usersForClient as $name) {
-            $workerTotals[$name] = ($workerTotals[$name] ?? 0) + $share;
+        $rows = $uStmt->fetchAll(PDO::FETCH_ASSOC);
+        $total = array_sum(array_column($rows, 'cnt'));
+        if ($total === 0) continue;
+        foreach ($rows as $r) {
+            $share = $c['progress_percent'] * ($r['cnt'] / $total);
+            $workerTotals[$r['username']] = ($workerTotals[$r['username']] ?? 0) + $share;
         }
     }
 
@@ -199,13 +199,37 @@ try {
             $workerTotals[$row['username']] = 0;
         }
     }
+
+    $archivedCountsStmt = $pdo->query('SELECT u.username, COUNT(*) AS cnt FROM tasks t JOIN users u ON t.assigned_to=u.id WHERE t.status="archived" GROUP BY u.username');
+    $workerArchivedCounts = [];
+    while ($row = $archivedCountsStmt->fetch(PDO::FETCH_ASSOC)) {
+        $workerArchivedCounts[$row['username']] = $row['cnt'];
+        if (!isset($workerTotals[$row['username']])) {
+            $workerTotals[$row['username']] = 0;
+        }
+        if (!isset($workerTaskCounts[$row['username']])) {
+            $workerTaskCounts[$row['username']] = 0;
+        }
+    }
+
+    $allWorkers = array_unique(array_merge(array_keys($workerTotals), array_keys($workerTaskCounts), array_keys($workerArchivedCounts)));
+    foreach ($allWorkers as $name) {
+        if (!isset($workerTotals[$name])) $workerTotals[$name] = 0;
+        if (!isset($workerTaskCounts[$name])) $workerTaskCounts[$name] = 0;
+        if (!isset($workerArchivedCounts[$name])) $workerArchivedCounts[$name] = 0;
+    }
+
     $tasksPercent = [];
     foreach ($workerTaskCounts as $name => $cnt) {
         $tasksPercent[$name] = $totalTasks ? ($cnt / $totalTasks * 100) : 0;
     }
+    foreach ($allWorkers as $name) {
+        if (!isset($tasksPercent[$name])) $tasksPercent[$name] = 0;
+    }
     $loadScores = [];
-    foreach ($workerTotals as $name => $ach) {
-        $taskPct = $tasksPercent[$name] ?? 0;
+    foreach ($allWorkers as $name) {
+        $ach = $workerTotals[$name];
+        $taskPct = $tasksPercent[$name];
         $loadScores[$name] = ($ach + $taskPct) / 2;
     }
     $loadSum = array_sum($loadScores);
@@ -356,7 +380,7 @@ include __DIR__ . '/header.php';
     <div class="row">
       <div class="col-md-6">
         <table class="table table-borderless w-auto">
-          <thead><tr><th>Team Member</th><th>Achieved %</th><th>Tasks</th><th>Load %</th></tr></thead>
+          <thead><tr><th>Team Member</th><th>Achieved %</th><th>Tasks</th><th>Archived</th><th>Load %</th></tr></thead>
           <tbody>
             <?php foreach ($loadPercent as $name => $load):
                 $pct = $workerTotals[$name] ?? 0;
@@ -366,9 +390,9 @@ include __DIR__ . '/header.php';
                 elseif ($ratio >= 0.25) $class = 'priority-intermed';
                 else $class = 'priority-low';
                 $count = $workerTaskCounts[$name] ?? 0;
-                $load = $loadPercent[$name] ?? 0;
+                $archived = $workerArchivedCounts[$name] ?? 0;
             ?>
-            <tr class="<?= $class ?>"><td><?= htmlspecialchars($name) ?></td><td><?= number_format($pct, 2) ?>%</td><td><?= $count ?></td><td><?= number_format($load, 2) ?>%</td></tr>
+            <tr class="<?= $class ?>"><td><?= htmlspecialchars($name) ?></td><td><?= number_format($pct, 2) ?>%</td><td><?= $count ?></td><td><?= $archived ?></td><td><?= number_format($load, 2) ?>%</td></tr>
             <?php endforeach; ?>
           </tbody>
         </table>
