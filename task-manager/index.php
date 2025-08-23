@@ -1063,7 +1063,31 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
     btn.classList.add('d-none');
     li.querySelector('.add-subtask-toggle')?.classList.add('d-none');
     showToast('Task saved');
-    location.reload();
+    const params = new URLSearchParams(window.location.search);
+    const range = params.get('range') || 'all';
+    const now = new Date();
+    const cairoNow = new Date(now.toLocaleString('en-US', {timeZone:'Africa/Cairo'}));
+    const todayStr = cairoNow.toLocaleDateString('en-CA');
+    const weekEnd = new Date(cairoNow);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const weekEndStr = weekEnd.toLocaleDateString('en-CA');
+    let keep = true;
+    if(range === 'overdue') keep = newDate < todayStr;
+    else if(range === 'today') keep = newDate === todayStr;
+    else if(range === 'week') keep = newDate >= todayStr && newDate <= weekEndStr;
+    if(!keep){
+      li.remove();
+      return;
+    }
+    const todayList = document.getElementById('today-list');
+    const upcomingList = document.getElementById('upcoming-list');
+    if(todayList && upcomingList){
+      if(newDate > todayStr){
+        upcomingList.appendChild(li);
+      } else {
+        todayList.appendChild(li);
+      }
+    }
   });
 });
 
