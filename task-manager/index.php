@@ -130,8 +130,7 @@ function is_due_on($due, $recurrence, $target) {
             return $targetDate >= $dueDate && $targetDate->format('w') === $dueDate->format('w');
     }
 }
-function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses = []) {
-    global $pdo;
+function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses = [], $archivedView = false) {
     $today = date('Y-m-d');
     $overdue = $t['due_date'] < $today && $t['status'] !== 'done';
     $isSub = !empty($t['parent_id']);
@@ -139,10 +138,12 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
     ob_start();
     ?>
     <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>" data-recurrence="<?= htmlspecialchars($t['recurrence']) ?>"<?= $isSub ? ' data-parent-title="'.htmlspecialchars($t['parent_title']).'" data-sub-title="'.htmlspecialchars($t['title']).'"' : '' ?>>
+      <?php if(!$archivedView): ?>
       <form method="post" class="me-2 complete-form" data-bs-toggle="tooltip" title="Complete">
         <input type="hidden" name="toggle_complete" value="<?= $t['id'] ?>">
         <input type="checkbox" class="complete-checkbox" name="completed" <?= $t['status']==='done'?'checked':'' ?>>
       </form>
+      <?php endif; ?>
       <div class="flex-grow-1">
         <div class="d-flex justify-content-between">
           <div class="task-main"<?= $toggleAttr ?>>
@@ -159,16 +160,22 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
           </div>
           <div class="text-end ms-2">
             <div class="mb-1">
+              <?php if($archivedView): ?>
+              <button type="button" class="btn btn-success btn-sm unarchive-btn" data-id="<?= $t['id'] ?>" title="Unarchive" data-bs-toggle="tooltip"><i class="bi bi-arrow-counterclockwise"></i></button>
+              <button type="button" class="btn btn-danger btn-sm delete-btn" data-id="<?= $t['id'] ?>" title="Delete" data-bs-toggle="tooltip"><i class="bi bi-trash"></i></button>
+              <?php else: ?>
               <button type="button" class="btn btn-success btn-sm save-btn d-none" data-id="<?= $t['id'] ?>" title="Save" data-bs-toggle="tooltip"><i class="bi bi-check"></i></button>
               <button type="button" class="btn btn-light btn-sm edit-btn" data-id="<?= $t['id'] ?>" title="Edit" data-bs-toggle="tooltip"><i class="bi bi-pencil"></i></button>
               <button type="button" class="btn btn-primary btn-sm add-subtask-toggle d-none" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>" title="Add Subtask"><i class="bi bi-plus-lg"></i></button>
               <button type="button" class="btn btn-secondary btn-sm duplicate-btn" data-id="<?= $t['id'] ?>" title="Duplicate" data-bs-toggle="tooltip"><i class="bi bi-files"></i></button>
               <button type="button" class="btn btn-warning btn-sm archive-btn" data-id="<?= $t['id'] ?>" title="Archive" data-bs-toggle="tooltip"><i class="bi bi-archive"></i></button>
+              <?php endif; ?>
             </div>
           </div>
         </div>
         <div class="collapse mt-2" id="task-<?= $t['id'] ?>">
           <div class="description mb-2"><?= nl2br(htmlspecialchars($t['description'])) ?></div>
+          <?php if(!$archivedView): ?>
           <form method="post" class="row g-2 mt-2 task-form d-none">
             <input type="hidden" name="update_task" value="<?= $t['id'] ?>">
             <div class="col-12"><div class="form-control editable" data-field="title" contenteditable="true"><?= htmlspecialchars($t['title']) ?></div></div>
@@ -227,8 +234,9 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
               <?php endforeach; ?>
             </div>
           </form>
-          <?php include __DIR__ . '/comments.php'; ?>
+          <?php endif; ?>
           <?php if(!$isSub): ?>
+          <?php if(!$archivedView): ?>
           <hr class="my-3">
           <button class="btn btn-primary btn-sm add-subtask-toggle mt-3 d-none" type="button" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>">Add Subtask</button>
           <div class="collapse" id="subtask-form-<?= $t['id'] ?>">
@@ -282,9 +290,11 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
               <div class="col-auto mt-2"><button class="btn btn-primary btn-sm">Add</button></div>
             </form>
           </div>
+          <?php endif; ?>
           <?php
           global $pdo;
-          $childSql = 'SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id=? AND t.status!="archived"';
+          $childSql = 'SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id=?';
+          $childSql .= $archivedView ? ' AND t.status="archived"' : ' AND t.status!="archived"';
           $params = [$t['id']];
           if ($filterUser) {
             $childSql .= ' AND t.assigned_to=?';
@@ -297,7 +307,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
           if ($children): ?>
           <ul class="list-group ms-4 mt-3 subtask-list" data-parent="<?= $t['id'] ?>">
             <?php foreach ($children as $ch): ?>
-            <?= render_task($ch, $users, $clients, $filterUser, $userLoadClasses); ?>
+            <?= render_task($ch, $users, $clients, $filterUser, $userLoadClasses, $archivedView); ?>
             <?php endforeach; ?>
           </ul>
           <?php endif; ?>
@@ -582,7 +592,7 @@ try {
         $allStmt->execute($params);
         $allTasks = $allStmt->fetchAll(PDO::FETCH_ASSOC);
     } elseif ($filterArchived) {
-        $archivedStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE 1'.$where.' '.$order);
+        $archivedStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE t.parent_id IS NULL'.$where.' '.$order);
         $archivedStmt->execute($params);
         $archivedTasks = $archivedStmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
@@ -796,17 +806,7 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
       <h3 class="mb-4">Archived Tasks</h3>
       <ul class="list-group" id="archived-list">
         <?php foreach ($archivedTasks as $t): ?>
-        <li class="list-group-item d-flex align-items-start justify-content-between" data-task-id="<?= $t['id'] ?>">
-          <div class="flex-grow-1">
-            <strong><?= $t['client_name'] ? htmlspecialchars($t['client_name']) : 'Others' ?></strong> <strong><?= htmlspecialchars($t['title']) ?></strong>
-            <?php if ($t['description']) echo '<div class="text-muted small">'.htmlspecialchars($t['description']).'</div>'; ?>
-            <small><span class="<?= $userLoadClasses[$t['username']] ?? '' ?> fw-bold"><?= htmlspecialchars($t['username']) ?></span> — <?= htmlspecialchars($t['due_date']) ?></small>
-          </div>
-          <div class="ms-2 text-nowrap">
-            <button type="button" class="btn btn-success btn-sm unarchive-btn" data-id="<?= $t['id'] ?>" title="Unarchive" data-bs-toggle="tooltip"><i class="bi bi-arrow-counterclockwise"></i></button>
-            <button type="button" class="btn btn-danger btn-sm delete-btn" data-id="<?= $t['id'] ?>" title="Delete" data-bs-toggle="tooltip"><i class="bi bi-trash"></i></button>
-          </div>
-        </li>
+        <?= render_task($t, $users, $clients, $filterUser, $userLoadClasses, true); ?>
         <?php endforeach; ?>
       </ul>
     <?php elseif (!$filterUser && !$filterClient): ?>
