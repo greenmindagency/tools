@@ -171,7 +171,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
     $toggleAttr = ' data-bs-toggle="collapse" data-bs-target="#task-'.$t['id'].'"';
     ob_start();
     ?>
-    <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>" data-recurrence="<?= htmlspecialchars($t['recurrence']) ?>"<?= $isSub ? ' data-parent-title="'.htmlspecialchars($t['parent_title']).'" data-sub-title="'.htmlspecialchars($t['title']).'"' : '' ?>>
+    <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>" data-due-date="<?= htmlspecialchars($t['due_date']) ?>" data-recurrence="<?= htmlspecialchars($t['recurrence']) ?>"<?= $isSub ? ' data-parent-title="'.htmlspecialchars($t['parent_title']).'" data-sub-title="'.htmlspecialchars($t['title']).'"' : '' ?>>
       <?php if(!$archivedView): ?>
       <form method="post" class="me-2 complete-form" data-bs-toggle="tooltip" title="Complete">
         <input type="hidden" name="toggle_complete" value="<?= $t['id'] ?>">
@@ -747,12 +747,15 @@ try {
         $archivedSubs = $archivedSubStmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
         $parentCond = $filterUser ? '' : 't.parent_id IS NULL AND ';
-        $todayStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,c.progress_percent AS client_percent,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE ' . $parentCond . 't.due_date <= ?'.$where.' '.$order);
+        $todayStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,c.progress_percent AS client_percent,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE ' . $parentCond . 't.status!="done" AND t.due_date <= ?'.$where.' '.$order);
         $todayStmt->execute(array_merge([$today],$params));
         $todayTasks = $todayStmt->fetchAll(PDO::FETCH_ASSOC);
-        $upcomingStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,c.progress_percent AS client_percent,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE ' . $parentCond . 't.due_date > ?'.$where.' '.$order);
+        $upcomingStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,c.progress_percent AS client_percent,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE ' . $parentCond . 't.status!="done" AND t.due_date > ?'.$where.' '.$order);
         $upcomingStmt->execute(array_merge([$today],$params));
         $upcomingTasks = $upcomingStmt->fetchAll(PDO::FETCH_ASSOC);
+        $completedStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,c.progress_percent AS client_percent,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE ' . $parentCond . 't.status="done"'.$where.' '.$order);
+        $completedStmt->execute($params);
+        $completedTasks = $completedStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     if ($range === 'overdue') {
@@ -762,6 +765,9 @@ try {
             $todayTasks = array_values(array_filter($todayTasks ?? [], fn($t) => $t['due_date'] < $today && $t['status'] !== 'done'));
             $upcomingTasks = [];
         }
+        if (isset($completedTasks)) {
+            $completedTasks = array_values(array_filter($completedTasks, fn($t) => $t['due_date'] < $today));
+        }
     } elseif ($range === 'today') {
         if (isset($allTasks)) {
             $allTasks = array_values(array_filter($allTasks, fn($t) => $t['due_date'] === $today));
@@ -769,12 +775,18 @@ try {
             $todayTasks = array_values(array_filter($todayTasks ?? [], fn($t) => $t['due_date'] === $today));
             $upcomingTasks = [];
         }
+        if (isset($completedTasks)) {
+            $completedTasks = array_values(array_filter($completedTasks, fn($t) => $t['due_date'] === $today));
+        }
     } elseif ($range === 'week') {
         if (isset($allTasks)) {
             $allTasks = array_values(array_filter($allTasks, fn($t) => $t['due_date'] >= $today && $t['due_date'] <= $weekEnd));
         } else {
             $todayTasks = array_values(array_filter($todayTasks ?? [], fn($t) => $t['due_date'] >= $today && $t['due_date'] <= $weekEnd));
             $upcomingTasks = array_values(array_filter($upcomingTasks ?? [], fn($t) => $t['due_date'] > $today && $t['due_date'] <= $weekEnd));
+        }
+        if (isset($completedTasks)) {
+            $completedTasks = array_values(array_filter($completedTasks, fn($t) => $t['due_date'] >= $today && $t['due_date'] <= $weekEnd));
         }
     }
 
@@ -964,7 +976,7 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
           <label class="me-2"><input type="checkbox" name="days[]" value="<?= $d ?>"> <?= $d ?></label>
           <?php endforeach; ?>
         </div>
-        <div class="col-auto mt-2"><button class="btn btn-success btn-sm">Add</button></div>
+        <div class="col-auto mt-2"><button class="btn btn-success btn-sm">Add Task</button></div>
       </form>
     </div>
     <?php if ($filterArchived): ?>
@@ -996,6 +1008,12 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
       <h3 class="mb-4">Upcoming Tasks</h3>
       <ul id="upcoming-list" class="list-group mb-4">
         <?php foreach ($upcomingTasks as $t): ?>
+        <?= render_task($t, $users, $clients, $filterUser, $userLoadClasses); ?>
+        <?php endforeach; ?>
+      </ul>
+      <h3 class="mb-4">Completed Tasks</h3>
+      <ul id="completed-list" class="list-group mb-4">
+        <?php foreach ($completedTasks as $t): ?>
         <?= render_task($t, $users, $clients, $filterUser, $userLoadClasses); ?>
         <?php endforeach; ?>
       </ul>
@@ -1174,6 +1192,13 @@ document.querySelectorAll('.upload-trigger').forEach(icon=>{
   });
 });
 
+function insertSorted(li, list){
+  if(!list) return;
+  const items = Array.from(list.children);
+  const before = items.find(el => el.dataset.dueDate > li.dataset.dueDate);
+  list.insertBefore(li, before || null);
+}
+
 document.querySelectorAll('.complete-checkbox').forEach(cb=>{
   cb.addEventListener('change', async ()=>{
     const form = cb.closest('form');
@@ -1182,10 +1207,28 @@ document.querySelectorAll('.complete-checkbox').forEach(cb=>{
     const res = await fetch('index.php', {method:'POST', body:fd});
     const text = (await res.text()).trim();
     const li = form.closest('li');
+    const completedList = document.getElementById('completed-list');
+    const todayList = document.getElementById('today-list');
+    const upcomingList = document.getElementById('upcoming-list');
+    const todayStr = new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Cairo'}).format(new Date());
     if(/^\d{4}-\d{2}-\d{2}$/.test(text)){
       li.querySelector('.due-date').innerHTML = '<i class="bi bi-calendar-event me-1"></i>' + text;
+      li.dataset.dueDate = text;
       cb.checked = false;
       li.classList.remove('opacity-50');
+      if(completedList){
+        const target = text > todayStr ? upcomingList : todayList;
+        insertSorted(li, target);
+      }
+    } else if(text === 'done') {
+      li.classList.add('opacity-50');
+      if(completedList) insertSorted(li, completedList);
+    } else if(text === 'pending') {
+      li.classList.remove('opacity-50');
+      if(completedList){
+        const target = li.dataset.dueDate > todayStr ? upcomingList : todayList;
+        insertSorted(li, target);
+      }
     } else {
       li.classList.toggle('opacity-50', cb.checked);
     }
@@ -1268,6 +1311,7 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
     li.querySelector('.description').innerHTML = form.querySelector('[data-field=description]').textContent.replace(/\n/g,'<br>');
     const newDate = form.querySelector('input[name=due_date]').value;
     li.querySelector('.due-date').innerHTML = '<i class="bi bi-calendar-event me-1"></i>' + newDate;
+    li.dataset.dueDate = newDate;
     li.querySelector('.assignee').textContent = form.querySelector('select[name=assigned]').selectedOptions[0].textContent;
     const clientSel = form.querySelector('select[name=client_id]');
     if(clientSel){
@@ -1333,9 +1377,7 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
     const upcomingList = document.getElementById('upcoming-list');
     if (todayList && upcomingList) {
       const targetList = newDate > todayStr ? upcomingList : todayList;
-      if (li.parentElement !== targetList) {
-        targetList.appendChild(li);
-      }
+      insertSorted(li, targetList);
     }
   });
 });
@@ -1525,10 +1567,28 @@ function initTask(li){
       const res = await fetch('index.php', {method:'POST', body:fd});
       const text = (await res.text()).trim();
       const liEl = form.closest('li');
+      const completedList = document.getElementById('completed-list');
+      const todayList = document.getElementById('today-list');
+      const upcomingList = document.getElementById('upcoming-list');
+      const todayStr = new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Cairo'}).format(new Date());
       if(/^\\d{4}-\\d{2}-\\d{2}$/.test(text)){
         liEl.querySelector('.due-date').innerHTML = '<i class="bi bi-calendar-event me-1"></i>' + text;
+        liEl.dataset.dueDate = text;
         cb.checked = false;
         liEl.classList.remove('opacity-50');
+        if(completedList){
+          const target = text > todayStr ? upcomingList : todayList;
+          insertSorted(liEl, target);
+        }
+      } else if(text === 'done'){
+        liEl.classList.add('opacity-50');
+        if(completedList) insertSorted(liEl, completedList);
+      } else if(text === 'pending'){
+        liEl.classList.remove('opacity-50');
+        if(completedList){
+          const target = liEl.dataset.dueDate > todayStr ? upcomingList : todayList;
+          insertSorted(liEl, target);
+        }
       } else {
         liEl.classList.toggle('opacity-50', cb.checked);
       }
@@ -1593,6 +1653,7 @@ function initTask(li){
       liEl.querySelector('.description').innerHTML = form.querySelector('[data-field=description]').textContent.replace(/\\n/g,'<br>');
       const newDate = form.querySelector('input[name=due_date]').value;
       liEl.querySelector('.due-date').innerHTML = '<i class="bi bi-calendar-event me-1"></i>' + newDate;
+      liEl.dataset.dueDate = newDate;
       liEl.querySelector('.assignee').textContent = form.querySelector('select[name=assigned]').selectedOptions[0].textContent;
       const clientSel = form.querySelector('select[name=client_id]');
       if(clientSel){
@@ -1653,11 +1714,8 @@ function initTask(li){
       const todayList = document.getElementById('today-list');
       const upcomingList = document.getElementById('upcoming-list');
       if(todayList && upcomingList){
-        if(newDate > todayStr){
-          upcomingList.appendChild(liEl);
-        } else {
-          todayList.appendChild(liEl);
-        }
+        const targetList = newDate > todayStr ? upcomingList : todayList;
+        insertSorted(liEl, targetList);
       }
     });
   });
