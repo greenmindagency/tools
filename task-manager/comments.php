@@ -34,10 +34,10 @@ $comments = $cstmt->fetchAll(PDO::FETCH_ASSOC);
   <form method="post" class="ajax mt-2" enctype="multipart/form-data">
     <input type="hidden" name="add_comment" value="<?= $t['id'] ?>">
     <div class="mb-2 position-relative">
-      <textarea name="comment" class="form-control form-control-sm ps-4" placeholder="Comment now" required></textarea>
+      <textarea name="comment" class="form-control form-control-sm ps-4 pe-5" placeholder="Comment now" required></textarea>
       <input type="file" name="files[]" multiple class="d-none" id="file-<?= $t['id'] ?>">
       <i class="bi bi-paperclip position-absolute top-0 start-0 m-1 upload-trigger" data-target="file-<?= $t['id'] ?>" style="cursor:pointer;"></i>
+      <button type="submit" class="btn p-0 border-0 position-absolute bottom-0 end-0 m-1 text-secondary"><i class="bi bi-arrow-right-circle"></i></button>
     </div>
-    <button type="submit" class="btn btn-secondary btn-sm">Comment</button>
   </form>
 </div>

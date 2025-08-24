@@ -164,6 +164,7 @@ function month_logs_html($pdo, $userId) {
     return ob_get_clean();
 }
 function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses = [], $archivedView = false) {
+    global $pdo;
     $today = date('Y-m-d');
     $overdue = $t['due_date'] < $today && $t['status'] !== 'done';
     $isSub = !empty($t['parent_id']);
@@ -268,6 +269,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
             </div>
           </form>
           <?php endif; ?>
+          <?php include __DIR__ . '/comments.php'; ?>
           <?php if(!$isSub): ?>
           <?php if(!$archivedView): ?>
           <hr class="my-3">
@@ -326,7 +328,6 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
           <?php endif; ?>
           <?php if(!$filterUser): ?>
           <?php
-          global $pdo;
           $childSql = 'SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id=?';
           $childSql .= $archivedView ? ' AND t.status="archived"' : ' AND t.status!="archived"';
           $params = [$t['id']];
