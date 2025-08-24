@@ -641,7 +641,7 @@ const recSelect = document.getElementById('editRecurrence');
 const intervalRow = modalEl.querySelector('.recurrence-interval');
 const daysRow = modalEl.querySelector('.recurrence-days');
 let activeTaskItem;
-let activeNextSibling;
+let activeIndex = -1;
 function updateRecurrenceFields(){
   const val = recSelect.value;
   intervalRow.classList.toggle('d-none', val !== 'interval');
@@ -660,7 +660,7 @@ document.getElementById('editQuickDate').addEventListener('change', function(){
 document.querySelectorAll('.edit-task-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     activeTaskItem = btn.closest('li');
-    activeNextSibling = activeTaskItem ? activeTaskItem.nextElementSibling : null;
+    activeIndex = activeTaskItem ? Array.from(activeTaskItem.parentNode.children).indexOf(activeTaskItem) : -1;
     document.getElementById('editTaskId').value = btn.dataset.id;
     document.getElementById('editDueDate').value = btn.dataset.due;
     document.getElementById('editAssigned').value = btn.dataset.user;
@@ -719,9 +719,11 @@ editForm.addEventListener('submit', async (e)=>{
       const nameNode = btn.previousSibling;
       if(nameNode) nameNode.textContent = userName + ' ';
       if(activeTaskItem && activeTaskItem.parentNode){
-        activeTaskItem.parentNode.insertBefore(activeTaskItem, activeNextSibling);
+        const parent = activeTaskItem.parentNode;
+        const refNode = parent.children[activeIndex] || null;
+        parent.insertBefore(activeTaskItem, refNode);
         activeTaskItem = null;
-        activeNextSibling = null;
+        activeIndex = -1;
       }
     }
     bootstrap.Modal.getInstance(modalEl).hide();
