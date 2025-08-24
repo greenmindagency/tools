@@ -683,6 +683,42 @@ document.querySelectorAll('.edit-task-btn').forEach(btn=>{
     new bootstrap.Modal(modalEl).show();
   });
 });
+
+// Submit edit form via AJAX to avoid page reload
+const editForm = modalEl.querySelector('form');
+editForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const fd = new FormData(editForm);
+  const res = await fetch('admin.php', {method:'POST', body:fd});
+  if(res.ok){
+    const id = fd.get('update_task');
+    const btn = document.querySelector(`.edit-task-btn[data-id="${id}"]`);
+    if(btn){
+      // Update button datasets with new values
+      const newDue = document.getElementById('editDueDate').value;
+      const newUser = document.getElementById('editAssigned').value;
+      btn.dataset.due = newDue;
+      btn.dataset.user = newUser;
+      const recVal = recSelect.value;
+      if(recVal === 'custom'){
+        const days = [...daysRow.querySelectorAll('input:checked')].map(cb=>cb.value).join(',');
+        btn.dataset.rec = 'custom:' + days;
+      } else if(recVal === 'interval'){
+        const cnt = document.getElementById('editIntervalCount').value || 1;
+        const unit = document.getElementById('editIntervalUnit').value;
+        btn.dataset.rec = `interval:${cnt}:${unit}`;
+      } else {
+        btn.dataset.rec = recVal;
+      }
+      // Update displayed username
+      const userName = document.getElementById('editAssigned').selectedOptions[0].textContent;
+      const nameNode = btn.previousSibling;
+      if(nameNode) nameNode.textContent = userName + ' ';
+    }
+    bootstrap.Modal.getInstance(modalEl).hide();
+    showToast('Task updated');
+  }
+});
 </script>
 
 <?php include __DIR__ . '/footer.php'; ?>
