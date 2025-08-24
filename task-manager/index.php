@@ -1011,12 +1011,16 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
         <?= render_task($t, $users, $clients, $filterUser, $userLoadClasses); ?>
         <?php endforeach; ?>
       </ul>
-      <h3 class="mb-4">Completed Tasks</h3>
-      <ul id="completed-list" class="list-group mb-4">
-        <?php foreach ($completedTasks as $t): ?>
-        <?= render_task($t, $users, $clients, $filterUser, $userLoadClasses); ?>
-        <?php endforeach; ?>
-      </ul>
+      <h3 class="mb-4">
+        <a class="text-decoration-none" data-bs-toggle="collapse" href="#completed-collapse" role="button" aria-expanded="false" aria-controls="completed-collapse">Completed Tasks</a>
+      </h3>
+      <div id="completed-collapse" class="collapse">
+        <ul id="completed-list" class="list-group mb-4">
+          <?php foreach ($completedTasks as $t): ?>
+          <?= render_task($t, $users, $clients, $filterUser, $userLoadClasses); ?>
+          <?php endforeach; ?>
+        </ul>
+      </div>
     <?php endif; ?>
 </div>
 </div>
