@@ -219,6 +219,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
             <div class="col-md-3">
               <select class="form-select quick-date">
                 <option value="">Quick date</option>
+                <option value="today">Today</option>
                 <option value="tomorrow">Tomorrow</option>
                 <option value="nextweek">Next Week</option>
                 <option value="nextmonth">Next Month</option>
@@ -286,6 +287,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
               <div class="col-md-3">
                 <select class="form-select quick-date">
                   <option value="">Quick date</option>
+                  <option value="today">Today</option>
                   <option value="tomorrow">Tomorrow</option>
                   <option value="nextweek">Next Week</option>
                   <option value="nextmonth">Next Month</option>
@@ -931,6 +933,7 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
         <div class="col-md-3">
           <select class="form-select quick-date">
             <option value="">Quick date</option>
+            <option value="today">Today</option>
             <option value="tomorrow">Tomorrow</option>
             <option value="nextweek">Next Week</option>
             <option value="nextmonth">Next Month</option>
@@ -1535,7 +1538,9 @@ document.querySelectorAll('.quick-date').forEach(sel=>{
     const now = new Date();
     const cairoNow = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Cairo' }));
     let target = new Date(cairoNow);
-    if(sel.value === 'tomorrow') {
+    if(sel.value === 'today') {
+      // target is already today
+    } else if(sel.value === 'tomorrow') {
       target.setDate(target.getDate() + 1);
     } else if(sel.value === 'nextweek') {
       const daysUntilSunday = (7 - target.getDay()) % 7 || 7;
@@ -1868,7 +1873,9 @@ function initTask(li){
       const now = new Date();
       const cairoNow = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Cairo' }));
       let target = new Date(cairoNow);
-      if(sel.value === 'tomorrow') {
+      if(sel.value === 'today') {
+        // target is already today
+      } else if(sel.value === 'tomorrow') {
         target.setDate(target.getDate() + 1);
       } else if(sel.value === 'nextweek') {
         const daysUntilSunday = (7 - target.getDay()) % 7 || 7;

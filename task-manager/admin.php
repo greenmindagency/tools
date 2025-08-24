@@ -600,6 +600,7 @@ include __DIR__ . '/header.php';
         <div class="mb-3">
           <select id="editQuickDate" class="form-select">
             <option value="">Quick date</option>
+            <option value="today">Today</option>
             <option value="tomorrow">Tomorrow</option>
             <option value="nextweek">Next Week</option>
             <option value="nextmonth">Next Month</option>
@@ -651,7 +652,9 @@ recSelect.addEventListener('change', updateRecurrenceFields);
 document.getElementById('editQuickDate').addEventListener('change', function(){
   const today = new Date();
   let d = new Date(today);
-  if(this.value==='tomorrow'){ d.setDate(today.getDate()+1); }
+  if(this.value==='today'){
+    // d remains today
+  } else if(this.value==='tomorrow'){ d.setDate(today.getDate()+1); }
   else if(this.value==='nextweek'){ d.setDate(today.getDate()+7); }
   else if(this.value==='nextmonth'){ d.setMonth(today.getMonth()+1); }
   document.getElementById('editDueDate').value = d.toISOString().slice(0,10);
