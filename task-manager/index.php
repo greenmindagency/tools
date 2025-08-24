@@ -196,13 +196,14 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
             <div class="mb-1">
               <?php if($archivedView): ?>
               <button type="button" class="btn btn-success btn-sm unarchive-btn" data-id="<?= $t['id'] ?>" title="Unarchive" data-bs-toggle="tooltip"><i class="bi bi-arrow-counterclockwise"></i></button>
-              <button type="button" class="btn btn-danger btn-sm delete-btn" data-id="<?= $t['id'] ?>" title="Delete" data-bs-toggle="tooltip"><i class="bi bi-trash"></i></button>
+              <button type="button" class="btn btn-danger btn-sm delete-btn" data-id="<?= $t['id'] ?>" title="Remove" data-bs-toggle="tooltip"><i class="bi bi-trash"></i></button>
               <?php else: ?>
               <button type="button" class="btn btn-success btn-sm save-btn d-none" data-id="<?= $t['id'] ?>" title="Save" data-bs-toggle="tooltip"><i class="bi bi-check"></i></button>
               <button type="button" class="btn btn-light btn-sm edit-btn" data-id="<?= $t['id'] ?>" title="Edit" data-bs-toggle="tooltip"><i class="bi bi-pencil"></i></button>
               <button type="button" class="btn btn-primary btn-sm add-subtask-toggle d-none" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>" title="Add Subtask"><i class="bi bi-plus-lg"></i></button>
               <button type="button" class="btn btn-secondary btn-sm duplicate-btn" data-id="<?= $t['id'] ?>" title="Duplicate" data-bs-toggle="tooltip"><i class="bi bi-files"></i></button>
               <button type="button" class="btn btn-warning btn-sm archive-btn" data-id="<?= $t['id'] ?>" title="Archive" data-bs-toggle="tooltip"><i class="bi bi-archive"></i></button>
+              <button type="button" class="btn btn-danger btn-sm delete-btn" data-id="<?= $t['id'] ?>" title="Remove" data-bs-toggle="tooltip"><i class="bi bi-trash"></i></button>
               <?php endif; ?>
             </div>
           </div>
@@ -1446,11 +1447,11 @@ document.querySelectorAll('.duplicate-btn').forEach(btn=>{
 
 document.querySelectorAll('.delete-btn').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
-    if(!confirm('Delete this task?')) return;
+    if(!confirm('Remove this task?')) return;
     const id = btn.dataset.id;
     await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'delete_task='+id});
     btn.closest('li').remove();
-    showToast('Task deleted');
+    showToast('Task removed');
   });
 });
 
@@ -1768,11 +1769,11 @@ function initTask(li){
 
   li.querySelectorAll('.delete-btn').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
-      if(!confirm('Delete this task?')) return;
+      if(!confirm('Remove this task?')) return;
       const id = btn.dataset.id;
       await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'delete_task='+id});
       btn.closest('li').remove();
-      showToast('Task deleted');
+      showToast('Task removed');
     });
   });
 
