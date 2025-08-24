@@ -1329,11 +1329,10 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
     }
     const todayList = document.getElementById('today-list');
     const upcomingList = document.getElementById('upcoming-list');
-    if(todayList && upcomingList){
-      if(newDate > todayStr){
-        upcomingList.appendChild(li);
-      } else {
-        todayList.appendChild(li);
+    if (todayList && upcomingList) {
+      const targetList = newDate > todayStr ? upcomingList : todayList;
+      if (li.parentElement !== targetList) {
+        targetList.appendChild(li);
       }
     }
   });
