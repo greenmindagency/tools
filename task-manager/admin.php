@@ -328,6 +328,19 @@ if ($logStart && $logEnd) {
     $logEntries = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+if (isset($_GET['export_attendance']) && $logStart && $logEnd) {
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="attendance-' . $logStart . '_to_' . $logEnd . '.csv"');
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['Date', 'User', 'Clock In', 'Clock Out', 'Duration']);
+    foreach ($logEntries as $l) {
+        $dur = $l['clock_out'] ? gmdate('H:i:s', strtotime($l['clock_out']) - strtotime($l['clock_in'])) : '';
+        fputcsv($out, [$l['log_date'], $l['username'], $l['clock_in'], $l['clock_out'], $dur]);
+    }
+    fclose($out);
+    exit;
+}
+
 $title = 'Task Manager - Admin';
 include __DIR__ . '/header.php';
 ?>
@@ -529,7 +542,8 @@ include __DIR__ . '/header.php';
           <?php endforeach; ?>
         </select>
       </div>
-      <div class="col-md-3"><button class="btn btn-primary w-100">Filter</button></div>
+      <div class="col-md-2"><button class="btn btn-primary w-100">Filter</button></div>
+      <div class="col-md-1"><button name="export_attendance" value="1" class="btn btn-success w-100">Export</button></div>
     </form>
     <table class="table table-striped">
       <thead><tr><th>Date</th><th>User</th><th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Actions</th></tr></thead>
