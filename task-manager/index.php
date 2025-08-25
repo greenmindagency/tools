@@ -739,6 +739,8 @@ try {
         $allStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,c.progress_percent AS client_percent,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id IS NULL'.$where.' '.$order);
         $allStmt->execute($params);
         $allTasks = $allStmt->fetchAll(PDO::FETCH_ASSOC);
+        $completedTasks = array_values(array_filter($allTasks, fn($t) => $t['status'] === 'done'));
+        $allTasks = array_values(array_filter($allTasks, fn($t) => $t['status'] !== 'done'));
     } elseif ($filterArchived) {
         $archivedStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,c.progress_percent AS client_percent FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE t.parent_id IS NULL'.$where.' '.$order);
         $archivedStmt->execute($params);
@@ -1001,6 +1003,16 @@ $myWeek = $weekCountsUser[$uid] ?? 0;
         <?= render_task($t, $users, $clients, $filterUser, $userLoadClasses); ?>
         <?php endforeach; ?>
       </ul>
+      <h3 class="mb-4">
+        <a class="text-decoration-none" data-bs-toggle="collapse" href="#completed-collapse" role="button" aria-expanded="false" aria-controls="completed-collapse">Completed Tasks</a>
+      </h3>
+      <div id="completed-collapse" class="collapse">
+        <ul id="completed-list" class="list-group mb-4">
+          <?php foreach ($completedTasks as $t): ?>
+          <?= render_task($t, $users, $clients, $filterUser, $userLoadClasses); ?>
+          <?php endforeach; ?>
+        </ul>
+      </div>
     <?php else: ?>
       <h3 class="mb-4">Today's & Overdue Tasks</h3>
       <ul id="today-list" class="list-group mb-4">
@@ -1217,6 +1229,7 @@ document.querySelectorAll('.complete-checkbox').forEach(cb=>{
     const completedList = document.getElementById('completed-list');
     const todayList = document.getElementById('today-list');
     const upcomingList = document.getElementById('upcoming-list');
+    const allList = document.getElementById('all-list');
     const todayStr = new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Cairo'}).format(new Date());
     if(/^\d{4}-\d{2}-\d{2}$/.test(text)){
       li.querySelector('.due-date').innerHTML = '<i class="bi bi-calendar-event me-1"></i>' + text;
@@ -1224,8 +1237,12 @@ document.querySelectorAll('.complete-checkbox').forEach(cb=>{
       cb.checked = false;
       li.classList.remove('opacity-50');
       if(completedList){
-        const target = text > todayStr ? upcomingList : todayList;
-        insertSorted(li, target);
+        if(allList){
+          insertSorted(li, allList);
+        } else {
+          const target = text > todayStr ? upcomingList : todayList;
+          insertSorted(li, target);
+        }
       }
     } else if(text === 'done') {
       li.classList.add('opacity-50');
@@ -1233,8 +1250,12 @@ document.querySelectorAll('.complete-checkbox').forEach(cb=>{
     } else if(text === 'pending') {
       li.classList.remove('opacity-50');
       if(completedList){
-        const target = li.dataset.dueDate > todayStr ? upcomingList : todayList;
-        insertSorted(li, target);
+        if(allList){
+          insertSorted(li, allList);
+        } else {
+          const target = li.dataset.dueDate > todayStr ? upcomingList : todayList;
+          insertSorted(li, target);
+        }
       }
     } else {
       li.classList.toggle('opacity-50', cb.checked);
@@ -1579,6 +1600,7 @@ function initTask(li){
       const completedList = document.getElementById('completed-list');
       const todayList = document.getElementById('today-list');
       const upcomingList = document.getElementById('upcoming-list');
+      const allList = document.getElementById('all-list');
       const todayStr = new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Cairo'}).format(new Date());
       if(/^\\d{4}-\\d{2}-\\d{2}$/.test(text)){
         liEl.querySelector('.due-date').innerHTML = '<i class="bi bi-calendar-event me-1"></i>' + text;
@@ -1586,8 +1608,12 @@ function initTask(li){
         cb.checked = false;
         liEl.classList.remove('opacity-50');
         if(completedList){
-          const target = text > todayStr ? upcomingList : todayList;
-          insertSorted(liEl, target);
+          if(allList){
+            insertSorted(liEl, allList);
+          } else {
+            const target = text > todayStr ? upcomingList : todayList;
+            insertSorted(liEl, target);
+          }
         }
       } else if(text === 'done'){
         liEl.classList.add('opacity-50');
@@ -1595,8 +1621,12 @@ function initTask(li){
       } else if(text === 'pending'){
         liEl.classList.remove('opacity-50');
         if(completedList){
-          const target = liEl.dataset.dueDate > todayStr ? upcomingList : todayList;
-          insertSorted(liEl, target);
+          if(allList){
+            insertSorted(liEl, allList);
+          } else {
+            const target = liEl.dataset.dueDate > todayStr ? upcomingList : todayList;
+            insertSorted(liEl, target);
+          }
         }
       } else {
         liEl.classList.toggle('opacity-50', cb.checked);
