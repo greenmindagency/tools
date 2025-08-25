@@ -201,6 +201,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
               <button type="button" class="btn btn-success btn-sm save-btn d-none" data-id="<?= $t['id'] ?>" title="Save" data-bs-toggle="tooltip"><i class="bi bi-check"></i></button>
               <button type="button" class="btn btn-light btn-sm edit-btn" data-id="<?= $t['id'] ?>" title="Edit" data-bs-toggle="tooltip"><i class="bi bi-pencil"></i></button>
               <button type="button" class="btn btn-primary btn-sm add-subtask-toggle d-none" data-bs-toggle="collapse" data-bs-target="#subtask-form-<?= $t['id'] ?>" title="Add Subtask"><i class="bi bi-plus-lg"></i></button>
+              <button type="button" class="btn btn-outline-secondary btn-sm share-btn" data-id="<?= $t['id'] ?>" title="Share" data-bs-toggle="tooltip"><i class="bi bi-share"></i></button>
               <button type="button" class="btn btn-secondary btn-sm duplicate-btn" data-id="<?= $t['id'] ?>" title="Duplicate" data-bs-toggle="tooltip"><i class="bi bi-files"></i></button>
               <button type="button" class="btn btn-warning btn-sm archive-btn" data-id="<?= $t['id'] ?>" title="Archive" data-bs-toggle="tooltip"><i class="bi bi-archive"></i></button>
               <button type="button" class="btn btn-danger btn-sm delete-btn" data-id="<?= $t['id'] ?>" title="Remove" data-bs-toggle="tooltip"><i class="bi bi-trash"></i></button>
@@ -675,6 +676,14 @@ try {
         $stmt->execute([$newId]);
         $task = $stmt->fetch(PDO::FETCH_ASSOC);
         echo render_task($task, $users, $clients, null, $userLoadClasses);
+        exit;
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['share_task'])) {
+        $id = (int)$_POST['share_task'];
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $base = $scheme . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['PHP_SELF'];
+        $url = $base . '?task=' . $id;
+        $short = @file_get_contents('https://tinyurl.com/api-create.php?url=' . urlencode($url));
+        echo $short ?: $url;
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reorder_subtasks'])) {
         $parentId = (int)($_POST['parent_id'] ?? 0);
@@ -1475,6 +1484,18 @@ document.querySelectorAll('.unarchive-btn').forEach(btn=>{
   });
 });
 
+document.querySelectorAll('.share-btn').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    const id = btn.dataset.id;
+    const res = await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'share_task='+id});
+    const url = (await res.text()).trim();
+    if(url){
+      await navigator.clipboard.writeText(url);
+      showToast('Link copied');
+    }
+  });
+});
+
 document.querySelectorAll('.duplicate-btn').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
     const id = btn.dataset.id;
@@ -1824,6 +1845,18 @@ function initTask(li){
     });
   });
 
+  li.querySelectorAll('.share-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.dataset.id;
+      const res = await fetch('index.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'share_task='+id});
+      const url = (await res.text()).trim();
+      if(url){
+        await navigator.clipboard.writeText(url);
+        showToast('Link copied');
+      }
+    });
+  });
+
   li.querySelectorAll('.duplicate-btn').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       const id = btn.dataset.id;
@@ -1927,6 +1960,14 @@ window.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
   document.querySelectorAll('.add-subtask-toggle').forEach(el => new bootstrap.Tooltip(el));
   new bootstrap.Tooltip(document.getElementById('addBtn'));
+  const tid = new URLSearchParams(window.location.search).get('task');
+  if(tid){
+    const collapse = document.getElementById('task-'+tid);
+    if(collapse){
+      new bootstrap.Collapse(collapse, {toggle:true});
+      document.querySelector(`[data-task-id="${tid}"]`)?.scrollIntoView({behavior:'smooth'});
+    }
+  }
 <?php if(isset($_GET['saved'])): ?>
   showToast('Order saved');
 <?php endif; ?>
