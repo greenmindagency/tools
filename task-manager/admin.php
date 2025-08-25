@@ -534,7 +534,7 @@ include __DIR__ . '/header.php';
       <input type="hidden" name="tab" value="attendance">
       <div class="col-md-3"><input type="date" name="start_date" class="form-control" value="<?= htmlspecialchars($logStart) ?>" required></div>
       <div class="col-md-3"><input type="date" name="end_date" class="form-control" value="<?= htmlspecialchars($logEnd) ?>" required></div>
-      <div class="col-md-3">
+      <div class="col-md-2">
         <select name="log_user" class="form-select">
           <option value="">All Users</option>
           <?php foreach ($users as $u): ?>
@@ -543,6 +543,7 @@ include __DIR__ . '/header.php';
         </select>
       </div>
       <div class="col-md-2"><button class="btn btn-primary w-100">Filter</button></div>
+      <div class="col-md-1"><button type="button" id="copyAttendance" class="btn btn-secondary w-100">Copy</button></div>
       <div class="col-md-1"><button name="export_attendance" value="1" class="btn btn-success w-100">Export</button></div>
     </form>
     <table class="table table-striped">
@@ -651,6 +652,23 @@ document.getElementById('saveClientOrder').addEventListener('click', ()=>{
   const order = Array.from(document.querySelectorAll('#client-list li')).map((el,idx)=>el.dataset.id+':'+idx).join(',');
   fetch('admin.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'reorder_clients=1&order='+order}).then(()=>location.reload());
 });
+const copyBtn = document.getElementById('copyAttendance');
+if(copyBtn){
+  copyBtn.addEventListener('click', ()=>{
+    let text = 'Date\tUser\tClock In\tClock Out\tDuration\n';
+    document.querySelectorAll('#attendance table tbody tr').forEach(row=>{
+      const cols = row.querySelectorAll('td');
+      text += [
+        cols[0].textContent.trim(),
+        cols[1].textContent.trim(),
+        cols[2].querySelector('input')?.value || '',
+        cols[3].querySelector('input')?.value || '',
+        cols[4].textContent.trim()
+      ].join('\t') + '\n';
+    });
+    navigator.clipboard.writeText(text).then(()=>showToast('Copied to clipboard'));
+  });
+}
 const modalEl = document.getElementById('editTaskModal');
 const recSelect = document.getElementById('editRecurrence');
 const intervalRow = modalEl.querySelector('.recurrence-interval');
