@@ -333,7 +333,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
           <?php if(!$filterUser): ?>
           <?php
           $childSql = 'SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id=?';
-          $childSql .= $archivedView ? ' AND t.status="archived"' : ' AND t.status!="archived"';
+          $childSql .= $archivedView ? ' AND t.status="archived"' : ' AND t.status!="archived" AND t.status!="done"';
           $params = [$t['id']];
           if ($filterUser) {
             $childSql .= ' AND t.assigned_to=?';
@@ -750,6 +750,10 @@ try {
         $allTasks = $allStmt->fetchAll(PDO::FETCH_ASSOC);
         $completedTasks = array_values(array_filter($allTasks, fn($t) => $t['status'] === 'done'));
         $allTasks = array_values(array_filter($allTasks, fn($t) => $t['status'] !== 'done'));
+        $completedSubStmt = $pdo->query('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,c.progress_percent AS client_percent,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id IS NOT NULL AND t.status="done" AND p.status!="archived" '.$order);
+        $completedSubs = $completedSubStmt->fetchAll(PDO::FETCH_ASSOC);
+        $completedTasks = array_merge($completedTasks, $completedSubs);
+        usort($completedTasks, fn($a,$b)=>strcmp($a['due_date'], $b['due_date']));
     } elseif ($filterArchived) {
         $archivedStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,c.progress_percent AS client_percent FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id WHERE t.parent_id IS NULL'.$where.' '.$order);
         $archivedStmt->execute($params);
