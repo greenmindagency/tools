@@ -171,7 +171,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
     $toggleAttr = ' data-bs-toggle="collapse" data-bs-target="#task-'.$t['id'].'"';
     ob_start();
     ?>
-    <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>" data-due-date="<?= htmlspecialchars($t['due_date']) ?>" data-recurrence="<?= htmlspecialchars($t['recurrence']) ?>"<?= $isSub ? ' data-parent-title="'.htmlspecialchars($t['parent_title']).'" data-sub-title="'.htmlspecialchars($t['title']).'"' : '' ?>>
+    <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>" data-due-date="<?= htmlspecialchars($t['due_date']) ?>" data-recurrence="<?= htmlspecialchars($t['recurrence']) ?>"<?= $isSub ? ' data-parent-id="'.$t['parent_id'].'" data-parent-title="'.htmlspecialchars($t['parent_title']).'" data-sub-title="'.htmlspecialchars($t['title']).'"' : '' ?>>
       <?php if(!$archivedView): ?>
       <form method="post" class="me-2 complete-form" data-bs-toggle="tooltip" title="Complete">
         <input type="hidden" name="toggle_complete" value="<?= $t['id'] ?>">
@@ -1243,6 +1243,8 @@ document.querySelectorAll('.complete-checkbox').forEach(cb=>{
     const todayList = document.getElementById('today-list');
     const upcomingList = document.getElementById('upcoming-list');
     const allList = document.getElementById('all-list');
+    const parentId = li.dataset.parentId;
+    const parentList = parentId ? document.querySelector(`ul.subtask-list[data-parent="${parentId}"]`) : null;
     const todayStr = new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Cairo'}).format(new Date());
     if(/^\d{4}-\d{2}-\d{2}$/.test(text)){
       li.querySelector('.due-date').innerHTML = '<i class="bi bi-calendar-event me-1"></i>' + text;
@@ -1250,7 +1252,9 @@ document.querySelectorAll('.complete-checkbox').forEach(cb=>{
       cb.checked = false;
       li.classList.remove('opacity-50');
       if(completedList){
-        if(allList){
+        if(parentList){
+          insertSorted(li, parentList);
+        } else if(allList){
           insertSorted(li, allList);
         } else {
           const target = text > todayStr ? upcomingList : todayList;
@@ -1263,7 +1267,9 @@ document.querySelectorAll('.complete-checkbox').forEach(cb=>{
     } else if(text === 'pending') {
       li.classList.remove('opacity-50');
       if(completedList){
-        if(allList){
+        if(parentList){
+          insertSorted(li, parentList);
+        } else if(allList){
           insertSorted(li, allList);
         } else {
           const target = li.dataset.dueDate > todayStr ? upcomingList : todayList;
@@ -1626,6 +1632,8 @@ function initTask(li){
       const todayList = document.getElementById('today-list');
       const upcomingList = document.getElementById('upcoming-list');
       const allList = document.getElementById('all-list');
+      const parentId = liEl.dataset.parentId;
+      const parentList = parentId ? document.querySelector(`ul.subtask-list[data-parent="${parentId}"]`) : null;
       const todayStr = new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Cairo'}).format(new Date());
       if(/^\\d{4}-\\d{2}-\\d{2}$/.test(text)){
         liEl.querySelector('.due-date').innerHTML = '<i class="bi bi-calendar-event me-1"></i>' + text;
@@ -1633,7 +1641,9 @@ function initTask(li){
         cb.checked = false;
         liEl.classList.remove('opacity-50');
         if(completedList){
-          if(allList){
+          if(parentList){
+            insertSorted(liEl, parentList);
+          } else if(allList){
             insertSorted(liEl, allList);
           } else {
             const target = text > todayStr ? upcomingList : todayList;
@@ -1646,7 +1656,9 @@ function initTask(li){
       } else if(text === 'pending'){
         liEl.classList.remove('opacity-50');
         if(completedList){
-          if(allList){
+          if(parentList){
+            insertSorted(liEl, parentList);
+          } else if(allList){
             insertSorted(liEl, allList);
           } else {
             const target = liEl.dataset.dueDate > todayStr ? upcomingList : todayList;
