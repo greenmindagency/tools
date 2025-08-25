@@ -27,6 +27,7 @@ $hideBreadcrumb = $hideBreadcrumb ?? false;
     .task-main[data-bs-target] { cursor: pointer; }
     .task-main .task-title-text { display: block; }
     .due-date { font-size: 0.8rem; margin-top: -2px; }
+    .task-focus-shadow { box-shadow: 0 0 10px rgba(13,110,253,.7); }
   </style>
 </head>
 <body>

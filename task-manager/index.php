@@ -1963,6 +1963,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const tid = new URLSearchParams(window.location.search).get('task');
   if(tid){
     const li = document.querySelector(`[data-task-id="${tid}"]`);
+    if(li){ li.classList.add('task-focus-shadow'); }
     const collapse = document.getElementById('task-'+tid);
     if(li && collapse){
       const scrollToTask = () => {
