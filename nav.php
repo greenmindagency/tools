@@ -67,6 +67,10 @@ $loggedIn = isset($_SESSION['is_admin']) || isset($_SESSION['client_id']) || !em
           <?php $active = strpos($current, '/task-manager/') !== false ? 'active' : ''; ?>
           <a class="nav-link <?= $active ?>" href="/tools/task-manager/">Task Manager</a>
         </li>
+        <li class="nav-item">
+          <?php $active = strpos($current, '/privacy-policy.php') !== false ? 'active' : ''; ?>
+          <a class="nav-link <?= $active ?>" href="/tools/privacy-policy.php">Privacy Policy</a>
+        </li>
       </ul>
     </div>
   </div>
