@@ -1126,25 +1126,50 @@ function renderCommentHTML(c){
 
 function bindCommentActions(scope=document){
   scope.querySelectorAll('.edit-comment').forEach(btn=>{
-    btn.addEventListener('click', async e=>{
+    btn.addEventListener('click', e=>{
       e.preventDefault();
-      const id = btn.dataset.id;
+      const item = btn.closest('.comment-item');
+      if(item.querySelector('.edit-area')) return;
       const current = btn.dataset.content;
-      const content = prompt('Edit comment', current);
-      if(content !== null && content.trim() !== ''){
+      const editor = document.createElement('div');
+      editor.className = 'mt-1 edit-area';
+      const ta = document.createElement('textarea');
+      ta.className = 'form-control form-control-sm mb-1';
+      ta.value = current;
+      editor.appendChild(ta);
+      const saveBtn = document.createElement('button');
+      saveBtn.type = 'button';
+      saveBtn.className = 'btn btn-sm btn-primary me-1';
+      saveBtn.textContent = 'Save';
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'btn btn-sm btn-secondary';
+      cancelBtn.textContent = 'Cancel';
+      editor.appendChild(saveBtn);
+      editor.appendChild(cancelBtn);
+      item.appendChild(editor);
+      ta.focus();
+
+      saveBtn.addEventListener('click', async()=>{
+        const content = ta.value.trim();
+        if(!content) return;
         const fd = new FormData();
-        fd.append('edit_comment', id);
-        fd.append('content', content.trim());
+        fd.append('edit_comment', btn.dataset.id);
+        fd.append('content', content);
         const res = await fetch('index.php', {method:'POST', body:fd});
         const data = await res.json();
         if(data.success){
-          const item = btn.closest('.comment-item');
           const name = item.querySelector('strong').textContent;
           item.querySelector('.comment-text').innerHTML = '<strong>'+escapeHtml(name)+'</strong> '+nl2br(escapeHtml(data.content));
           btn.dataset.content = data.content;
           showToast('Comment updated');
+          editor.remove();
         }
-      }
+      });
+
+      cancelBtn.addEventListener('click', ()=>{
+        editor.remove();
+      });
     });
   });
   scope.querySelectorAll('.delete-comment').forEach(btn=>{
