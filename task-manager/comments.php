@@ -6,6 +6,7 @@ $cstmt = $pdo->prepare('SELECT c.id, c.content, c.user_id, u.username FROM comme
 $cstmt->execute([$t['id']]);
 $comments = $cstmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
+<hr class="my-2">
 <div class="comments-wrapper">
   <div class="comments-list mb-2">
     <?php foreach ($comments as $cm): ?>
