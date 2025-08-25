@@ -1962,10 +1962,26 @@ window.addEventListener('DOMContentLoaded', () => {
   new bootstrap.Tooltip(document.getElementById('addBtn'));
   const tid = new URLSearchParams(window.location.search).get('task');
   if(tid){
+    const li = document.querySelector(`[data-task-id="${tid}"]`);
     const collapse = document.getElementById('task-'+tid);
-    if(collapse){
-      new bootstrap.Collapse(collapse, {toggle:true});
-      document.querySelector(`[data-task-id="${tid}"]`)?.scrollIntoView({behavior:'smooth'});
+    if(li && collapse){
+      const scrollToTask = () => {
+        const header = document.querySelector('.navbar');
+        const offset = header ? header.offsetHeight + 10 : 0;
+        const top = li.getBoundingClientRect().top + window.pageYOffset - offset;
+        window.scrollTo({top, behavior:'smooth'});
+      };
+      const openTask = () => {
+        collapse.addEventListener('shown.bs.collapse', scrollToTask, {once:true});
+        new bootstrap.Collapse(collapse, {toggle:true});
+      };
+      const parentCollapse = li.closest('.collapse');
+      if(parentCollapse && parentCollapse !== collapse && !parentCollapse.classList.contains('show')){
+        parentCollapse.addEventListener('shown.bs.collapse', openTask, {once:true});
+        new bootstrap.Collapse(parentCollapse, {toggle:true});
+      } else {
+        openTask();
+      }
     }
   }
 <?php if(isset($_GET['saved'])): ?>
