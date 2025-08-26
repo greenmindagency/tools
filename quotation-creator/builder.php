@@ -106,6 +106,7 @@ if(!$usdRate && $packages){
 .hide-egp .egp,
 .hide-egp .egp-header,
 .hide-egp .discount-row,
+.hide-egp .after-discount-row,
 .hide-egp .vat-row,
 .hide-egp .total-vat-row{
   display:none;
@@ -358,11 +359,13 @@ function updateTotals(table=currentTable){
     const discPerc=parseFloat(table.dataset.discount)||0;
     const discUsd=totals.usd*discPerc/100;
     const discEgp=totals.egp*discPerc/100;
+    const afterDiscountUsd=totals.usd-discUsd;
     const afterDiscountEgp=totals.egp-discEgp;
     const vat=afterDiscountEgp*0.14;
     tfoot.innerHTML=`<tr class="table-secondary fw-bold"><th colspan="3" class="text-end">Total</th><th class="usd bg-warning text-black text-center">$${formatNum(totals.usd)}</th><th class="egp bg-warning text-black text-center">EGP ${formatNum(totals.egp)}</th></tr>`;
     if(discPerc){
       tfoot.innerHTML+=`<tr class="discount-row"><th colspan="3" class="text-end">Discount ${discPerc}%</th><th class="usd text-center">-$${formatNum(discUsd)}</th><th class="egp text-center">-EGP ${formatNum(discEgp)}</th></tr>`;
+      tfoot.innerHTML+=`<tr class="after-discount-row"><th colspan="3" class="text-end">Total After Discount</th><th class="usd text-center">$${formatNum(afterDiscountUsd)}</th><th class="egp text-center">EGP ${formatNum(afterDiscountEgp)}</th></tr>`;
     }
     tfoot.innerHTML+=`<tr class="vat-row"><th colspan="3" class="text-end">VAT 14%</th><th></th><th class="egp text-center">EGP ${formatNum(vat)}</th></tr>`+
       `<tr class="total-vat-row"><th colspan="3" class="text-end">Total + VAT</th><th></th><th class="egp text-center">EGP ${formatNum(afterDiscountEgp+vat)}</th></tr>`;
