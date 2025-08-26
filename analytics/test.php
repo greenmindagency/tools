@@ -2,7 +2,7 @@
 // ===== Config (env first; falls back to config.php) =====
 $appId     = getenv('1110435834350823');
 $appSecret = getenv('186143e307a61f0df229592ef23c6fdd');
-$redirect  = getenv('https://greenmindagency.com/tools/privacy-policy.php');
+$redirect  = getenv('https://greenmindagency.com/tools/analytics/test.php');
 
 if (!$appId || !$appSecret || !$redirect) {
   $cfg = @include __DIR__ . '/config.php';
