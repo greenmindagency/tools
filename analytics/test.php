@@ -21,13 +21,7 @@ if (!$appId || !$appSecret || !$redirect) {
 }
 
 $scopes = [
-  'public_profile',
-  'pages_show_list',
-  'pages_read_engagement',
-  'read_insights',
-  'instagram_basic',
-  'instagram_manage_insights',
-  // add 'ads_read' if you’ll query ads later
+  'email',
 ];
 
 session_start();
