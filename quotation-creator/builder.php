@@ -105,6 +105,7 @@ if(!$usdRate && $packages){
 /* hide egp column when toggle class present */
 .hide-egp .egp,
 .hide-egp .egp-header,
+.hide-egp .discount-row,
 .hide-egp .vat-row,
 .hide-egp .total-vat-row{
   display:none;
@@ -122,6 +123,7 @@ if(!$usdRate && $packages){
 .content-toolbar{display:flex;justify-content:flex-end;gap:2px;margin-bottom:4px;}
 .remove-row-btn{display:block;margin-top:4px;}
 .vat-row .egp{background:#eb8a94!important;color:#000!important;}
+.discount-row .egp{background:#ffe599!important;color:#000!important;}
 .total-vat-row .egp{background:#5edf9f!important;color:#000!important;}
 </style>
 
@@ -249,6 +251,19 @@ const colgroupTemplate=`<colgroup>
   <col style="width:12%">
 </colgroup>`;
 
+function setDiscount(table){
+  const current=table.dataset.discount||'';
+  const val=prompt('Enter discount percentage',current);
+  if(val===null) return;
+  const num=parseFloat(val);
+  if(!isNaN(num) && num>0){
+    table.dataset.discount=num;
+  }else{
+    delete table.dataset.discount;
+  }
+  updateTotals(table);
+}
+
 function createTable(){
   const table=document.createElement('table');
   table.className='table table-bordered quote-table mb-5';
@@ -257,6 +272,7 @@ function createTable(){
       <div class="d-flex justify-content-between align-items-center">
         <div>
           <button class="btn btn-sm btn-success add-pack-btn me-1">&#43;</button>
+          <button class="btn btn-sm btn-warning add-discount-btn me-1">%</button>
           <span class="table-handle" style="cursor:move">&#9776;</span>
         </div>
         <button class="btn btn-sm btn-danger remove-table-btn">&minus;</button>
@@ -282,6 +298,7 @@ function createTable(){
     currentTable=table;
     showPackageSelector(e.currentTarget);
   });
+  table.querySelector('.add-discount-btn').addEventListener('click',()=>setDiscount(table));
   currentTable=table;
   return table;
 }
@@ -311,7 +328,7 @@ function addRow(service, desc, usd, egp, table=currentTable){
   const tr=document.createElement('tr');
   const term='one-time';
   const initEgp = usdToEgp ? roundEgp(usd*usdToEgp) : egp;
-  tr.innerHTML='<td><strong>'+cleanServiceName(service)+'</strong><br><button class="btn btn-sm btn-danger mt-1 remove-row-btn">&times;</button></td>'+
+  tr.innerHTML='<td><strong class="service-name" contenteditable="true">'+cleanServiceName(service)+'</strong><br><button class="btn btn-sm btn-danger mt-1 remove-row-btn">&times;</button></td>'+
     '<td contenteditable="true">'+desc.replace(/\n/g,'<br>')+'</td>'+
     '<td class="text-center"><select class="form-select form-select-sm term-select"><option value="one-time">One-time</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></td>'+
     '<td class="usd text-center" contenteditable="true" data-usd="'+usd+'">$'+formatNum(usd)+'</td>'+
@@ -338,10 +355,17 @@ function updateTotals(table=currentTable){
   const tfoot=table.querySelector('tfoot');
   tfoot.innerHTML='';
   if(totals.usd!==0 || totals.egp!==0){
-    const vat=totals.egp*0.14;
-    tfoot.innerHTML=`<tr class="table-secondary fw-bold"><th colspan="3" class="text-end">Total</th><th class="usd bg-warning text-black text-center">$${formatNum(totals.usd)}</th><th class="egp bg-warning text-black text-center">EGP ${formatNum(totals.egp)}</th></tr>`+
-      `<tr class="vat-row"><th colspan="3" class="text-end">VAT 14%</th><th></th><th class="egp text-center">EGP ${formatNum(vat)}</th></tr>`+
-      `<tr class="total-vat-row"><th colspan="3" class="text-end">Total + VAT</th><th></th><th class="egp text-center">EGP ${formatNum(totals.egp+vat)}</th></tr>`;
+    const discPerc=parseFloat(table.dataset.discount)||0;
+    const discUsd=totals.usd*discPerc/100;
+    const discEgp=totals.egp*discPerc/100;
+    const afterDiscountEgp=totals.egp-discEgp;
+    const vat=afterDiscountEgp*0.14;
+    tfoot.innerHTML=`<tr class="table-secondary fw-bold"><th colspan="3" class="text-end">Total</th><th class="usd bg-warning text-black text-center">$${formatNum(totals.usd)}</th><th class="egp bg-warning text-black text-center">EGP ${formatNum(totals.egp)}</th></tr>`;
+    if(discPerc){
+      tfoot.innerHTML+=`<tr class="discount-row"><th colspan="3" class="text-end">Discount ${discPerc}%</th><th class="usd text-center">-$${formatNum(discUsd)}</th><th class="egp text-center">-EGP ${formatNum(discEgp)}</th></tr>`;
+    }
+    tfoot.innerHTML+=`<tr class="vat-row"><th colspan="3" class="text-end">VAT 14%</th><th></th><th class="egp text-center">EGP ${formatNum(vat)}</th></tr>`+
+      `<tr class="total-vat-row"><th colspan="3" class="text-end">Total + VAT</th><th></th><th class="egp text-center">EGP ${formatNum(afterDiscountEgp+vat)}</th></tr>`;
   }
   if(table.querySelectorAll('tbody tr').length===0){
     table.remove();
@@ -497,7 +521,7 @@ function restoreExisting(){
     const thead=table.querySelector('thead');
     const headRow=document.createElement('tr');
     headRow.className='bg-light';
-    headRow.innerHTML='<th colspan="5"><div class="d-flex justify-content-between align-items-center"><div><button class="btn btn-sm btn-success add-pack-btn me-1">&#43;</button><span class="table-handle" style="cursor:move">&#9776;</span></div><button class="btn btn-sm btn-danger remove-table-btn">&minus;</button></div></th>';
+    headRow.innerHTML='<th colspan="5"><div class="d-flex justify-content-between align-items-center"><div><button class="btn btn-sm btn-success add-pack-btn me-1">&#43;</button><button class="btn btn-sm btn-warning add-discount-btn me-1">%</button><span class="table-handle" style="cursor:move">&#9776;</span></div><button class="btn btn-sm btn-danger remove-table-btn">&minus;</button></div></th>';
     thead.prepend(headRow);
     const headerCells=thead.querySelectorAll('tr:nth-child(2) th');
     if(headerCells[3]) {
@@ -507,6 +531,7 @@ function restoreExisting(){
     if(headerCells[4]) headerCells[4].classList.add('egp-header');
     headRow.querySelector('.remove-table-btn').addEventListener('click',()=>{table.remove();currentTable=tablesContainer.querySelector("table.quote-table");});
     headRow.querySelector('.add-pack-btn').addEventListener('click',(e)=>{e.stopPropagation();currentTable=table;showPackageSelector(e.currentTarget);});
+    headRow.querySelector('.add-discount-btn').addEventListener('click',()=>setDiscount(table));
     new Sortable(table.querySelector('tbody'),{
       animation:150,
       group:'rows',
@@ -518,7 +543,7 @@ function restoreExisting(){
     table.querySelectorAll('tbody tr').forEach(tr=>{
       tr.cells[1].setAttribute('contenteditable','true');
       const serviceCell=tr.cells[0];
-      serviceCell.innerHTML = '<strong>'+cleanServiceName(serviceCell.textContent.trim())+'</strong><br>';
+      serviceCell.innerHTML = '<strong class="service-name" contenteditable="true">'+cleanServiceName(serviceCell.textContent.trim())+'</strong><br>';
       const removeBtn=document.createElement('button');
       removeBtn.className='btn btn-sm btn-danger mt-1 remove-row-btn';
       removeBtn.innerHTML='&times;';
