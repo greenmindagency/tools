@@ -1,8 +1,10 @@
 <?php
 // ===== Config (env first; falls back to config.php) =====
-$appId     = getenv('1110435834350823');
-$appSecret = getenv('186143e307a61f0df229592ef23c6fdd');
-$redirect  = getenv('https://greenmindagency.com/tools/analytics/test.php');
+// Expect standard env var names to be defined in the runtime environment.
+// e.g. META_APP_ID, META_APP_SECRET, META_REDIRECT_URI
+$appId     = getenv('META_APP_ID');
+$appSecret = getenv('META_APP_SECRET');
+$redirect  = getenv('META_REDIRECT_URI');
 
 if (!$appId || !$appSecret || !$redirect) {
   $cfg = @include __DIR__ . '/config.php';
@@ -111,15 +113,14 @@ if (empty($pagesResp['data'])) {
 }
 
 echo "<h2>Your Facebook Pages</h2>";
-echo "<ul>";
+echo "<table border='1' cellpadding='5'><tr><th>Page Name</th><th>Page ID</th><th>IG Username</th><th>IG ID</th></tr>";
 foreach ($pagesResp['data'] as $p) {
   $pName = h($p['name'] ?? '');
   $pId   = h($p['id'] ?? '');
-  echo "<li><strong>{$pName}</strong> (ID: {$pId})";
+  $igU = $igId = '';
 
   if (!empty($p['access_token'])) {
     $pageToken = $p['access_token'];
-
     // fetch connected IG business account (if any)
     $ig = http_get_json("https://graph.facebook.com/v23.0/{$p['id']}?" . http_build_query([
       'fields'       => 'instagram_business_account{id,username}',
@@ -127,26 +128,13 @@ foreach ($pagesResp['data'] as $p) {
     ]));
 
     if (!empty($ig['instagram_business_account']['id'])) {
-      $igId  = h($ig['instagram_business_account']['id']);
-      $igU   = h($ig['instagram_business_account']['username'] ?? '');
-      echo " — IG linked: {$igU} (IG ID: {$igId})";
-
-      // (optional) example IG insights call you can try next:
-      $sampleIgInsights = "https://graph.facebook.com/v23.0/{$ig['instagram_business_account']['id']}/insights?metric=impressions,reach,profile_views&period=day&access_token=" . urlencode($pageToken);
-      echo " — <a target=\"_blank\" href=\"" . h($sampleIgInsights) . "\">Try IG insights (JSON)</a>";
-    } else {
-      echo " — No IG business account linked.";
+      $igId = h($ig['instagram_business_account']['id']);
+      $igU  = h($ig['instagram_business_account']['username'] ?? '');
     }
-
-    // (optional) example Page insights link:
-    $samplePageInsights = "https://graph.facebook.com/v23.0/{$p['id']}/insights?metric=page_impressions,page_posts_impressions,page_engaged_users&period=day&access_token=" . urlencode($pageToken);
-    echo " — <a target=\"_blank\" href=\"" . h($samplePageInsights) . "\">Try Page insights (JSON)</a>";
-  } else {
-    echo " — Missing Page access token.";
   }
 
-  echo "</li>";
+  echo "<tr><td>{$pName}</td><td>{$pId}</td><td>{$igU}</td><td>{$igId}</td></tr>";
 }
-echo "</ul>";
+echo "</table>";
 
 echo "<hr><p>If you see permission errors (#200/#190), ensure you requested: pages_show_list, pages_read_engagement, read_insights, instagram_basic, instagram_manage_insights (and that IG is Business & linked to the Page).</p>";
