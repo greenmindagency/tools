@@ -21,6 +21,7 @@ if (!$appId || !$appSecret || !$redirect) {
 }
 
 $scopes = [
+  'public_profile',
   'email',
 ];
 
