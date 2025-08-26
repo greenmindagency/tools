@@ -114,26 +114,86 @@ if (empty($pagesResp['data'])) {
 
 echo "<h2>Your Facebook Pages</h2>";
 echo "<table border='1' cellpadding='5'><tr><th>Page Name</th><th>Page ID</th><th>IG Username</th><th>IG ID</th></tr>";
+$pageData = [];
 foreach ($pagesResp['data'] as $p) {
-  $pName = h($p['name'] ?? '');
-  $pId   = h($p['id'] ?? '');
+  $pName = $p['name'] ?? '';
+  $pId   = $p['id'] ?? '';
   $igU = $igId = '';
+  $pageToken = $p['access_token'] ?? '';
 
-  if (!empty($p['access_token'])) {
-    $pageToken = $p['access_token'];
+  if ($pageToken) {
     // fetch connected IG business account (if any)
-    $ig = http_get_json("https://graph.facebook.com/v23.0/{$p['id']}?" . http_build_query([
+    $ig = http_get_json("https://graph.facebook.com/v23.0/{$pId}?" . http_build_query([
       'fields'       => 'instagram_business_account{id,username}',
       'access_token' => $pageToken,
     ]));
 
     if (!empty($ig['instagram_business_account']['id'])) {
-      $igId = h($ig['instagram_business_account']['id']);
-      $igU  = h($ig['instagram_business_account']['username'] ?? '');
+      $igId = $ig['instagram_business_account']['id'];
+      $igU  = $ig['instagram_business_account']['username'] ?? '';
     }
   }
 
-  echo "<tr><td>{$pName}</td><td>{$pId}</td><td>{$igU}</td><td>{$igId}</td></tr>";
+  echo "<tr><td>" . h($pName) . "</td><td>" . h($pId) . "</td><td>" . h($igU) . "</td><td>" . h($igId) . "</td></tr>";
+  $pageData[] = [
+    'id' => $pId,
+    'name' => $pName,
+    'token' => $pageToken,
+    'ig_id' => $igId,
+    'ig_user' => $igU,
+  ];
+}
+echo "</table>";
+
+$since = date('Y-m-d', strtotime('first day of last month'));
+$until = date('Y-m-d', strtotime('last day of last month'));
+
+echo "<h2>Facebook Analytics (Last Month)</h2>";
+echo "<table border='1' cellpadding='5'><tr><th>Page Name</th><th>Impressions</th><th>Engagements</th></tr>";
+foreach ($pageData as $pd) {
+  $impr = $eng = 0;
+  if ($pd['token']) {
+    $ins = http_get_json("https://graph.facebook.com/v23.0/{$pd['id']}/insights?" . http_build_query([
+      'metric'       => 'page_impressions,page_post_engagements',
+      'period'       => 'day',
+      'since'        => $since,
+      'until'        => $until,
+      'access_token' => $pd['token'],
+    ]));
+    foreach ($ins['data'] ?? [] as $m) {
+      if ($m['name'] === 'page_impressions') {
+        foreach ($m['values'] as $v) { $impr += $v['value']; }
+      } elseif ($m['name'] === 'page_post_engagements') {
+        foreach ($m['values'] as $v) { $eng += $v['value']; }
+      }
+    }
+  }
+  echo "<tr><td>" . h($pd['name']) . "</td><td>" . h($impr) . "</td><td>" . h($eng) . "</td></tr>";
+}
+echo "</table>";
+
+echo "<h2>Instagram Analytics (Last Month)</h2>";
+echo "<table border='1' cellpadding='5'><tr><th>IG Username</th><th>Impressions</th><th>Reach</th><th>Profile Views</th></tr>";
+foreach ($pageData as $pd) {
+  if (!$pd['ig_id'] || !$pd['token']) { continue; }
+  $imp = $rch = $pv = 0;
+  $ins = http_get_json("https://graph.facebook.com/v23.0/{$pd['ig_id']}/insights?" . http_build_query([
+    'metric'       => 'impressions,reach,profile_views',
+    'period'       => 'day',
+    'since'        => $since,
+    'until'        => $until,
+    'access_token' => $pd['token'],
+  ]));
+  foreach ($ins['data'] ?? [] as $m) {
+    if ($m['name'] === 'impressions') {
+      foreach ($m['values'] as $v) { $imp += $v['value']; }
+    } elseif ($m['name'] === 'reach') {
+      foreach ($m['values'] as $v) { $rch += $v['value']; }
+    } elseif ($m['name'] === 'profile_views') {
+      foreach ($m['values'] as $v) { $pv += $v['value']; }
+    }
+  }
+  echo "<tr><td>" . h($pd['ig_user']) . "</td><td>" . h($imp) . "</td><td>" . h($rch) . "</td><td>" . h($pv) . "</td></tr>";
 }
 echo "</table>";
 
