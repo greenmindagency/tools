@@ -1,5 +1,11 @@
 <?php
 require_once __DIR__ . '/config.php';
+
+// Ensure the latest version of the quote is always served
+header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
+
 $slug = $_GET['client'] ?? '';
 $pdo->exec("CREATE TABLE IF NOT EXISTS clients (
     id INT AUTO_INCREMENT PRIMARY KEY,
