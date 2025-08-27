@@ -1215,8 +1215,27 @@ document.querySelectorAll('form.ajax').forEach(f=>{
       showToast('Task added');
       location.reload();
     } else if (fd.has('add_comment')) {
-      const res = await fetch('index.php', {method:'POST', body:fd});
-      const data = await res.json();
+      const barWrap = f.querySelector('.upload-progress');
+      if (barWrap) barWrap.classList.remove('d-none');
+      const data = await new Promise((resolve, reject)=>{
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST','index.php');
+        xhr.upload.addEventListener('progress', e=>{
+          if (e.lengthComputable && barWrap) {
+            const percent = (e.loaded / e.total) * 100;
+            barWrap.querySelector('.progress-bar').style.width = percent + '%';
+          }
+        });
+        xhr.onload = ()=>{
+          if (barWrap) {
+            barWrap.classList.add('d-none');
+            barWrap.querySelector('.progress-bar').style.width = '0%';
+          }
+          resolve(JSON.parse(xhr.responseText));
+        };
+        xhr.onerror = reject;
+        xhr.send(fd);
+      });
       const list = f.parentElement.querySelector('.comments-list');
       list.insertAdjacentHTML('beforeend', renderCommentHTML(data));
       bindCommentActions(list.lastElementChild);
