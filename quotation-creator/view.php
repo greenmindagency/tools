@@ -59,7 +59,10 @@ if(!$shortUrl){
 html,body{transition:font-size .2s;}
 .content-block{border:1px dashed #ccc;padding:10px;min-height:60px;margin-bottom:1rem;}
 .vat-row .egp{background:#eb8a94!important;color:#000!important;}
-.discount-row .egp{background:#ffe599!important;color:#000!important;}
+.discount-row .egp,
+.discount-row .usd{background:#ffe599!important;color:#000!important;}
+.after-discount-row .egp,
+.after-discount-row .usd{background:#cff4fc!important;color:#000!important;}
 .total-vat-row .egp{background:#5edf9f!important;color:#000!important;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>

@@ -124,7 +124,10 @@ if(!$usdRate && $packages){
 .content-toolbar{display:flex;justify-content:flex-end;gap:2px;margin-bottom:4px;}
 .remove-row-btn{display:block;margin-top:4px;}
 .vat-row .egp{background:#eb8a94!important;color:#000!important;}
-.discount-row .egp{background:#ffe599!important;color:#000!important;}
+.discount-row .egp,
+.discount-row .usd{background:#ffe599!important;color:#000!important;}
+.after-discount-row .egp,
+.after-discount-row .usd{background:#cff4fc!important;color:#000!important;}
 .total-vat-row .egp{background:#5edf9f!important;color:#000!important;}
 </style>
 
