@@ -696,6 +696,12 @@ try {
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_task'])) {
         $id = (int)$_POST['delete_task'];
+        $fstmt = $pdo->prepare('SELECT cf.file_path FROM comment_files cf JOIN comments c ON cf.comment_id=c.id WHERE c.task_id=?');
+        $fstmt->execute([$id]);
+        $paths = $fstmt->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($paths as $p) {
+            @unlink(__DIR__ . '/uploads/' . $p);
+        }
         $stmt = $pdo->prepare('DELETE FROM tasks WHERE id=?');
         $stmt->execute([$id]);
         exit;
@@ -1125,6 +1131,12 @@ function renderCommentHTML(c){
 }
 
 function bindCommentActions(scope=document){
+  scope.querySelectorAll('.upload-trigger').forEach(icon=>{
+    icon.addEventListener('click', ()=>{
+      const target = document.getElementById(icon.dataset.target);
+      if (target) target.click();
+    });
+  });
   scope.querySelectorAll('.edit-comment').forEach(btn=>{
     btn.addEventListener('click', e=>{
       e.preventDefault();
@@ -1239,13 +1251,6 @@ document.querySelectorAll('form.ajax').forEach(f=>{
     } else {
       await fetch('index.php', {method:'POST', body:fd});
     }
-  });
-});
-
-document.querySelectorAll('.upload-trigger').forEach(icon=>{
-  icon.addEventListener('click', ()=>{
-    const target = document.getElementById(icon.dataset.target);
-    target?.click();
   });
 });
 

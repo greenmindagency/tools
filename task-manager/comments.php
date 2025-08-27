@@ -37,7 +37,7 @@ $comments = $cstmt->fetchAll(PDO::FETCH_ASSOC);
     <div class="mb-2 position-relative">
       <textarea name="comment" class="form-control form-control-sm ps-4" style="padding-right:5rem;" placeholder="Comment now" required></textarea>
       <input type="file" name="files[]" multiple class="d-none" id="file-<?= $t['id'] ?>">
-      <i class="bi bi-paperclip position-absolute top-0 start-0 m-1 upload-trigger" data-target="file-<?= $t['id'] ?>" style="cursor:pointer;"></i>
+      <i class="bi bi-paperclip position-absolute top-0 start-0 m-1 upload-trigger" data-target="file-<?= $t['id'] ?>" style="cursor:pointer; z-index:10;"></i>
       <button type="submit" class="btn btn-sm btn-primary position-absolute bottom-0 end-0 m-1">Comment</button>
     </div>
   </form>
