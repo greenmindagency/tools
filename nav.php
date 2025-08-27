@@ -57,7 +57,7 @@ $loggedIn = isset($_SESSION['is_admin']) || isset($_SESSION['client_id']) || !em
         </li>
         <li class="nav-item">
           <?php $active = strpos($current, '/seo-platform/') !== false ? 'active' : ''; ?>
-          <a class="nav-link <?= $active ?>" href="/tools/seo-platform/login.php">SEO Platform</a>
+          <a class="nav-link <?= $active ?>" href="/tools/seo-platform/">SEO Platform</a>
         </li>
         <li class="nav-item">
           <?php $active = strpos($current, '/wordprseo-website-builder/') !== false ? 'active' : ''; ?>
