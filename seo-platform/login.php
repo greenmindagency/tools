@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once __DIR__ . '/session.php';
 require 'config.php';
 $error = '';
 $pdo->exec("ALTER TABLE clients ADD COLUMN IF NOT EXISTS username VARCHAR(255)");

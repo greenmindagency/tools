@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once __DIR__ . '/session.php';
 if (!($_SESSION['is_admin'] ?? false) && empty($_SESSION['client_ids']) && !isset($_SESSION['client_id'])) {
     header('Location: login.php');
     exit;

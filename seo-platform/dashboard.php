@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once __DIR__ . '/session.php';
 require 'config.php';
 $pdo->exec("ALTER TABLE keywords ADD COLUMN IF NOT EXISTS priority VARCHAR(10) DEFAULT ''");
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');

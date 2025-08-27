@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once __DIR__ . '/session.php';
 require 'config.php';
 
 $client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : 0;
