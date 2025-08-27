@@ -40,6 +40,7 @@ $comments = $cstmt->fetchAll(PDO::FETCH_ASSOC);
       <i class="bi bi-paperclip position-absolute top-0 start-0 m-1 upload-trigger" data-target="file-<?= $t['id'] ?>" style="cursor:pointer; z-index:10;"></i>
       <button type="submit" class="btn btn-sm btn-primary position-absolute bottom-0 end-0 m-1">Comment</button>
     </div>
+    <div class="selected-files small mt-1"></div>
     <div class="progress upload-progress mt-1 d-none" style="height:4px;">
       <div class="progress-bar" role="progressbar" style="width:0%"></div>
     </div>

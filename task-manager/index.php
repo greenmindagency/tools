@@ -1130,11 +1130,40 @@ function renderCommentHTML(c){
     `</div>`;
 }
 
+function renderSelectedFiles(input){
+  const wrap = input.closest('form').querySelector('.selected-files');
+  const dt = input._dt;
+  if(!wrap) return;
+  if(!dt || !dt.files.length){
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.innerHTML = '<ul class="list-inline mb-1">'+
+    Array.from(dt.files).map((f,i)=>`<li class="list-inline-item">${escapeHtml(f.name)} <button type="button" class="btn-close btn-close-sm ms-1 remove-file" data-index="${i}" aria-label="Remove"></button></li>`).join('')+
+    '</ul>';
+  wrap.querySelectorAll('.remove-file').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const index = parseInt(btn.dataset.index);
+      dt.items.remove(index);
+      input.files = dt.files;
+      renderSelectedFiles(input);
+    });
+  });
+}
+
 function bindCommentActions(scope=document){
   scope.querySelectorAll('.upload-trigger').forEach(icon=>{
     icon.addEventListener('click', ()=>{
       const target = document.getElementById(icon.dataset.target);
       if (target) target.click();
+    });
+  });
+  scope.querySelectorAll('input[type="file"]').forEach(inp=>{
+    inp._dt = new DataTransfer();
+    inp.addEventListener('change', ()=>{
+      for(const file of inp.files){ inp._dt.items.add(file); }
+      inp.files = inp._dt.files;
+      renderSelectedFiles(inp);
     });
   });
   scope.querySelectorAll('.edit-comment').forEach(btn=>{
@@ -1240,6 +1269,13 @@ document.querySelectorAll('form.ajax').forEach(f=>{
       list.insertAdjacentHTML('beforeend', renderCommentHTML(data));
       bindCommentActions(list.lastElementChild);
       f.reset();
+      const fileInput = f.querySelector('input[type="file"]');
+      if (fileInput) {
+        fileInput._dt = new DataTransfer();
+        fileInput.files = fileInput._dt.files;
+      }
+      const selected = f.querySelector('.selected-files');
+      if (selected) selected.innerHTML = '';
       showToast('Comment added');
     } else if (fd.has('clock_in')) {
       const res = await fetch('index.php', {method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'}});
