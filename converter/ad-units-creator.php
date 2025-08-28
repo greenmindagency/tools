@@ -3,46 +3,41 @@ $title = 'GAM Ad Units Creator';
 include 'header.php';
 ?>
 <style>
-  table input { width: 100%; border: none; background: transparent; }
+  table input, table textarea { width: 100%; border: none; background: transparent; }
 </style>
-<form method="post">
-  <table id="inputTable" class="table table-bordered">
+<form method="post" id="adForm">
+  <table class="table table-bordered">
     <thead>
-      <tr><th>Parent</th><th>Path</th><th>Name</th><th></th></tr>
+      <tr><th>Parent</th><th>Paths (one per line)</th><th>Names (one per line)</th></tr>
     </thead>
     <tbody>
       <tr>
-        <td><input type="text" name="parent[]" class="form-control" value="<?php echo isset($_POST['parent'][0]) ? htmlspecialchars($_POST['parent'][0]) : ''; ?>"></td>
-        <td><input type="text" name="path[]" class="form-control" value="<?php echo isset($_POST['path'][0]) ? htmlspecialchars($_POST['path'][0]) : ''; ?>"></td>
-        <td><input type="text" name="name[]" class="form-control" value="<?php echo isset($_POST['name'][0]) ? htmlspecialchars($_POST['name'][0]) : ''; ?>"></td>
-        <td><button type="button" class="btn btn-outline-secondary" onclick="addRow(this)">+</button></td>
+        <td><input type="text" name="parent" class="form-control" value="<?php echo isset($_POST['parent']) ? htmlspecialchars($_POST['parent']) : ''; ?>"></td>
+        <td><textarea name="paths" class="form-control" rows="10"><?php echo isset($_POST['paths']) ? htmlspecialchars($_POST['paths']) : ''; ?></textarea></td>
+        <td><textarea name="names" class="form-control" rows="10"><?php echo isset($_POST['names']) ? htmlspecialchars($_POST['names']) : ''; ?></textarea></td>
       </tr>
     </tbody>
   </table>
   <button type="submit" class="btn btn-primary">Generate</button>
 </form>
 <script>
-function addRow(btn) {
-  const tr = btn.closest('tr');
-  const clone = tr.cloneNode(true);
-  const parentVal = tr.querySelector('input[name="parent[]"]').value;
-  clone.querySelectorAll('input').forEach(i => i.value = '');
-  clone.querySelector('input[name="parent[]"]').value = parentVal;
-  const button = clone.querySelector('button');
-  button.textContent = '-';
-  button.classList.replace('btn-outline-secondary', 'btn-outline-danger');
-  button.setAttribute('onclick', 'removeRow(this)');
-  tr.parentNode.appendChild(clone);
+const parentInput = document.querySelector('input[name="parent"]');
+const pathsInput = document.querySelector('textarea[name="paths"]');
+const namesInput = document.querySelector('textarea[name="names"]');
+function saveInputs() {
+  localStorage.setItem('auc_parent', parentInput.value);
+  localStorage.setItem('auc_paths', pathsInput.value);
+  localStorage.setItem('auc_names', namesInput.value);
 }
-function removeRow(btn) {
-  const tr = btn.closest('tr');
-  const tbody = tr.parentNode;
-  if (tbody.children.length === 1) {
-    tr.querySelectorAll('input').forEach(i => i.value = '');
-    return;
-  }
-  tr.remove();
-}
+[parentInput, pathsInput, namesInput].forEach(el => el.addEventListener('input', saveInputs));
+window.addEventListener('load', () => {
+  const p = localStorage.getItem('auc_parent');
+  const pa = localStorage.getItem('auc_paths');
+  const n = localStorage.getItem('auc_names');
+  if (p !== null) parentInput.value = p;
+  if (pa !== null) pathsInput.value = pa;
+  if (n !== null) namesInput.value = n;
+});
 </script>
 <?php
 function is_parent($dfp, $all) {
@@ -54,15 +49,13 @@ function is_parent($dfp, $all) {
   }
   return false;
 }
-if (!empty($_POST['path'])) {
-  $parents = $_POST['parent'] ?? [];
-  $paths = $_POST['path'] ?? [];
-  $names = $_POST['name'] ?? [];
+if (!empty($_POST['paths'])) {
+  $parent = isset($_POST['parent']) ? trim($_POST['parent']) : '';
+  $paths = preg_split("/\r\n|\n|\r/", $_POST['paths']);
+  $names = preg_split("/\r\n|\n|\r/", $_POST['names'] ?? '');
   $pairs = [];
-  $count = max(count($paths), count($parents));
-  for ($i = 0; $i < $count; $i++) {
-    $parent = isset($parents[$i]) ? trim($parents[$i]) : '';
-    $path = isset($paths[$i]) ? trim($paths[$i]) : '';
+  foreach ($paths as $i => $path) {
+    $path = trim($path);
     if ($path === '') continue;
     $full = rtrim($parent, '/') . '/' . ltrim($path, '/');
     $name = isset($names[$i]) && trim($names[$i]) !== '' ? trim($names[$i]) : (($pos = strrpos($full, '/')) !== false ? substr($full, $pos + 1) : $full);
