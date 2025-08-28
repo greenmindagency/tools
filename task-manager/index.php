@@ -166,7 +166,7 @@ function month_logs_html($pdo, $userId) {
 function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses = [], $archivedView = false) {
     global $pdo;
     $today = date('Y-m-d');
-    $overdue = $t['due_date'] < $today && $t['status'] !== 'done';
+    $overdue = !empty($t['due_date']) && $t['due_date'] < $today && $t['status'] !== 'done';
     $isSub = !empty($t['parent_id']);
     $toggleAttr = ' data-bs-toggle="collapse" data-bs-target="#task-'.$t['id'].'"';
     ob_start();
@@ -647,7 +647,7 @@ try {
           exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_task'])) {
         $id = (int)$_POST['archive_task'];
-        $stmt = $pdo->prepare('UPDATE tasks SET status="archived" WHERE id=? OR parent_id=?');
+        $stmt = $pdo->prepare('UPDATE tasks SET status="archived", due_date=NULL WHERE id=? OR parent_id=?');
         $stmt->execute([$id,$id]);
         list($users, $clients, $userLoadClasses, $usersByTasks) = load_meta($pdo);
         $stmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE t.id=?');

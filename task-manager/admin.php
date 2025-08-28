@@ -124,7 +124,7 @@ try {
             }
         } elseif (isset($_POST['archive_client'])) {
             $id = (int)$_POST['archive_client'];
-            $stmt = $pdo->prepare('UPDATE tasks SET status="archived" WHERE client_id=? OR parent_id IN (SELECT id FROM (SELECT id FROM tasks WHERE client_id=?) AS t)');
+            $stmt = $pdo->prepare('UPDATE tasks SET status="archived", due_date=NULL WHERE client_id=? OR parent_id IN (SELECT id FROM (SELECT id FROM tasks WHERE client_id=?) AS t)');
             $stmt->execute([$id, $id]);
         } elseif (isset($_POST['unarchive_client'])) {
             $id = (int)$_POST['unarchive_client'];
@@ -263,7 +263,7 @@ try {
     }
     arsort($loadPercent);
 
-    $tasks = $pdo->query('SELECT t.id,t.title,t.due_date,t.recurrence,t.assigned_to,u.username,pt.title AS parent_title,c.name AS client_name,c.priority AS client_priority FROM tasks t LEFT JOIN users u ON t.assigned_to=u.id LEFT JOIN tasks pt ON t.parent_id=pt.id LEFT JOIN clients c ON t.client_id=c.id WHERE t.status!="archived"')->fetchAll(PDO::FETCH_ASSOC);
+    $tasks = $pdo->query('SELECT t.id,t.title,t.due_date,t.recurrence,t.assigned_to,u.username,pt.title AS parent_title,c.name AS client_name,c.priority AS client_priority FROM tasks t LEFT JOIN users u ON t.assigned_to=u.id LEFT JOIN tasks pt ON t.parent_id=pt.id LEFT JOIN clients c ON t.client_id=c.id WHERE t.status!="archived" AND t.due_date IS NOT NULL')->fetchAll(PDO::FETCH_ASSOC);
 
     $weekCounts = [];
     $start = new DateTime('today');
