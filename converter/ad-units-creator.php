@@ -24,12 +24,27 @@ include 'header.php';
 const parentInput = document.querySelector('input[name="parent"]');
 const pathsInput = document.querySelector('textarea[name="paths"]');
 const namesInput = document.querySelector('textarea[name="names"]');
+function deriveNames() {
+  const paths = pathsInput.value.split(/\r?\n/);
+  const names = namesInput.value.split(/\r?\n/);
+  const newNames = paths.map((p, i) => {
+    const path = p.trim();
+    if (!path) return '';
+    const existing = names[i] ? names[i].trim() : '';
+    if (existing) return existing;
+    const parts = path.split('/');
+    return parts[parts.length - 1] || '';
+  });
+  namesInput.value = newNames.join('\n');
+}
 function saveInputs() {
   localStorage.setItem('auc_parent', parentInput.value);
   localStorage.setItem('auc_paths', pathsInput.value);
   localStorage.setItem('auc_names', namesInput.value);
 }
-[parentInput, pathsInput, namesInput].forEach(el => el.addEventListener('input', saveInputs));
+pathsInput.addEventListener('input', () => { deriveNames(); saveInputs(); });
+namesInput.addEventListener('input', saveInputs);
+parentInput.addEventListener('input', saveInputs);
 window.addEventListener('load', () => {
   const p = localStorage.getItem('auc_parent');
   const pa = localStorage.getItem('auc_paths');
@@ -37,7 +52,9 @@ window.addEventListener('load', () => {
   if (p !== null) parentInput.value = p;
   if (pa !== null) pathsInput.value = pa;
   if (n !== null) namesInput.value = n;
+  deriveNames();
 });
+document.getElementById('adForm').addEventListener('submit', () => { deriveNames(); saveInputs(); });
 </script>
 <?php
 function is_parent($dfp, $all) {
