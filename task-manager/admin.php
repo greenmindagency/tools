@@ -118,9 +118,27 @@ try {
         } elseif (isset($_POST['save_client'])) {
             $id = (int)$_POST['save_client'];
             $name = trim($_POST['client_name'] ?? '');
+            $start = array_key_exists('start_date', $_POST) ? ($_POST['start_date'] ?: null) : null;
+            $paid = array_key_exists('client_paid', $_POST) ? (int)$_POST['client_paid'] : null;
             if ($name !== '') {
-                $stmt = $pdo->prepare('UPDATE clients SET name=? WHERE id=?');
-                $stmt->execute([$name, $id]);
+                $fields = ['name=?'];
+                $params = [$name];
+                if ($start !== null) { $fields[] = 'start_date=?'; $params[] = $start; }
+                if ($paid !== null) { $fields[] = 'paid=?'; $params[] = $paid; }
+                $params[] = $id;
+                $stmt = $pdo->prepare('UPDATE clients SET '.implode(',', $fields).' WHERE id=?');
+                $stmt->execute($params);
+            }
+        } elseif (isset($_POST['bulk_update_clients'])) {
+            $fields = [];
+            $params = [];
+            if ($_POST['start_date_all'] !== '') { $fields[] = 'start_date=?'; $params[] = $_POST['start_date_all']; }
+            $fields[] = 'paid=?';
+            $params[] = (int)($_POST['paid_all'] ?? 0);
+            if ($fields) {
+                $sql = 'UPDATE clients SET '.implode(',', $fields).' WHERE id IN (SELECT DISTINCT client_id FROM tasks WHERE status!="archived")';
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($params);
             }
         } elseif (isset($_POST['archive_client'])) {
             $id = (int)$_POST['archive_client'];
@@ -182,7 +200,7 @@ try {
     }
 
     $users = $pdo->query('SELECT id, username FROM users ORDER BY sort_order, username')->fetchAll(PDO::FETCH_ASSOC);
-    $clients = $pdo->query('SELECT c.id, c.name, c.priority, c.progress_percent, COALESCE(SUM(t.status != "archived"),0) AS active_count, COALESCE(SUM(t.status = "archived"),0) AS archived_count, COUNT(DISTINCT CASE WHEN t.status != "archived" THEN t.assigned_to END) AS member_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.progress_percent IS NULL), c.progress_percent DESC, c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
+    $clients = $pdo->query('SELECT c.id, c.name, c.priority, c.progress_percent, c.start_date, c.paid, COALESCE(SUM(t.status != "archived"),0) AS active_count, COALESCE(SUM(t.status = "archived"),0) AS archived_count, COUNT(DISTINCT CASE WHEN t.status != "archived" THEN t.assigned_to END) AS member_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent,c.start_date,c.paid ORDER BY (c.progress_percent IS NULL), c.progress_percent DESC, c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
 
     $clientWorkers = [];
     $workerMap = $pdo->query('SELECT t.client_id, u.username, COUNT(*) AS cnt FROM tasks t JOIN users u ON t.assigned_to=u.id GROUP BY t.client_id,u.username')->fetchAll(PDO::FETCH_ASSOC);
@@ -362,14 +380,42 @@ include __DIR__ . '/header.php';
       </div>
       <div class="col-md-2"><button class="btn btn-success w-100">Add</button></div>
     </form>
+    <div class="list-group mb-2">
+      <div class="list-group-item">
+        <div class="row fw-bold">
+          <div class="col-md-2">Client</div>
+          <div class="col-md-1">Priority</div>
+          <div class="col-md-1">Progress</div>
+          <div class="col-md-2">Workers</div>
+          <div class="col-md-2">Start Date</div>
+          <div class="col-md-1">Paid</div>
+          <div class="col-md-1">Save</div>
+          <div class="col-md-1">Archive</div>
+          <div class="col-md-1">Delete</div>
+        </div>
+        <form method="post" class="row g-2 mt-2 align-items-center">
+          <input type="hidden" name="bulk_update_clients" value="1">
+          <div class="col-md-2"></div>
+          <div class="col-md-1"></div>
+          <div class="col-md-1"></div>
+          <div class="col-md-2"></div>
+          <div class="col-md-2"><input type="date" name="start_date_all" class="form-control"></div>
+          <div class="col-md-1"><input type="hidden" name="paid_all" value="0"><input type="checkbox" class="form-check-input" name="paid_all" value="1"></div>
+          <div class="col-md-1"><button class="btn btn-secondary btn-sm w-100">Apply</button></div>
+          <div class="col-md-1"></div>
+          <div class="col-md-1"></div>
+        </form>
+      </div>
+    </div>
     <ul class="list-group mb-2" id="client-list">
       <?php foreach ($clients as $c):
             $workers = $clientWorkers[$c['id']] ?? [];
             $totalTasksForClient = array_sum($workers);
+            $archived = ($c['active_count'] == 0 && $c['archived_count'] > 0);
       ?>
       <li class="list-group-item" data-id="<?= $c['id'] ?>">
         <form method="post" class="row g-2 align-items-center">
-          <div class="col-md-3"><input type="text" name="client_name" class="form-control" value="<?= htmlspecialchars($c['name']) ?>"></div>
+          <div class="col-md-2"><input type="text" name="client_name" class="form-control" value="<?= htmlspecialchars($c['name']) ?>"></div>
           <div class="col-md-1">
             <span class="client-priority <?= strtolower($c['priority'] ?? '') ?>"><?= $c['priority'] ? htmlspecialchars($c['priority']) : '&nbsp;' ?></span>
           </div>
@@ -378,7 +424,7 @@ include __DIR__ . '/header.php';
               <span><?= number_format($c['progress_percent'], 2) ?>%</span>
             <?php endif; ?>
           </div>
-          <div class="col-md-3 small text-muted">
+          <div class="col-md-2 small text-muted">
             <?php
               $splits = [];
               foreach ($workers as $w => $cnt) {
@@ -388,9 +434,19 @@ include __DIR__ . '/header.php';
               echo implode(' - ', $splits);
             ?>
           </div>
-          <div class="col-md-1"><button class="btn btn-primary w-100 btn-sm" name="save_client" value="<?= $c['id'] ?>">Save</button></div>
-          <?php $archived = ($c['active_count'] == 0 && $c['archived_count'] > 0); ?>
           <div class="col-md-2">
+            <?php if (!$archived): ?>
+              <input type="date" name="start_date" class="form-control" value="<?= htmlspecialchars($c['start_date']) ?>">
+            <?php endif; ?>
+          </div>
+          <div class="col-md-1">
+            <?php if (!$archived): ?>
+              <input type="hidden" name="client_paid" value="0">
+              <input type="checkbox" class="form-check-input" name="client_paid" value="1"<?= $c['paid'] ? ' checked' : '' ?>>
+            <?php endif; ?>
+          </div>
+          <div class="col-md-1"><button class="btn btn-primary w-100 btn-sm" name="save_client" value="<?= $c['id'] ?>">Save</button></div>
+          <div class="col-md-1">
             <?php if ($archived): ?>
             <button class="btn btn-warning w-100 btn-sm" name="unarchive_client" value="<?= $c['id'] ?>" onclick="return confirm('Unarchive all tasks for this client?')">Unarchive</button>
             <?php else: ?>
