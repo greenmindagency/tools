@@ -4,7 +4,7 @@ $descriptionMap = [
 'prompt-generator' => 'Collection of SEO prompt generation tools.',
 'task-manager' => 'Simple team task management system.',
 ];
-$excludeDirs = ['code-snippets'];
+$excludeDirs = ['code-snippets', 'analytics'];
 $dirs = array_filter(glob('*', GLOB_ONLYDIR), fn($d) => !in_array($d, $excludeDirs));
 $tools = [];
 foreach ($dirs as $dir) {

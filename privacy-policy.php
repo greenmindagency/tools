@@ -20,7 +20,6 @@ include 'header.php';
   <li>Provide, maintain, and improve our services.</li>
   <li>Personalize user experience.</li>
   <li>Communicate with you, including sending important updates.</li>
-  <li>Analyze performance and usage for business and technical improvements.</li>
   <li>Comply with legal obligations and protect against fraud.</li>
 </ul>
 <hr>
@@ -49,7 +48,7 @@ include 'header.php';
 <p>We implement appropriate technical and organizational measures to protect your data from unauthorized access, alteration, disclosure, or destruction.</p>
 <hr>
 <h2>7. Third‑Party Services</h2>
-<p>Our services may integrate with third‑party APIs (such as Facebook Graph API, Instagram Graph API, or Google Analytics). Your use of these services is subject to their respective privacy policies.</p>
+<p>Our services may integrate with third‑party APIs (such as Facebook Graph API or Instagram Graph API). Your use of these services is subject to their respective privacy policies.</p>
 <hr>
 <h2>8. Children’s Privacy</h2>
 <p>Our services are not directed to individuals under the age of 13, and we do not knowingly collect personal data from children.</p>
