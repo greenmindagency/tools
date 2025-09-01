@@ -130,6 +130,11 @@ while ($r = $mapStmt->fetch(PDO::FETCH_ASSOC)) {
     $kwMap[strtolower(trim($r['keyword']))] = $r['id'];
 }
 
+$selIds = [];
+foreach ($selMap as $kw => $_) {
+    if (isset($kwMap[$kw])) $selIds[] = $kwMap[$kw];
+}
+
 for ($i = 0; $i < 12; $i++) {
     $start = date('Y-m-d', strtotime("first day of -$i month"));
     $end   = date('Y-m-d', strtotime("last day of -$i month"));
@@ -148,7 +153,10 @@ for ($i = 0; $i < 12; $i++) {
         exit;
     }
     $col = 'm' . ($i + 1);
-    $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE client_id = ?")->execute([$clientId]);
+    $clear = $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE id = ?");
+    foreach ($selIds as $id) {
+        $clear->execute([$id]);
+    }
     usort($rows, fn($a,$b)=>($b['impressions']??0)<=>($a['impressions']??0));
     $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ?, sort_order = ? WHERE id = ?");
     $order = 1;

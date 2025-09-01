@@ -205,6 +205,11 @@ $kwAllStmt->execute([$client_id]);
 $allKeywords = array_map('strtolower', array_map('trim', $kwAllStmt->fetchAll(PDO::FETCH_COLUMN)));
 $allKeywords = array_values(array_unique($allKeywords));
 
+$posKwStmt = $pdo->prepare("SELECT keyword FROM keyword_positions WHERE client_id = ?");
+$posKwStmt->execute([$client_id]);
+$posKeywords = array_map('strtolower', array_map('trim', $posKwStmt->fetchAll(PDO::FETCH_COLUMN)));
+$posKeywords = array_values(array_unique($posKeywords));
+
 include 'header.php';
 ?>
 <style>
@@ -569,6 +574,7 @@ function renderKwTable() {
     const ctr = r.ctr ? (r.ctr*100).toFixed(2)+'%' : '';
     const pos = r.position ? r.position.toFixed(2) : '';
     const tr = document.createElement('tr');
+    if (posKeywords.includes(kw.toLowerCase())) tr.classList.add('table-warning');
     tr.innerHTML = `<td><input type="checkbox" class="kw-check" data-kw="${kw}" ${checked}></td><td>${kw}</td><td class="text-end">${clicks}</td><td class="text-end">${impr}</td><td class="text-end">${ctr}</td><td class="text-end">${pos}</td>`;
     tbody.appendChild(tr);
   });
@@ -693,6 +699,7 @@ document.getElementById('posChartCollapse').addEventListener('shown.bs.collapse'
 });
 
 const allKeywords = <?= json_encode($allKeywords, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+const posKeywords = <?= json_encode($posKeywords, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
 
 document.addEventListener('DOMContentLoaded', () => {
   const posCells = Array.from(document.querySelectorAll('#posTableBody td:nth-child(2)'));
