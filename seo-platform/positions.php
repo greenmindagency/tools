@@ -781,50 +781,34 @@ document.querySelectorAll('#kwTable thead th[data-sort]').forEach(th=>{
   });
 }
 
-const existingCountries = <?= json_encode($dbCountries) ?>;
-let currentCountry = '<?= $country ?>';
 
-function renderCountryBtns(list) {
-  const group = document.getElementById('countryGroup');
-  group.innerHTML = '';
-  const makeBtn = (code, label) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'btn btn-outline-secondary btn-sm' + (code===currentCountry?' active':'');
-    btn.textContent = label;
-    btn.addEventListener('click', () => {
-      const params = new URLSearchParams(window.location.search);
-      if (code) params.set('country', code); else params.delete('country');
-      window.location.search = params.toString();
-    });
-    group.appendChild(btn);
-  };
-  makeBtn('', 'Worldwide');
-  list.filter(c=>c).sort().forEach(c=>makeBtn(c, c.toUpperCase()));
-}
 
-function loadCountries() {
+let kwData = [];
+let kwFilterVal = '';
+let selectedKws = new Set();
+let sortKey = 'impressions';
+let sortDir = 'desc';
+document.getElementById('openImportKw')?.addEventListener('click', () => {
   const site = document.getElementById('scDomain').value.trim();
-  const set = new Set(existingCountries);
-  if (currentCountry) set.add(currentCountry);
-  if (site) {
-    fetch('gsc_countries.php?site=' + encodeURIComponent(site))
-      .then(r=>r.json()).then(data=>{
-        if (data.status === 'ok') data.countries.forEach(c=>set.add(c));
-        renderCountryBtns(Array.from(set));
-      }).catch(()=>renderCountryBtns(Array.from(set)));
-  } else {
-    renderCountryBtns(Array.from(set));
-  }
-}
-loadCountries();
-
-document.getElementById('importCountryBtn').addEventListener('click', () => {
-  const code = prompt('Enter country code (e.g., usa)');
-  if (!code) return;
-  const params = new URLSearchParams(window.location.search);
-  params.set('country', code.toLowerCase());
-  window.location.search = params.toString();
+  if (!site) { alert('No Search Console property connected'); return; }
+  const modalEl = document.getElementById('gscKwModal');
+  const modal = new bootstrap.Modal(modalEl);
+  modal.show();
+  const tbody = document.querySelector('#kwTable tbody');
+  tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+  fetch('gsc_keywords.php?client_id=<?= $client_id ?>&site=' + encodeURIComponent(site) + '&country=' + encodeURIComponent(currentCountry))
+    .then(r => r.json()).then(data => {
+      if (data.status === 'ok') {
+        kwData = data.rows;
+        renderKwTable();
+      } else {
+        tbody.innerHTML = '<tr><td colspan="5">Failed to load</td></tr>';
+        alert(data.error || 'Failed to load');
+      }
+    }).catch(err => {
+      tbody.innerHTML = '<tr><td colspan="5">Error</td></tr>';
+      alert('Error: ' + err);
+    });
 });
 
 document.getElementById('kwSelectAll').addEventListener('change', function(){
@@ -855,10 +839,15 @@ if (doImportKwBtn) {
     if (!selected.length) { alert('No keywords selected'); return; }
     doImportKwBtn.disabled = true;
     fetch('gsc_keywords.php', {
-      method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body: new URLSearchParams({client_id:'<?= $client_id ?>', site: site, country: currentCountry, keywords: JSON.stringify(selected)})
-    }).then(r=>r.json()).then(data=>{
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: '<?= $client_id ?>',
+        site: site,
+        country: currentCountry,
+        keywords: JSON.stringify(selected)
+      })
+    }).then(r => r.json()).then(data => {
       doImportKwBtn.disabled = false;
       if (data.status === 'ok') {
         location.reload();
