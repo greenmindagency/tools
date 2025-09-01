@@ -165,9 +165,10 @@ if (!$selected) {
     exit;
 }
 
-// 2) Build date range: last 3 FULL days (exclude today)
-$end   = new DateTime('yesterday');     // e.g., 2025-08-31
-$start = (clone $end)->modify('-2 days'); // 3-day window
+// 2) Build date range: last 3 FULL days with available data
+// Search Console reporting is typically delayed by ~2 days, so end at 3 days ago
+$end   = new DateTime('3 days ago');
+$start = (clone $end)->modify('-2 days');
 
 // Endpoint
 $endpoint = 'https://searchconsole.googleapis.com/webmasters/v3/sites/' . rawurlencode($selected) . '/searchAnalytics/query';
@@ -177,7 +178,9 @@ $bodyByDate = [
     'startDate'  => $start->format('Y-m-d'),
     'endDate'    => $end->format('Y-m-d'),
     'dimensions' => ['date'],
-    'rowLimit'   => 3
+    'rowLimit'   => 3,
+    // Include fresh data that may not yet be marked as final
+    'dataState'  => 'all'
 ];
 
 // 4) Query: Top 10 queries by impressions (same window)
@@ -186,6 +189,8 @@ $bodyTopQueries = [
     'endDate'    => $end->format('Y-m-d'),
     'dimensions' => ['query'],
     'rowLimit'   => 10,
+    // Include fresh data that may not yet be marked as final
+    'dataState'  => 'all',
     'orderBy'    => [
         ['fieldName' => 'impressions', 'descending' => true]
     ]
