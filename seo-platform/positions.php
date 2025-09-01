@@ -219,15 +219,15 @@ include 'header.php';
 
 <div class="mb-4">
   <div class="row g-2">
-    <div class="col-sm"><div class="d-flex"><input type="text" id="scDomain" value="<?= htmlspecialchars($scDomain) ?>" class="form-control me-2" readonly placeholder="Connect Search Console"><a href="gsc_fetch.php?client_id=<?= $client_id ?>" class="btn btn-outline-secondary btn-sm"><?= $scDomain ? 'Change' : 'Connect' ?></a></div></div>
+    <div class="col-sm"><div class="d-flex"><input type="text" id="scDomain" value="<?= htmlspecialchars($scDomain) ?>" class="form-control me-2" readonly placeholder="Connect Search Console"><button type="button" id="changeScDomain" class="btn btn-outline-secondary btn-sm"><?= $scDomain ? 'Change' : 'Connect' ?></button></div></div>
     <div class="col-sm">
       <select id="scMonth" class="form-select">
         <?php
         for ($i = 0; $i < 12; $i++) {
             $ts = strtotime("first day of -$i month");
             $label = date('M Y', $ts);
-            $start = date('Ymd', $ts);
-            $end = date('Ymd', strtotime("last day of -$i month"));
+            $start = date('Y-m-d', $ts);
+            $end = date('Y-m-d', strtotime("last day of -$i month"));
             echo "<option data-start='$start' data-end='$end' value='$i'>$label</option>";
         }
         ?>
@@ -333,6 +333,23 @@ include 'header.php';
   </div>
 </div>
 
+<div class="modal fade" id="gscModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Select Search Console Property</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <select id="gscSiteSelect" class="form-select"></select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="connectGsc">Connect</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('click', function(e) {
@@ -388,6 +405,58 @@ document.getElementById('copyPosKeywords').addEventListener('click', function() 
     showCopiedToast('Keywords copied to clipboard');
   });
 });
+
+const changeBtn = document.getElementById('changeScDomain');
+if (changeBtn) {
+  changeBtn.addEventListener('click', function() {
+    fetch('gsc_fetch.php?props=1')
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'auth' && data.url) {
+          window.location = data.url;
+        } else if (data.status === 'ok') {
+          const sel = document.getElementById('gscSiteSelect');
+          sel.innerHTML = '';
+          data.sites.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.siteUrl;
+            opt.textContent = s.siteUrl + ' [' + s.permissionLevel + ']';
+            sel.appendChild(opt);
+          });
+          const modal = new bootstrap.Modal(document.getElementById('gscModal'));
+          modal.show();
+        } else {
+          alert(data.error || 'Failed to load properties');
+        }
+      })
+      .catch(err => alert('Error: ' + err));
+  });
+}
+
+const connectBtn = document.getElementById('connectGsc');
+if (connectBtn) {
+  connectBtn.addEventListener('click', function() {
+    const site = document.getElementById('gscSiteSelect').value;
+    if (!site) return;
+    fetch('gsc_fetch.php', {
+      method: 'POST',
+      headers: {'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({
+        client_id: '<?= $client_id ?>',
+        site: site,
+        ajax: 1
+      })
+    }).then(r => r.json()).then(data => {
+      if (data.status === 'ok') {
+        document.getElementById('scDomain').value = site;
+        changeBtn.textContent = 'Change';
+        bootstrap.Modal.getInstance(document.getElementById('gscModal')).hide();
+      } else {
+        alert(data.error || 'Connect failed');
+      }
+    }).catch(err => alert('Error: ' + err));
+  });
+}
 
 const fetchBtn = document.getElementById('fetchGsc');
 if (fetchBtn) {

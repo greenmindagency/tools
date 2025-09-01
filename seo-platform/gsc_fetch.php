@@ -79,15 +79,46 @@ function bearer_get($url, $accessToken) {
     return json_decode($res, true);
 }
 
+// Save selected property
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['client_id'], $_POST['site'])) {
     $clientId = (int)$_POST['client_id'];
     $site = trim($_POST['site']);
     $stmt = $pdo->prepare("INSERT INTO sc_domains (client_id, domain) VALUES (?, ?) ON DUPLICATE KEY UPDATE domain = VALUES(domain)");
     $stmt->execute([$clientId, $site]);
-    header('Location: positions.php?client_id=' . $clientId);
+    if (isset($_POST['ajax'])) {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'ok']);
+    } else {
+        header('Location: positions.php?client_id=' . $clientId);
+    }
     exit;
 }
 
+// Provide property list for modal
+if (isset($_GET['props'])) {
+    header('Content-Type: application/json');
+    $accessToken = get_access_token();
+    if (!$accessToken) {
+        $authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
+            'response_type' => 'code',
+            'client_id'     => CLIENT_ID,
+            'redirect_uri'  => REDIRECT_URI,
+            'scope'         => 'https://www.googleapis.com/auth/webmasters.readonly',
+            'access_type'   => 'offline',
+            'prompt'        => 'consent',
+        ]);
+        echo json_encode(['status' => 'auth', 'url' => $authUrl]);
+        exit;
+    }
+    try {
+        $sitesResp = bearer_get('https://searchconsole.googleapis.com/webmasters/v3/sites', $accessToken);
+        $sites = $sitesResp['siteEntry'] ?? [];
+        echo json_encode(['status' => 'ok', 'sites' => $sites]);
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'error' => $e->getMessage()]);
+    }
+    exit;
+}
 
 echo '<!doctype html><meta charset="utf-8"><title>GSC API Test</title>';
 echo '<style>body{font:14px/1.45 system-ui,Arial,sans-serif;margin:32px} table{border-collapse:collapse;width:100%;} th,td{padding:8px 10px;border-bottom:1px solid #eee} thead th{background:#f6f7f9;text-align:left} .btn{display:inline-block;padding:8px 12px;border-radius:6px;background:#1a73e8;color:#fff;text-decoration:none} .row{margin:14px 0} .muted{color:#666}</style>';
