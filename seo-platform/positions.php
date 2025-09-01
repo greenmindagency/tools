@@ -5,6 +5,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
 $client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : 0;
+$country = strtolower(trim($_GET['country'] ?? ''));
 $isAdmin = $_SESSION['is_admin'] ?? false;
 if (!$isAdmin) {
     $allowed = $_SESSION['client_ids'] ?? [];
@@ -61,6 +62,8 @@ for ($i = 1; $i <= 12; $i++) {
     $pdo->exec("ALTER TABLE keyword_positions ADD COLUMN IF NOT EXISTS m{$i} FLOAT DEFAULT NULL");
 }
 $pdo->exec("ALTER TABLE keyword_positions ADD COLUMN IF NOT EXISTS sort_order INT");
+$pdo->exec("ALTER TABLE keyword_positions ADD COLUMN IF NOT EXISTS country VARCHAR(3) NOT NULL DEFAULT ''");
+$pdo->exec("CREATE INDEX IF NOT EXISTS kp_client_country_idx ON keyword_positions (client_id, country)");
 $pdo->exec("CREATE TABLE IF NOT EXISTS sc_domains (
     client_id INT PRIMARY KEY,
     domain VARCHAR(255)
@@ -75,23 +78,26 @@ $scDomain = $scDomainStmt->fetchColumn() ?: '';
 if (isset($_POST['add_position_keywords'])) {
     $text = trim($_POST['pos_keywords'] ?? '');
     $lines = array_values(array_filter(array_map('trim', preg_split('/\r\n|\n|\r/', $text)), 'strlen'));
-    $ins = $pdo->prepare("INSERT INTO keyword_positions (client_id, keyword) VALUES (?, ?)");
+    $ins = $pdo->prepare("INSERT INTO keyword_positions (client_id, keyword, country) VALUES (?, ?, ?)");
     foreach ($lines as $kw) {
-        $ins->execute([$client_id, $kw]);
+        $ins->execute([$client_id, $kw, $country]);
     }
-    $pdo->query("DELETE kp1 FROM keyword_positions kp1
+    $dup = $pdo->prepare("DELETE kp1 FROM keyword_positions kp1
                   JOIN keyword_positions kp2
                     ON kp1.keyword = kp2.keyword AND kp1.id > kp2.id
-                 WHERE kp1.client_id = $client_id
-                   AND kp2.client_id = $client_id");
+                 WHERE kp1.client_id = ?
+                   AND kp2.client_id = ?
+                   AND kp1.country = ?
+                   AND kp2.country = ?");
+    $dup->execute([$client_id, $client_id, $country, $country]);
 }
 
 if (isset($_POST['update_positions'])) {
     $deleteIds = array_keys(array_filter($_POST['delete_pos'] ?? [], fn($v) => $v == '1'));
     if ($deleteIds) {
         $in = implode(',', array_fill(0, count($deleteIds), '?'));
-        $del = $pdo->prepare("DELETE FROM keyword_positions WHERE client_id = ? AND id IN ($in)");
-        $del->execute(array_merge([$client_id], $deleteIds));
+        $del = $pdo->prepare("DELETE FROM keyword_positions WHERE client_id = ? AND country = ? AND id IN ($in)");
+        $del->execute(array_merge([$client_id, $country], $deleteIds));
     }
 }
 
@@ -108,14 +114,14 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
     }
     if ($rawRows) {
 
-        $mapStmt = $pdo->prepare("SELECT id, keyword, sort_order FROM keyword_positions WHERE client_id = ?");
-        $mapStmt->execute([$client_id]);
+        $mapStmt = $pdo->prepare("SELECT id, keyword, sort_order FROM keyword_positions WHERE client_id = ? AND country = ?");
+        $mapStmt->execute([$client_id, $country]);
         $kwMap = [];
         while ($r = $mapStmt->fetch(PDO::FETCH_ASSOC)) {
             $kwMap[strtolower(trim($r['keyword']))] = ['id' => $r['id'], 'sort_order' => $r['sort_order']];
         }
 
-        $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE client_id = ?")->execute([$client_id]);
+        $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE client_id = ? AND country = ?")->execute([$client_id, $country]);
 
         $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ?, sort_order = ? WHERE id = ?");
 
@@ -155,17 +161,20 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
             $orderIdx++;
         }
 
-        $pdo->query("DELETE kp1 FROM keyword_positions kp1
+        $dup2 = $pdo->prepare("DELETE kp1 FROM keyword_positions kp1
                       JOIN keyword_positions kp2
                         ON kp1.keyword = kp2.keyword AND kp1.id > kp2.id
-                     WHERE kp1.client_id = $client_id
-                       AND kp2.client_id = $client_id");
+                     WHERE kp1.client_id = ?
+                       AND kp2.client_id = ?
+                       AND kp1.country = ?
+                       AND kp2.country = ?");
+        $dup2->execute([$client_id, $client_id, $country, $country]);
     }
 }
 
 $posQ = trim($_GET['pos_q'] ?? '');
-$posSql = "SELECT * FROM keyword_positions WHERE client_id = ?";
-$posParams = [$client_id];
+$posSql = "SELECT * FROM keyword_positions WHERE client_id = ? AND country = ?";
+$posParams = [$client_id, $country];
 $posTerms = array_values(array_filter(array_map('trim', explode('|', $posQ)), 'strlen'));
 if ($posTerms) {
     $conds = [];
@@ -205,8 +214,11 @@ $kwAllStmt->execute([$client_id]);
 $allKeywords = array_map('strtolower', array_map('trim', $kwAllStmt->fetchAll(PDO::FETCH_COLUMN)));
 $allKeywords = array_values(array_unique($allKeywords));
 
-$posKwStmt = $pdo->prepare("SELECT keyword FROM keyword_positions WHERE client_id = ?");
-$posKwStmt->execute([$client_id]);
+$posKwStmt = $pdo->prepare("SELECT keyword FROM keyword_positions WHERE client_id = ? AND country = ?");
+$posKwStmt->execute([$client_id, $country]);
+$countryStmt = $pdo->prepare("SELECT DISTINCT country FROM keyword_positions WHERE client_id = ?");
+$countryStmt->execute([$client_id]);
+$dbCountries = array_filter($countryStmt->fetchAll(PDO::FETCH_COLUMN), 'strlen');
 $posKeywords = array_map('strtolower', array_map('trim', $posKwStmt->fetchAll(PDO::FETCH_COLUMN)));
 $posKeywords = array_values(array_unique($posKeywords));
 
@@ -238,16 +250,16 @@ include 'header.php';
         ?>
       </select>
     </div>
-    <div class="col-sm d-flex">
-      <select id="scCountry" class="form-select me-2">
-        <option value="">Worldwide</option>
-        <option value="egy">Egypt</option>
-        <option value="sau">Saudi Arabia</option>
-        <option value="are">United Arab Emirates</option>
-      </select>
-      <button type="button" id="fetchGsc" class="btn btn-primary btn-sm">Fetch</button>
+    <div class="col-sm d-flex align-items-start">
+      <button type="button" id="fetchGsc" class="btn btn-primary btn-sm ms-auto">Fetch</button>
     </div>
   </div>
+</div>
+
+<hr>
+<div class="d-flex align-items-center mb-3">
+  <div id="countryGroup" class="btn-group me-2"></div>
+  <button type="button" id="importCountryBtn" class="btn btn-outline-primary btn-sm">Import Country</button>
 </div>
 
 <div class="accordion mb-3" id="posChartAcc">
@@ -284,7 +296,7 @@ include 'header.php';
   <div class="d-flex">
     <button type="submit" form="updatePosForm" name="update_positions" class="btn btn-success btn-sm me-2">Update</button>
     <button type="button" id="toggleAddPosForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
-    <button type="button" id="toggleImportPosForm" class="btn btn-primary btn-sm me-2">Import Positions</button>
+    <button type="button" id="toggleImportPosForm" class="btn btn-primary btn-sm me-2" style="display:none;">Import Positions</button>
     <button type="button" id="openImportKw" class="btn btn-info btn-sm me-2">Import Keywords</button>
     <button type="button" id="copyPosKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
   </div>
@@ -496,6 +508,52 @@ if (connectBtn) {
   });
 }
 
+const existingCountries = <?= json_encode($dbCountries) ?>;
+let currentCountry = '<?= $country ?>';
+
+function renderCountryBtns(list) {
+  const group = document.getElementById('countryGroup');
+  group.innerHTML = '';
+  const makeBtn = (code, label) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-outline-secondary btn-sm' + (code===currentCountry?' active':'');
+    btn.textContent = label;
+    btn.addEventListener('click', () => {
+      const params = new URLSearchParams(window.location.search);
+      if (code) params.set('country', code); else params.delete('country');
+      window.location.search = params.toString();
+    });
+    group.appendChild(btn);
+  };
+  makeBtn('', 'Worldwide');
+  list.filter(c=>c).sort().forEach(c=>makeBtn(c, c.toUpperCase()));
+}
+
+function loadCountries() {
+  const site = document.getElementById('scDomain').value.trim();
+  const set = new Set(existingCountries);
+  if (currentCountry) set.add(currentCountry);
+  if (site) {
+    fetch('gsc_countries.php?site=' + encodeURIComponent(site))
+      .then(r=>r.json()).then(data=>{
+        if (data.status === 'ok') data.countries.forEach(c=>set.add(c));
+        renderCountryBtns(Array.from(set));
+      }).catch(()=>renderCountryBtns(Array.from(set)));
+  } else {
+    renderCountryBtns(Array.from(set));
+  }
+}
+loadCountries();
+
+document.getElementById('importCountryBtn').addEventListener('click', () => {
+  const code = prompt('Enter country code (e.g., usa)');
+  if (!code) return;
+  const params = new URLSearchParams(window.location.search);
+  params.set('country', code.toLowerCase());
+  window.location.search = params.toString();
+});
+
 const fetchBtn = document.getElementById('fetchGsc');
 if (fetchBtn) {
   fetchBtn.addEventListener('click', function() {
@@ -504,7 +562,6 @@ if (fetchBtn) {
     const sel = document.getElementById('scMonth');
     const start = sel.selectedOptions[0].dataset.start;
     const end = sel.selectedOptions[0].dataset.end;
-    const country = document.getElementById('scCountry').value;
     const monthIndex = sel.value;
     fetchBtn.disabled = true;
     fetch('gsc_import.php', {
@@ -515,7 +572,7 @@ if (fetchBtn) {
         site: site,
         start: start,
         end: end,
-        country: country,
+        country: currentCountry,
         month_index: monthIndex
       })
     }).then(r=>r.json()).then(data=>{
@@ -547,7 +604,7 @@ document.getElementById('openImportKw')?.addEventListener('click', () => {
   modal.show();
   const tbody = document.querySelector('#kwTable tbody');
   tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
-  fetch('gsc_keywords.php?client_id=<?= $client_id ?>&site=' + encodeURIComponent(site))
+  fetch('gsc_keywords.php?client_id=<?= $client_id ?>&site=' + encodeURIComponent(site) + '&country=' + encodeURIComponent(currentCountry))
     .then(r => r.json()).then(data => {
       if (data.status === 'ok') {
         kwData = data.rows;
@@ -645,7 +702,7 @@ if (doImportKwBtn) {
     fetch('gsc_keywords.php', {
       method:'POST',
       headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body: new URLSearchParams({client_id:'<?= $client_id ?>', site: site, keywords: JSON.stringify(selected)})
+      body: new URLSearchParams({client_id:'<?= $client_id ?>', site: site, country: currentCountry, keywords: JSON.stringify(selected)})
     }).then(r=>r.json()).then(data=>{
       doImportKwBtn.disabled = false;
       if (data.status === 'ok') {

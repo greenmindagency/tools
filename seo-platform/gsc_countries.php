@@ -5,17 +5,17 @@ header('Content-Type: application/json');
 
 const CLIENT_ID     = '154567125513-3r6vh411d14igpsq52jojoq22s489d7v.apps.googleusercontent.com';
 const CLIENT_SECRET = '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';
-const TOKEN_FILE = __DIR__ . '/gsc_token.json';
+const TOKEN_FILE    = __DIR__ . '/gsc_token.json';
 
 function http_post_json($url, $payload, $headers = []) {
     $ch = curl_init($url);
-    $defaultHeaders = ['Content-Type: application/json'];
+    $default = ['Content-Type: application/json'];
     curl_setopt_array($ch, [
-        CURLOPT_POST => true,
+        CURLOPT_POST           => true,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => array_merge($defaultHeaders, $headers),
-        CURLOPT_POSTFIELDS => json_encode($payload),
-        CURLOPT_TIMEOUT => 30
+        CURLOPT_HTTPHEADER     => array_merge($default, $headers),
+        CURLOPT_POSTFIELDS     => json_encode($payload),
+        CURLOPT_TIMEOUT        => 30
     ]);
     $res = curl_exec($ch);
     if ($res === false) throw new Exception('cURL error: ' . curl_error($ch));
@@ -27,11 +27,11 @@ function http_post_json($url, $payload, $headers = []) {
 function http_post_form($url, $fields) {
     $ch = curl_init($url);
     curl_setopt_array($ch, [
-        CURLOPT_POST => true,
+        CURLOPT_POST           => true,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
-        CURLOPT_POSTFIELDS => http_build_query($fields),
-        CURLOPT_TIMEOUT => 30
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/x-www-form-urlencoded'],
+        CURLOPT_POSTFIELDS     => http_build_query($fields),
+        CURLOPT_TIMEOUT        => 30
     ]);
     $res = curl_exec($ch);
     if ($res === false) throw new Exception('cURL error: ' . curl_error($ch));
@@ -65,15 +65,9 @@ function get_access_token() {
     return null;
 }
 
-$clientId = (int)($_POST['client_id'] ?? 0);
-$site     = trim($_POST['site'] ?? '');
-$start    = trim($_POST['start'] ?? '');
-$end      = trim($_POST['end'] ?? '');
-$country  = trim($_POST['country'] ?? '');
-$monthIdx = (int)($_POST['month_index'] ?? 0);
-
-if (!$clientId || !$site || !$start || !$end) {
-    echo json_encode(['status'=>'error','error'=>'Missing parameters']);
+$site = trim($_GET['site'] ?? '');
+if (!$site) {
+    echo json_encode(['status'=>'error','error'=>'Missing site']);
     exit;
 }
 
@@ -83,53 +77,27 @@ if (!$accessToken) {
     exit;
 }
 
+$start = date('Y-m-d', strtotime('first day of -15 month'));
+$end   = date('Y-m-d', strtotime('last day of previous month'));
 $body = [
     'startDate'  => $start,
     'endDate'    => $end,
-    'dimensions' => ['query'],
-    'rowLimit'   => 25000,
+    'dimensions' => ['country'],
+    'rowLimit'   => 250,
     'dataState'  => 'all'
 ];
-if ($country) {
-    $body['dimensionFilterGroups'] = [[
-        'filters' => [
-            [
-                'dimension' => 'country',
-                'operator'  => 'equals',
-                'expression'=> strtolower($country)
-            ]
-        ]
-    ]];
-}
-
 $endpoint = 'https://searchconsole.googleapis.com/webmasters/v3/sites/' . rawurlencode($site) . '/searchAnalytics/query';
 
 try {
     $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
     $rows = $resp['rows'] ?? [];
-
-    $mapStmt = $pdo->prepare('SELECT id, keyword FROM keyword_positions WHERE client_id = ? AND country = ?');
-    $mapStmt->execute([$clientId, $country]);
-    $kwMap = [];
-    while ($r = $mapStmt->fetch(PDO::FETCH_ASSOC)) {
-        $kwMap[strtolower(trim($r['keyword']))] = $r['id'];
+    $countries = [];
+    foreach ($rows as $r) {
+        $code = strtolower($r['keys'][0] ?? '');
+        if ($code !== '') $countries[] = $code;
     }
-
-    $col = 'm' . ($monthIdx + 1);
-    $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE client_id = ? AND country = ?")->execute([$clientId, $country]);
-
-    usort($rows, fn($a,$b) => ($b['impressions'] ?? 0) <=> ($a['impressions'] ?? 0));
-    $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ?, sort_order = ? WHERE id = ?");
-    $order = 1;
-    foreach ($rows as $row) {
-        $kw = strtolower(trim($row['keys'][0] ?? ''));
-        if ($kw === '' || !isset($kwMap[$kw])) continue;
-        $pos = isset($row['position']) ? round($row['position'], 2) : null;
-        $update->execute([$pos, $order, $kwMap[$kw]]);
-        $order++;
-    }
-
-    echo json_encode(['status'=>'ok','updated'=>$order-1]);
+    $countries = array_values(array_unique($countries));
+    echo json_encode(['status'=>'ok','countries'=>$countries]);
 } catch (Exception $e) {
     echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
 }

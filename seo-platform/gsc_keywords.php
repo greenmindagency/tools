@@ -67,6 +67,7 @@ function get_access_token() {
 
 $clientId = (int)($_REQUEST['client_id'] ?? 0);
 $site     = trim($_REQUEST['site'] ?? '');
+$country  = strtolower(trim($_REQUEST['country'] ?? ''));
 if (!$clientId || !$site) {
     echo json_encode(['status'=>'error','error'=>'Missing parameters']);
     exit;
@@ -90,6 +91,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         'rowLimit'   => 25000,
         'dataState'  => 'all'
     ];
+    if ($country) {
+        $body['dimensionFilterGroups'] = [[
+            'filters' => [[
+                'dimension' => 'country',
+                'operator'  => 'equals',
+                'expression'=> $country
+            ]]
+        ]];
+    }
     try {
         $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
         $rows = $resp['rows'] ?? [];
@@ -117,14 +127,15 @@ if (!$selMap) {
     exit;
 }
 $keywords = array_keys($selMap);
-$ins = $pdo->prepare('INSERT IGNORE INTO keyword_positions (client_id, keyword) VALUES (?, ?)');
+$ins = $pdo->prepare('INSERT IGNORE INTO keyword_positions (client_id, keyword, country) VALUES (?, ?, ?)');
 foreach ($keywords as $kw) {
-    $ins->execute([$clientId, $kw]);
+    $ins->execute([$clientId, $kw, $country]);
 }
-$pdo->query("DELETE kp1 FROM keyword_positions kp1 JOIN keyword_positions kp2 ON kp1.keyword = kp2.keyword AND kp1.id > kp2.id WHERE kp1.client_id = $clientId AND kp2.client_id = $clientId");
+$dup = $pdo->prepare("DELETE kp1 FROM keyword_positions kp1 JOIN keyword_positions kp2 ON kp1.keyword = kp2.keyword AND kp1.id > kp2.id WHERE kp1.client_id = ? AND kp2.client_id = ? AND kp1.country = ? AND kp2.country = ?");
+$dup->execute([$clientId, $clientId, $country, $country]);
 
-$mapStmt = $pdo->prepare('SELECT id, keyword FROM keyword_positions WHERE client_id = ?');
-$mapStmt->execute([$clientId]);
+$mapStmt = $pdo->prepare('SELECT id, keyword FROM keyword_positions WHERE client_id = ? AND country = ?');
+$mapStmt->execute([$clientId, $country]);
 $kwMap = [];
 while ($r = $mapStmt->fetch(PDO::FETCH_ASSOC)) {
     $kwMap[strtolower(trim($r['keyword']))] = $r['id'];
@@ -135,16 +146,25 @@ foreach ($selMap as $kw => $_) {
     if (isset($kwMap[$kw])) $selIds[] = $kwMap[$kw];
 }
 
-for ($i = 0; $i < 12; $i++) {
-    $start = date('Y-m-d', strtotime("first day of -$i month"));
-    $end   = date('Y-m-d', strtotime("last day of -$i month"));
-    $body = [
-        'startDate'  => $start,
-        'endDate'    => $end,
-        'dimensions' => ['query'],
-        'rowLimit'   => 25000,
-        'dataState'  => 'all'
-    ];
+    for ($i = 0; $i < 12; $i++) {
+        $start = date('Y-m-d', strtotime("first day of -$i month"));
+        $end   = date('Y-m-d', strtotime("last day of -$i month"));
+        $body = [
+            'startDate'  => $start,
+            'endDate'    => $end,
+            'dimensions' => ['query'],
+            'rowLimit'   => 25000,
+            'dataState'  => 'all'
+        ];
+        if ($country) {
+            $body['dimensionFilterGroups'] = [[
+                'filters' => [[
+                    'dimension' => 'country',
+                    'operator'  => 'equals',
+                    'expression'=> $country
+                ]]
+            ]];
+        }
     try {
         $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
         $rows = $resp['rows'] ?? [];
