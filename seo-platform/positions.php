@@ -756,22 +756,27 @@ if (kwFilter) {
   });
 }
 
-document.querySelectorAll('#kwTable thead th[data-sort]').forEach(th=>{
+document.querySelectorAll('#kwTable thead th[data-sort]').forEach((th) => {
   th.dataset.label = th.textContent;
-  th.addEventListener('click', function(){
+  th.addEventListener('click', () => {
     const key = th.dataset.sort;
     if (!key) return;
     sortDir = (sortKey === key && sortDir === 'asc') ? 'desc' : 'asc';
     sortKey = key;
-    kwData.sort((a,b)=>{
+    kwData.sort((a, b) => {
       let va, vb;
-      if (key === 'keyword') { va = (a.keys[0]||'').toLowerCase(); vb = (b.keys[0]||'').toLowerCase(); }
-      else { va = a[key] || 0; vb = b[key] || 0; }
+      if (key === 'keyword') {
+        va = (a.keys[0] || '').toLowerCase();
+        vb = (b.keys[0] || '').toLowerCase();
+      } else {
+        va = a[key] || 0;
+        vb = b[key] || 0;
+      }
       if (va < vb) return sortDir === 'asc' ? -1 : 1;
       if (va > vb) return sortDir === 'asc' ? 1 : -1;
       return 0;
     });
-    document.querySelectorAll('#kwTable thead th[data-sort]').forEach(h=>{
+    document.querySelectorAll('#kwTable thead th[data-sort]').forEach((h) => {
       h.textContent = h.dataset.label;
       delete h.dataset.dir;
     });
@@ -779,36 +784,6 @@ document.querySelectorAll('#kwTable thead th[data-sort]').forEach(th=>{
     th.textContent = th.dataset.label + (sortDir === 'asc' ? ' \u25B2' : ' \u25BC');
     renderKwTable();
   });
-}
-
-
-
-let kwData = [];
-let kwFilterVal = '';
-let selectedKws = new Set();
-let sortKey = 'impressions';
-let sortDir = 'desc';
-document.getElementById('openImportKw')?.addEventListener('click', () => {
-  const site = document.getElementById('scDomain').value.trim();
-  if (!site) { alert('No Search Console property connected'); return; }
-  const modalEl = document.getElementById('gscKwModal');
-  const modal = new bootstrap.Modal(modalEl);
-  modal.show();
-  const tbody = document.querySelector('#kwTable tbody');
-  tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
-  fetch('gsc_keywords.php?client_id=<?= $client_id ?>&site=' + encodeURIComponent(site) + '&country=' + encodeURIComponent(currentCountry))
-    .then(r => r.json()).then(data => {
-      if (data.status === 'ok') {
-        kwData = data.rows;
-        renderKwTable();
-      } else {
-        tbody.innerHTML = '<tr><td colspan="5">Failed to load</td></tr>';
-        alert(data.error || 'Failed to load');
-      }
-    }).catch(err => {
-      tbody.innerHTML = '<tr><td colspan="5">Error</td></tr>';
-      alert('Error: ' + err);
-    });
 });
 
 document.getElementById('kwSelectAll').addEventListener('change', function(){
