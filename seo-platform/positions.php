@@ -70,17 +70,7 @@ $scDomainStmt = $pdo->prepare("SELECT domain FROM sc_domains WHERE client_id = ?
 $scDomainStmt->execute([$client_id]);
 $scDomain = $scDomainStmt->fetchColumn() ?: '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_sc_domain'])) {
-    $newDomain = trim($_POST['sc_domain'] ?? '');
-    if ($newDomain !== '') {
-        $up = $pdo->prepare("INSERT INTO sc_domains (client_id, domain) VALUES (?, ?) ON DUPLICATE KEY UPDATE domain = VALUES(domain)");
-        $up->execute([$client_id, $newDomain]);
-        $scDomain = $newDomain;
-    }
-    header('Content-Type: application/json');
-    echo json_encode(['status' => 'ok']);
-    exit;
-}
+
 
 if (isset($_POST['add_position_keywords'])) {
     $text = trim($_POST['pos_keywords'] ?? '');
@@ -102,12 +92,6 @@ if (isset($_POST['update_positions'])) {
         $in = implode(',', array_fill(0, count($deleteIds), '?'));
         $del = $pdo->prepare("DELETE FROM keyword_positions WHERE client_id = ? AND id IN ($in)");
         $del->execute(array_merge([$client_id], $deleteIds));
-    }
-    $newDomain = trim($_POST['sc_domain'] ?? '');
-    if ($newDomain !== '') {
-        $up = $pdo->prepare("INSERT INTO sc_domains (client_id, domain) VALUES (?, ?) ON DUPLICATE KEY UPDATE domain = VALUES(domain)");
-        $up->execute([$client_id, $newDomain]);
-        $scDomain = $newDomain;
     }
 }
 
@@ -235,7 +219,7 @@ include 'header.php';
 
 <div class="mb-4">
   <div class="row g-2">
-    <div class="col-sm"><input type="text" id="scDomain" name="sc_domain" value="<?= htmlspecialchars($scDomain) ?>" class="form-control" placeholder="Domain"></div>
+    <div class="col-sm"><div class="d-flex"><input type="text" id="scDomain" value="<?= htmlspecialchars($scDomain) ?>" class="form-control me-2" readonly placeholder="Connect Search Console"><a href="gsc_fetch.php?client_id=<?= $client_id ?>" class="btn btn-outline-secondary btn-sm"><?= $scDomain ? 'Change' : 'Connect' ?></a></div></div>
     <div class="col-sm">
       <select id="scMonth" class="form-select">
         <?php
@@ -256,7 +240,7 @@ include 'header.php';
         <option value="sau">Saudi Arabia</option>
         <option value="are">United Arab Emirates</option>
       </select>
-      <button type="button" id="openScLink" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right"></i></button>
+      <button type="button" id="fetchGsc" class="btn btn-primary btn-sm">Fetch</button>
     </div>
   </div>
 </div>
@@ -405,30 +389,43 @@ document.getElementById('copyPosKeywords').addEventListener('click', function() 
   });
 });
 
-function buildSCLink() {
-  const domain = document.getElementById('scDomain').value.trim();
-  if (!domain) return '';
-  const sel = document.getElementById('scMonth');
-  const start = sel.selectedOptions[0].dataset.start;
-  const end = sel.selectedOptions[0].dataset.end;
-  const country = document.getElementById('scCountry').value;
-  let url = 'https://search.google.com/search-console/performance/search-analytics?resource_id=' + encodeURIComponent(domain) + '&metrics=POSITION';
-  url += '&start_date=' + start + '&end_date=' + end;
-  if (country) url += '&country=' + country;
-  return url;
+const fetchBtn = document.getElementById('fetchGsc');
+if (fetchBtn) {
+  fetchBtn.addEventListener('click', function() {
+    const site = document.getElementById('scDomain').value.trim();
+    if (!site) { alert('No Search Console property connected'); return; }
+    const sel = document.getElementById('scMonth');
+    const start = sel.selectedOptions[0].dataset.start;
+    const end = sel.selectedOptions[0].dataset.end;
+    const country = document.getElementById('scCountry').value;
+    const monthIndex = sel.value;
+    fetchBtn.disabled = true;
+    fetch('gsc_import.php', {
+      method: 'POST',
+      headers: {'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({
+        client_id: '<?= $client_id ?>',
+        site: site,
+        start: start,
+        end: end,
+        country: country,
+        month_index: monthIndex
+      })
+    }).then(r=>r.json()).then(data=>{
+      fetchBtn.disabled = false;
+      if (data.status === 'ok') {
+        location.reload();
+      } else {
+        alert(data.error || 'Import failed');
+      }
+    }).catch(err=>{
+      fetchBtn.disabled = false;
+      alert('Error: '+err);
+    });
+  });
 }
 
-document.getElementById('openScLink').addEventListener('click', function() {
-  const url = buildSCLink();
-  const domain = document.getElementById('scDomain').value.trim();
-  if (!url) return;
-  window.open(url, '_blank');
-  fetch('positions.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: new URLSearchParams({save_sc_domain: '1', sc_domain: domain})
-  });
-});
+
 
 let posChart;
 const barLabelPlugin = {

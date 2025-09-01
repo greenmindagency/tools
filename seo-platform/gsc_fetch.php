@@ -5,6 +5,7 @@ const CLIENT_SECRET = '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';
 const REDIRECT_URI  = 'https://greenmindagency.com/tools/seo-platform/gsc_fetch.php';
 
 const TOKEN_FILE = __DIR__ . '/gsc_token.json';
+require 'config.php';
 
 function http_post_json($url, $payload, $headers = []) {
     $ch = curl_init($url);
@@ -77,6 +78,16 @@ function bearer_get($url, $accessToken) {
     if ($status >= 400) throw new Exception("HTTP $status: $res");
     return json_decode($res, true);
 }
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['client_id'], $_POST['site'])) {
+    $clientId = (int)$_POST['client_id'];
+    $site = trim($_POST['site']);
+    $stmt = $pdo->prepare("INSERT INTO sc_domains (client_id, domain) VALUES (?, ?) ON DUPLICATE KEY UPDATE domain = VALUES(domain)");
+    $stmt->execute([$clientId, $site]);
+    header('Location: positions.php?client_id=' . $clientId);
+    exit;
+}
+
 
 echo '<!doctype html><meta charset="utf-8"><title>GSC API Test</title>';
 echo '<style>body{font:14px/1.45 system-ui,Arial,sans-serif;margin:32px} table{border-collapse:collapse;width:100%;} th,td{padding:8px 10px;border-bottom:1px solid #eee} thead th{background:#f6f7f9;text-align:left} .btn{display:inline-block;padding:8px 12px;border-radius:6px;background:#1a73e8;color:#fff;text-decoration:none} .row{margin:14px 0} .muted{color:#666}</style>';
@@ -158,6 +169,14 @@ echo '</select> ';
 echo '<noscript><button class="btn" type="submit">Load</button></noscript>';
 echo ' &nbsp; <a class="muted" href="?logout=1">Disconnect / reset tokens</a>';
 echo '</form>';
+if (isset($_GET['client_id'])) {
+    $cid = (int)$_GET['client_id'];
+    echo '<form method="post" class="row" style="margin-top:10px">';
+    echo '<input type="hidden" name="client_id" value="'.$cid.'">';
+    echo '<input type="hidden" name="site" value="'.htmlspecialchars($selected).'">';
+    echo '<button class="btn" type="submit">Use this property</button>';
+    echo '</form>';
+}
 
 // Preflight: verify selected exists
 if (!$selected) {
