@@ -634,6 +634,136 @@ if (fetchBtn) {
 
 
 
+let kwData = [];
+const openKwBtn = document.getElementById('openImportKw');
+if (openKwBtn) {
+  openKwBtn.addEventListener('click', function() {
+    const site = document.getElementById('scDomain').value.trim();
+    if (!site) { alert('No Search Console property connected'); return; }
+    const modalEl = document.getElementById('gscKwModal');
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+    const tbody = document.querySelector('#kwTable tbody');
+    tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+    fetch('gsc_keywords.php?client_id=<?= $client_id ?>&site=' + encodeURIComponent(site))
+      .then(r=>r.json()).then(data=>{
+        if (data.status === 'ok') {
+          kwData = data.rows;
+          renderKwTable(kwData);
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5">Failed to load</td></tr>';
+          alert(data.error || 'Failed to load');
+        }
+      }).catch(err=>{
+        tbody.innerHTML = '<tr><td colspan="5">Error</td></tr>';
+        alert('Error: '+err);
+      });
+  });
+}
+
+function renderKwTable(rows) {
+  const tbody = document.querySelector('#kwTable tbody');
+  tbody.innerHTML = '';
+  rows.forEach(r=>{
+    const kw = r.keys[0] || '';
+    const clicks = r.clicks ?? 0;
+    const impr = r.impressions ?? 0;
+    const ctr = r.ctr ? (r.ctr*100).toFixed(2)+'%' : '';
+    const pos = r.position ? r.position.toFixed(2) : '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${kw}</td><td class="text-end">${clicks}</td><td class="text-end">${impr}</td><td class="text-end">${ctr}</td><td class="text-end">${pos}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+const kwFilter = document.getElementById('kwFilter');
+if (kwFilter) {
+  kwFilter.addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    const rows = kwData.filter(r => (r.keys[0]||'').toLowerCase().includes(q));
+    renderKwTable(rows);
+  });
+}
+
+document.querySelectorAll('#kwTable thead th').forEach(th=>{
+  th.addEventListener('click', function(){
+    const key = th.dataset.sort;
+    const dir = th.dataset.dir === 'asc' ? 'desc' : 'asc';
+    th.dataset.dir = dir;
+    kwData.sort((a,b)=>{
+      let va, vb;
+      if (key === 'keyword') { va = (a.keys[0]||'').toLowerCase(); vb = (b.keys[0]||'').toLowerCase(); }
+      else { va = a[key] || 0; vb = b[key] || 0; }
+      if (va < vb) return dir === 'asc' ? -1 : 1;
+      if (va > vb) return dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    renderKwTable(kwData);
+  });
+}
+
+const fetchBtn = document.getElementById('fetchGsc');
+if (fetchBtn) {
+  fetchBtn.addEventListener('click', function() {
+    const site = document.getElementById('scDomain').value.trim();
+    if (!site) { alert('No Search Console property connected'); return; }
+    const sel = document.getElementById('scMonth');
+    const start = sel.selectedOptions[0].dataset.start;
+    const end = sel.selectedOptions[0].dataset.end;
+    const country = document.getElementById('scCountry').value;
+    const monthIndex = sel.value;
+    fetchBtn.disabled = true;
+    fetch('gsc_import.php', {
+      method: 'POST',
+      headers: {'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({
+        client_id: '<?= $client_id ?>',
+        site: site,
+        start: start,
+        end: end,
+        country: country,
+        month_index: monthIndex
+      })
+    }).then(r=>r.json()).then(data=>{
+      fetchBtn.disabled = false;
+      if (data.status === 'ok') {
+        location.reload();
+      } else {
+        alert(data.error || 'Import failed');
+      }
+    }).catch(err=>{
+      fetchBtn.disabled = false;
+      alert('Error: '+err);
+    });
+  });
+}
+
+
+
+const doImportKwBtn = document.getElementById('doImportKeywords');
+if (doImportKwBtn) {
+  doImportKwBtn.addEventListener('click', function(){
+    const site = document.getElementById('scDomain').value.trim();
+    if (!site) return;
+    doImportKwBtn.disabled = true;
+    fetch('gsc_keywords.php', {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({client_id:'<?= $client_id ?>', site: site})
+    }).then(r=>r.json()).then(data=>{
+      doImportKwBtn.disabled = false;
+      if (data.status === 'ok') {
+        location.reload();
+      } else {
+        alert(data.error || 'Import failed');
+      }
+    }).catch(err=>{
+      doImportKwBtn.disabled = false;
+      alert('Error: '+err);
+    });
+  });
+}
+
 const doImportKwBtn = document.getElementById('doImportKeywords');
 if (doImportKwBtn) {
   doImportKwBtn.addEventListener('click', function(){
@@ -696,7 +826,7 @@ document.getElementById('posChartCollapse').addEventListener('shown.bs.collapse'
   });
 });
 
-const allKeywords = <?= json_encode($allKeywords) ?>;
+const allKeywords = <?= json_encode($allKeywords, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
 
 document.addEventListener('DOMContentLoaded', () => {
   const posCells = Array.from(document.querySelectorAll('#posTableBody td:nth-child(2)'));
