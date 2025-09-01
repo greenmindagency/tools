@@ -423,8 +423,16 @@ include __DIR__ . '/header.php';
             $workers = $clientWorkers[$c['id']] ?? [];
             $totalTasksForClient = array_sum($workers);
             $archived = ($c['active_count'] == 0 && $c['archived_count'] > 0);
+            $rowClass = 'list-group-item';
+            if (!$archived) {
+                if ($c['paid']) {
+                    $rowClass .= ' list-group-item-success';
+                } elseif ($c['start_date']) {
+                    $rowClass .= ' list-group-item-light';
+                }
+            }
       ?>
-      <li class="list-group-item" data-id="<?= $c['id'] ?>">
+      <li class="<?= $rowClass ?>" data-id="<?= $c['id'] ?>">
         <form method="post" class="row g-2 align-items-center">
           <div class="col-md-2"><input type="text" name="client_name" class="form-control" value="<?= htmlspecialchars($c['name']) ?>"></div>
           <div class="col-md-1">
@@ -721,6 +729,23 @@ document.getElementById('saveUserOrder').addEventListener('click', ()=>{
 document.getElementById('saveClientOrder').addEventListener('click', ()=>{
   const order = Array.from(document.querySelectorAll('#client-list li')).map((el,idx)=>el.dataset.id+':'+idx).join(',');
   fetch('admin.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'reorder_clients=1&order='+order}).then(()=>location.reload());
+});
+function updateClientRow(row){
+  const dateInput = row.querySelector('input[name="start_date"]');
+  const paidCheckbox = row.querySelector('input[name="client_paid"]');
+  row.classList.remove('list-group-item-light','list-group-item-success');
+  if(paidCheckbox && paidCheckbox.checked){
+    row.classList.add('list-group-item-success');
+  } else if(dateInput && dateInput.value){
+    row.classList.add('list-group-item-light');
+  }
+}
+document.querySelectorAll('#client-list li').forEach(row=>{
+  updateClientRow(row);
+  const dateInput = row.querySelector('input[name="start_date"]');
+  const paidCheckbox = row.querySelector('input[name="client_paid"]');
+  if(dateInput) dateInput.addEventListener('input', ()=>updateClientRow(row));
+  if(paidCheckbox) paidCheckbox.addEventListener('change', ()=>updateClientRow(row));
 });
 const copyBtn = document.getElementById('copyAttendance');
 if(copyBtn){
