@@ -115,20 +115,26 @@ try {
                     }
                 }
             }
+        } elseif (isset($_POST['remove_start_date'])) {
+            $id = (int)$_POST['remove_start_date'];
+            $stmt = $pdo->prepare('UPDATE clients SET start_date=NULL WHERE id=?');
+            $stmt->execute([$id]);
         } elseif (isset($_POST['save_client'])) {
             $id = (int)$_POST['save_client'];
             $name = trim($_POST['client_name'] ?? '');
-            $start = array_key_exists('start_date', $_POST) ? ($_POST['start_date'] ?: null) : null;
             $paid = array_key_exists('client_paid', $_POST) ? (int)$_POST['client_paid'] : null;
             if ($name !== '') {
                 $fields = ['name=?'];
                 $params = [$name];
-                if ($start !== null) { $fields[] = 'start_date=?'; $params[] = $start; }
+                if (array_key_exists('start_date', $_POST)) { $fields[] = 'start_date=?'; $params[] = $_POST['start_date'] ?: null; }
                 if ($paid !== null) { $fields[] = 'paid=?'; $params[] = $paid; }
                 $params[] = $id;
                 $stmt = $pdo->prepare('UPDATE clients SET '.implode(',', $fields).' WHERE id=?');
                 $stmt->execute($params);
             }
+        } elseif (isset($_POST['remove_start_date_all'])) {
+            $stmt = $pdo->prepare('UPDATE clients SET start_date=NULL WHERE id IN (SELECT DISTINCT client_id FROM tasks WHERE status!="archived")');
+            $stmt->execute();
         } elseif (isset($_POST['bulk_update_clients'])) {
             $fields = [];
             $params = [];
@@ -399,7 +405,12 @@ include __DIR__ . '/header.php';
           <div class="col-md-1"></div>
           <div class="col-md-1"></div>
           <div class="col-md-2"></div>
-          <div class="col-md-2"><input type="date" name="start_date_all" class="form-control"></div>
+          <div class="col-md-2">
+            <div class="input-group">
+              <input type="date" name="start_date_all" class="form-control">
+              <button class="btn btn-outline-secondary btn-sm" type="submit" name="remove_start_date_all" value="1" title="Remove all start dates">&times;</button>
+            </div>
+          </div>
           <div class="col-md-1"><input type="hidden" name="paid_all" value="0"><input type="checkbox" class="form-check-input" name="paid_all" value="1"></div>
           <div class="col-md-1"><button class="btn btn-secondary btn-sm w-100">Apply</button></div>
           <div class="col-md-1"></div>
@@ -436,7 +447,10 @@ include __DIR__ . '/header.php';
           </div>
           <div class="col-md-2">
             <?php if (!$archived): ?>
-              <input type="date" name="start_date" class="form-control" value="<?= htmlspecialchars($c['start_date']) ?>">
+              <div class="input-group">
+                <input type="date" name="start_date" class="form-control" value="<?= htmlspecialchars($c['start_date']) ?>">
+                <button class="btn btn-outline-secondary btn-sm" name="remove_start_date" value="<?= $c['id'] ?>" title="Remove start date">&times;</button>
+              </div>
             <?php endif; ?>
           </div>
           <div class="col-md-1">
