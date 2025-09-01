@@ -7,7 +7,7 @@ const REDIRECT_URI  = 'https://greenmindagency.com/tools/seo-platform/gsc_test.p
 // Use EXACT property string:
 // - URL-prefix: 'https://example.com/'
 // - Domain property: 'sc-domain:example.com'
-const SITE_PROPERTY = 'https://greenmindagency.com/tools/seo-platform/';
+const SITE_PROPERTY = 'https://greenmindagency.com/tools/seo-platform/gsc_test.php';
 /* ================================================================= */
 
 // Minimal storage path for tokens (make sure this file is writable by PHP)
