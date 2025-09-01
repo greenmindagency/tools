@@ -69,6 +69,12 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS sc_domains (
     domain VARCHAR(255)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
+$pdo->exec("CREATE TABLE IF NOT EXISTS sc_countries (
+    client_id INT,
+    country VARCHAR(3),
+    PRIMARY KEY (client_id, country)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
 $scDomainStmt = $pdo->prepare("SELECT domain FROM sc_domains WHERE client_id = ?");
 $scDomainStmt->execute([$client_id]);
 $scDomain = $scDomainStmt->fetchColumn() ?: '';
@@ -216,7 +222,7 @@ $allKeywords = array_values(array_unique($allKeywords));
 
 $posKwStmt = $pdo->prepare("SELECT keyword FROM keyword_positions WHERE client_id = ? AND country = ?");
 $posKwStmt->execute([$client_id, $country]);
-$countryStmt = $pdo->prepare("SELECT DISTINCT country FROM keyword_positions WHERE client_id = ?");
+$countryStmt = $pdo->prepare("SELECT country FROM sc_countries WHERE client_id = ?");
 $countryStmt->execute([$client_id]);
 $dbCountries = array_filter($countryStmt->fetchAll(PDO::FETCH_COLUMN), 'strlen');
 $posKeywords = array_map('strtolower', array_map('trim', $posKwStmt->fetchAll(PDO::FETCH_COLUMN)));
@@ -363,6 +369,35 @@ include 'header.php';
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-primary" id="connectGsc">Connect</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="gscCountryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Select Countries</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="countryFilter" class="form-control mb-2" placeholder="Filter countries...">
+        <div class="table-responsive" style="max-height:60vh;">
+          <table class="table table-sm table-hover" id="countryTable">
+            <thead class="table-light">
+              <tr>
+                <th><input type="checkbox" id="countrySelectAll"></th>
+                <th>Country</th>
+                <th class="text-end">Impressions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="saveCountries">Import Selected</button>
       </div>
     </div>
   </div>
@@ -530,28 +565,102 @@ function renderCountryBtns(list) {
   list.filter(c=>c).sort().forEach(c=>makeBtn(c, c.toUpperCase()));
 }
 
-function loadCountries() {
-  const site = document.getElementById('scDomain').value.trim();
-  const set = new Set(existingCountries);
-  if (currentCountry) set.add(currentCountry);
-  if (site) {
-    fetch('gsc_countries.php?site=' + encodeURIComponent(site))
-      .then(r=>r.json()).then(data=>{
-        if (data.status === 'ok') data.countries.forEach(c=>set.add(c));
-        renderCountryBtns(Array.from(set));
-      }).catch(()=>renderCountryBtns(Array.from(set)));
-  } else {
-    renderCountryBtns(Array.from(set));
+renderCountryBtns(existingCountries);
+
+let countryData = [];
+let countryFilterVal = '';
+let selectedCountries = new Set(existingCountries);
+
+function renderCountryTable() {
+  const tbody = document.querySelector('#countryTable tbody');
+  const rows = countryData
+    .filter(r => r.code.includes(countryFilterVal))
+    .sort((a,b)=>b.impressions - a.impressions);
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="3">No data</td></tr>';
+    return;
   }
+  tbody.innerHTML = rows.map(r=>`
+    <tr>
+      <td><input type="checkbox" class="country-check" data-code="${r.code}" ${selectedCountries.has(r.code)?'checked':''}></td>
+      <td>${r.code.toUpperCase()}</td>
+      <td>${Math.round(r.impressions)}</td>
+    </tr>
+  `).join('');
+  const all = document.getElementById('countrySelectAll');
+  const checks = tbody.querySelectorAll('.country-check');
+  all.checked = checks.length && Array.from(checks).every(c=>c.checked);
+  checks.forEach(cb=>cb.addEventListener('change', () => {
+    const code = cb.dataset.code;
+    if (cb.checked) selectedCountries.add(code); else selectedCountries.delete(code);
+    const visible = Array.from(tbody.querySelectorAll('.country-check'));
+    all.checked = visible.length && visible.every(c=>c.checked);
+  }));
 }
-loadCountries();
 
 document.getElementById('importCountryBtn').addEventListener('click', () => {
-  const code = prompt('Enter country code (e.g., usa)');
-  if (!code) return;
-  const params = new URLSearchParams(window.location.search);
-  params.set('country', code.toLowerCase());
-  window.location.search = params.toString();
+  const site = document.getElementById('scDomain').value.trim();
+  if (!site) { alert('No Search Console property connected'); return; }
+  const modalEl = document.getElementById('gscCountryModal');
+  const modal = new bootstrap.Modal(modalEl);
+  modal.show();
+  const tbody = document.querySelector('#countryTable tbody');
+  tbody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
+  countryData = [];
+  selectedCountries = new Set(existingCountries);
+  document.getElementById('countryFilter').value = '';
+  countryFilterVal = '';
+  fetch('gsc_countries.php?site=' + encodeURIComponent(site))
+    .then(r=>r.json()).then(data=>{
+      if (data.status === 'ok') {
+        countryData = data.countries;
+        renderCountryTable();
+      } else {
+        tbody.innerHTML = '<tr><td colspan="3">Failed to load</td></tr>';
+        alert(data.error || 'Failed to load');
+      }
+    }).catch(err=>{
+      tbody.innerHTML = '<tr><td colspan="3">Error</td></tr>';
+      alert('Error: '+err);
+    });
+});
+
+document.getElementById('countryFilter').addEventListener('input', e => {
+  countryFilterVal = e.target.value.trim().toLowerCase();
+  renderCountryTable();
+});
+
+document.getElementById('countrySelectAll').addEventListener('change', e => {
+  const checked = e.target.checked;
+  const checks = document.querySelectorAll('#countryTable tbody .country-check');
+  checks.forEach(cb => {
+    cb.checked = checked;
+    const code = cb.dataset.code;
+    if (checked) selectedCountries.add(code); else selectedCountries.delete(code);
+  });
+});
+
+document.getElementById('saveCountries').addEventListener('click', () => {
+  fetch('gsc_countries.php', {
+    method: 'POST',
+    headers: {'Content-Type':'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({
+      client_id: '<?= $client_id ?>',
+      countries: JSON.stringify(Array.from(selectedCountries))
+    })
+  }).then(r=>r.json()).then(data=>{
+    if (data.status === 'ok') {
+      if (!selectedCountries.has(currentCountry)) {
+        const params = new URLSearchParams(window.location.search);
+        params.delete('country');
+        window.location.search = params.toString();
+      } else {
+        location.reload();
+      }
+    } else {
+      alert(data.error || 'Save failed');
+    }
+  }).catch(err=>alert('Error: '+err));
 });
 
 const fetchBtn = document.getElementById('fetchGsc');
@@ -670,6 +779,52 @@ document.querySelectorAll('#kwTable thead th[data-sort]').forEach(th=>{
     th.textContent = th.dataset.label + (sortDir === 'asc' ? ' \u25B2' : ' \u25BC');
     renderKwTable();
   });
+}
+
+const existingCountries = <?= json_encode($dbCountries) ?>;
+let currentCountry = '<?= $country ?>';
+
+function renderCountryBtns(list) {
+  const group = document.getElementById('countryGroup');
+  group.innerHTML = '';
+  const makeBtn = (code, label) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-outline-secondary btn-sm' + (code===currentCountry?' active':'');
+    btn.textContent = label;
+    btn.addEventListener('click', () => {
+      const params = new URLSearchParams(window.location.search);
+      if (code) params.set('country', code); else params.delete('country');
+      window.location.search = params.toString();
+    });
+    group.appendChild(btn);
+  };
+  makeBtn('', 'Worldwide');
+  list.filter(c=>c).sort().forEach(c=>makeBtn(c, c.toUpperCase()));
+}
+
+function loadCountries() {
+  const site = document.getElementById('scDomain').value.trim();
+  const set = new Set(existingCountries);
+  if (currentCountry) set.add(currentCountry);
+  if (site) {
+    fetch('gsc_countries.php?site=' + encodeURIComponent(site))
+      .then(r=>r.json()).then(data=>{
+        if (data.status === 'ok') data.countries.forEach(c=>set.add(c));
+        renderCountryBtns(Array.from(set));
+      }).catch(()=>renderCountryBtns(Array.from(set)));
+  } else {
+    renderCountryBtns(Array.from(set));
+  }
+}
+loadCountries();
+
+document.getElementById('importCountryBtn').addEventListener('click', () => {
+  const code = prompt('Enter country code (e.g., usa)');
+  if (!code) return;
+  const params = new URLSearchParams(window.location.search);
+  params.set('country', code.toLowerCase());
+  window.location.search = params.toString();
 });
 
 document.getElementById('kwSelectAll').addEventListener('change', function(){
