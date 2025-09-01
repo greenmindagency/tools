@@ -101,27 +101,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     exit;
 }
 
-// POST -> import keywords & positions
-$body = [
-    'startDate'  => date('Y-m-d', strtotime('first day of -15 month')),
-    'endDate'    => date('Y-m-d', strtotime('last day of previous month')),
-    'dimensions' => ['query'],
-    'rowLimit'   => 25000,
-    'dataState'  => 'all'
-];
-try {
-    $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
-    $rows = $resp['rows'] ?? [];
-} catch (Exception $e) {
-    echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
+// POST -> import selected keywords & positions
+$sel = json_decode($_POST['keywords'] ?? '[]', true);
+if (!$sel || !is_array($sel)) {
+    echo json_encode(['status'=>'error','error'=>'No keywords selected']);
     exit;
 }
-$keywords = [];
-foreach ($rows as $r) {
-    $kw = strtolower(trim($r['keys'][0] ?? ''));
-    if ($kw !== '') $keywords[$kw] = true;
+$selMap = [];
+foreach ($sel as $k) {
+    $k = strtolower(trim($k));
+    if ($k !== '') $selMap[$k] = true;
 }
-$keywords = array_keys($keywords);
+if (!$selMap) {
+    echo json_encode(['status'=>'error','error'=>'No keywords selected']);
+    exit;
+}
+$keywords = array_keys($selMap);
 $ins = $pdo->prepare('INSERT IGNORE INTO keyword_positions (client_id, keyword) VALUES (?, ?)');
 foreach ($keywords as $kw) {
     $ins->execute([$clientId, $kw]);
@@ -159,7 +154,7 @@ for ($i = 0; $i < 12; $i++) {
     $order = 1;
     foreach ($rows as $row) {
         $kw = strtolower(trim($row['keys'][0] ?? ''));
-        if ($kw === '' || !isset($kwMap[$kw])) continue;
+        if ($kw === '' || !isset($kwMap[$kw]) || !isset($selMap[$kw])) continue;
         $pos = isset($row['position']) ? round($row['position'], 2) : null;
         $update->execute([$pos, $order, $kwMap[$kw]]);
         $order++;

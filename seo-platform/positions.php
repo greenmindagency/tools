@@ -364,6 +364,7 @@ include 'header.php';
           <table class="table table-sm table-hover" id="kwTable">
             <thead class="table-light">
               <tr>
+                <th><input type="checkbox" id="kwSelectAll"></th>
                 <th data-sort="keyword">Keyword</th>
                 <th data-sort="clicks" class="text-end">Clicks</th>
                 <th data-sort="impressions" class="text-end">Impressions</th>
@@ -529,6 +530,10 @@ if (fetchBtn) {
 
 
 let kwData = [];
+let kwFilterVal = '';
+let selectedKws = new Set();
+let sortKey = 'impressions';
+let sortDir = 'desc';
 document.getElementById('openImportKw')?.addEventListener('click', () => {
   const site = document.getElementById('scDomain').value.trim();
   if (!site) { alert('No Search Console property connected'); return; }
@@ -541,7 +546,7 @@ document.getElementById('openImportKw')?.addEventListener('click', () => {
     .then(r => r.json()).then(data => {
       if (data.status === 'ok') {
         kwData = data.rows;
-        renderKwTable(kwData);
+        renderKwTable();
       } else {
         tbody.innerHTML = '<tr><td colspan="5">Failed to load</td></tr>';
         alert(data.error || 'Failed to load');
@@ -552,45 +557,75 @@ document.getElementById('openImportKw')?.addEventListener('click', () => {
     });
 });
 
-function renderKwTable(rows) {
+function renderKwTable() {
   const tbody = document.querySelector('#kwTable tbody');
   tbody.innerHTML = '';
+  const rows = kwData.filter(r => (r.keys[0]||'').toLowerCase().includes(kwFilterVal));
   rows.forEach(r=>{
     const kw = r.keys[0] || '';
+    const checked = selectedKws.has(kw) ? 'checked' : '';
     const clicks = r.clicks ?? 0;
     const impr = r.impressions ?? 0;
     const ctr = r.ctr ? (r.ctr*100).toFixed(2)+'%' : '';
     const pos = r.position ? r.position.toFixed(2) : '';
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${kw}</td><td class="text-end">${clicks}</td><td class="text-end">${impr}</td><td class="text-end">${ctr}</td><td class="text-end">${pos}</td>`;
+    tr.innerHTML = `<td><input type="checkbox" class="kw-check" data-kw="${kw}" ${checked}></td><td>${kw}</td><td class="text-end">${clicks}</td><td class="text-end">${impr}</td><td class="text-end">${ctr}</td><td class="text-end">${pos}</td>`;
     tbody.appendChild(tr);
   });
+  const all = document.getElementById('kwSelectAll');
+  all.checked = rows.length && rows.every(r=>selectedKws.has(r.keys[0]||''));
 }
 
 const kwFilter = document.getElementById('kwFilter');
 if (kwFilter) {
   kwFilter.addEventListener('input', function() {
-    const q = this.value.toLowerCase();
-    const rows = kwData.filter(r => (r.keys[0]||'').toLowerCase().includes(q));
-    renderKwTable(rows);
+    kwFilterVal = this.value.toLowerCase();
+    renderKwTable();
   });
 }
 
-document.querySelectorAll('#kwTable thead th').forEach(th=>{
+document.querySelectorAll('#kwTable thead th[data-sort]').forEach(th=>{
+  th.dataset.label = th.textContent;
   th.addEventListener('click', function(){
     const key = th.dataset.sort;
-    const dir = th.dataset.dir === 'asc' ? 'desc' : 'asc';
-    th.dataset.dir = dir;
+    if (!key) return;
+    sortDir = (sortKey === key && sortDir === 'asc') ? 'desc' : 'asc';
+    sortKey = key;
     kwData.sort((a,b)=>{
       let va, vb;
       if (key === 'keyword') { va = (a.keys[0]||'').toLowerCase(); vb = (b.keys[0]||'').toLowerCase(); }
       else { va = a[key] || 0; vb = b[key] || 0; }
-      if (va < vb) return dir === 'asc' ? -1 : 1;
-      if (va > vb) return dir === 'asc' ? 1 : -1;
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ? 1 : -1;
       return 0;
     });
-    renderKwTable(kwData);
+    document.querySelectorAll('#kwTable thead th[data-sort]').forEach(h=>{
+      h.textContent = h.dataset.label;
+      delete h.dataset.dir;
+    });
+    th.dataset.dir = sortDir;
+    th.textContent = th.dataset.label + (sortDir === 'asc' ? ' \u25B2' : ' \u25BC');
+    renderKwTable();
   });
+});
+
+document.getElementById('kwSelectAll').addEventListener('change', function(){
+  const checked = this.checked;
+  document.querySelectorAll('#kwTable tbody .kw-check').forEach(cb=>{
+    cb.checked = checked;
+    const kw = cb.dataset.kw;
+    if (checked) selectedKws.add(kw); else selectedKws.delete(kw);
+  });
+});
+
+document.addEventListener('change', function(e){
+  if (e.target.classList.contains('kw-check')) {
+    const kw = e.target.dataset.kw;
+    if (e.target.checked) selectedKws.add(kw); else selectedKws.delete(kw);
+    const rows = kwData.filter(r => (r.keys[0]||'').toLowerCase().includes(kwFilterVal));
+    const all = document.getElementById('kwSelectAll');
+    all.checked = rows.length && rows.every(r=>selectedKws.has(r.keys[0]||''));
+  }
 });
 
 const doImportKwBtn = document.getElementById('doImportKeywords');
@@ -598,11 +633,13 @@ if (doImportKwBtn) {
   doImportKwBtn.addEventListener('click', function(){
     const site = document.getElementById('scDomain').value.trim();
     if (!site) return;
+    const selected = Array.from(selectedKws);
+    if (!selected.length) { alert('No keywords selected'); return; }
     doImportKwBtn.disabled = true;
     fetch('gsc_keywords.php', {
       method:'POST',
       headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body: new URLSearchParams({client_id:'<?= $client_id ?>', site: site})
+      body: new URLSearchParams({client_id:'<?= $client_id ?>', site: site, keywords: JSON.stringify(selected)})
     }).then(r=>r.json()).then(data=>{
       doImportKwBtn.disabled = false;
       if (data.status === 'ok') {
