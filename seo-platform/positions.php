@@ -280,6 +280,7 @@ include 'header.php';
     <button type="submit" form="updatePosForm" name="update_positions" class="btn btn-success btn-sm me-2">Update</button>
     <button type="button" id="toggleAddPosForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
     <button type="button" id="toggleImportPosForm" class="btn btn-primary btn-sm me-2">Import Positions</button>
+    <button type="button" id="openImportKw" class="btn btn-info btn-sm me-2">Import Keywords</button>
     <button type="button" id="copyPosKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
   </div>
   <form id="posFilterForm" method="GET" class="d-flex">
@@ -345,6 +346,37 @@ include 'header.php';
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-primary" id="connectGsc">Connect</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="gscKwModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Import Keywords</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="kwFilter" class="form-control mb-2" placeholder="Filter keywords...">
+        <div class="table-responsive" style="max-height:60vh;">
+          <table class="table table-sm table-hover" id="kwTable">
+            <thead class="table-light">
+              <tr>
+                <th data-sort="keyword">Keyword</th>
+                <th data-sort="clicks" class="text-end">Clicks</th>
+                <th data-sort="impressions" class="text-end">Impressions</th>
+                <th data-sort="ctr" class="text-end">CTR</th>
+                <th data-sort="position" class="text-end">Position</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="doImportKeywords">Import</button>
       </div>
     </div>
   </div>
@@ -495,6 +527,136 @@ if (fetchBtn) {
 }
 
 
+
+let kwData = [];
+const openKwBtn = document.getElementById('openImportKw');
+if (openKwBtn) {
+  openKwBtn.addEventListener('click', function() {
+    const site = document.getElementById('scDomain').value.trim();
+    if (!site) { alert('No Search Console property connected'); return; }
+    const modalEl = document.getElementById('gscKwModal');
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+    const tbody = document.querySelector('#kwTable tbody');
+    tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+    fetch('gsc_keywords.php?client_id=<?= $client_id ?>&site=' + encodeURIComponent(site))
+      .then(r=>r.json()).then(data=>{
+        if (data.status === 'ok') {
+          kwData = data.rows;
+          renderKwTable(kwData);
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5">Failed to load</td></tr>';
+          alert(data.error || 'Failed to load');
+        }
+      }).catch(err=>{
+        tbody.innerHTML = '<tr><td colspan="5">Error</td></tr>';
+        alert('Error: '+err);
+      });
+  });
+}
+
+function renderKwTable(rows) {
+  const tbody = document.querySelector('#kwTable tbody');
+  tbody.innerHTML = '';
+  rows.forEach(r=>{
+    const kw = r.keys[0] || '';
+    const clicks = r.clicks ?? 0;
+    const impr = r.impressions ?? 0;
+    const ctr = r.ctr ? (r.ctr*100).toFixed(2)+'%' : '';
+    const pos = r.position ? r.position.toFixed(2) : '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${kw}</td><td class="text-end">${clicks}</td><td class="text-end">${impr}</td><td class="text-end">${ctr}</td><td class="text-end">${pos}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+const kwFilter = document.getElementById('kwFilter');
+if (kwFilter) {
+  kwFilter.addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    const rows = kwData.filter(r => (r.keys[0]||'').toLowerCase().includes(q));
+    renderKwTable(rows);
+  });
+}
+
+document.querySelectorAll('#kwTable thead th').forEach(th=>{
+  th.addEventListener('click', function(){
+    const key = th.dataset.sort;
+    const dir = th.dataset.dir === 'asc' ? 'desc' : 'asc';
+    th.dataset.dir = dir;
+    kwData.sort((a,b)=>{
+      let va, vb;
+      if (key === 'keyword') { va = (a.keys[0]||'').toLowerCase(); vb = (b.keys[0]||'').toLowerCase(); }
+      else { va = a[key] || 0; vb = b[key] || 0; }
+      if (va < vb) return dir === 'asc' ? -1 : 1;
+      if (va > vb) return dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    renderKwTable(kwData);
+  });
+}
+
+const fetchBtn = document.getElementById('fetchGsc');
+if (fetchBtn) {
+  fetchBtn.addEventListener('click', function() {
+    const site = document.getElementById('scDomain').value.trim();
+    if (!site) { alert('No Search Console property connected'); return; }
+    const sel = document.getElementById('scMonth');
+    const start = sel.selectedOptions[0].dataset.start;
+    const end = sel.selectedOptions[0].dataset.end;
+    const country = document.getElementById('scCountry').value;
+    const monthIndex = sel.value;
+    fetchBtn.disabled = true;
+    fetch('gsc_import.php', {
+      method: 'POST',
+      headers: {'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({
+        client_id: '<?= $client_id ?>',
+        site: site,
+        start: start,
+        end: end,
+        country: country,
+        month_index: monthIndex
+      })
+    }).then(r=>r.json()).then(data=>{
+      fetchBtn.disabled = false;
+      if (data.status === 'ok') {
+        location.reload();
+      } else {
+        alert(data.error || 'Import failed');
+      }
+    }).catch(err=>{
+      fetchBtn.disabled = false;
+      alert('Error: '+err);
+    });
+  });
+}
+
+
+
+const doImportKwBtn = document.getElementById('doImportKeywords');
+if (doImportKwBtn) {
+  doImportKwBtn.addEventListener('click', function(){
+    const site = document.getElementById('scDomain').value.trim();
+    if (!site) return;
+    doImportKwBtn.disabled = true;
+    fetch('gsc_keywords.php', {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({client_id:'<?= $client_id ?>', site: site})
+    }).then(r=>r.json()).then(data=>{
+      doImportKwBtn.disabled = false;
+      if (data.status === 'ok') {
+        location.reload();
+      } else {
+        alert(data.error || 'Import failed');
+      }
+    }).catch(err=>{
+      doImportKwBtn.disabled = false;
+      alert('Error: '+err);
+    });
+  });
+}
 
 let posChart;
 const barLabelPlugin = {
