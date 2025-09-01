@@ -426,9 +426,9 @@ include __DIR__ . '/header.php';
             $rowClass = 'list-group-item';
             if (!$archived) {
                 if ($c['paid']) {
-                    $rowClass .= ' list-group-item-success';
+                    $rowClass .= ' bg-success bg-opacity-10';
                 } elseif ($c['start_date']) {
-                    $rowClass .= ' list-group-item-light';
+                    $rowClass .= ' bg-secondary bg-opacity-10';
                 }
             }
       ?>
@@ -732,18 +732,18 @@ document.getElementById('saveClientOrder').addEventListener('click', ()=>{
 });
 function updateClientRow(row){
   const dateInput = row.querySelector('input[name="start_date"]');
-  const paidCheckbox = row.querySelector('input[name="client_paid"]');
-  row.classList.remove('list-group-item-light','list-group-item-success');
+  const paidCheckbox = row.querySelector('input[type="checkbox"][name="client_paid"]');
+  row.classList.remove('bg-secondary','bg-success','bg-opacity-10');
   if(paidCheckbox && paidCheckbox.checked){
-    row.classList.add('list-group-item-success');
+    row.classList.add('bg-success','bg-opacity-10');
   } else if(dateInput && dateInput.value){
-    row.classList.add('list-group-item-light');
+    row.classList.add('bg-secondary','bg-opacity-10');
   }
 }
 document.querySelectorAll('#client-list li').forEach(row=>{
   updateClientRow(row);
   const dateInput = row.querySelector('input[name="start_date"]');
-  const paidCheckbox = row.querySelector('input[name="client_paid"]');
+  const paidCheckbox = row.querySelector('input[type="checkbox"][name="client_paid"]');
   if(dateInput) dateInput.addEventListener('input', ()=>updateClientRow(row));
   if(paidCheckbox) paidCheckbox.addEventListener('change', ()=>updateClientRow(row));
 });
