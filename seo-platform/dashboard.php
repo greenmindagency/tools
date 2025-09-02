@@ -129,6 +129,14 @@ $statsStmt = $pdo->prepare("SELECT total, clustered AS clusters FROM keyword_sta
 $statsStmt->execute([$client_id]);
 $stats = $statsStmt->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'clusters'=>0];
 
+$pdo->exec("CREATE TABLE IF NOT EXISTS sc_domains (
+    client_id INT PRIMARY KEY,
+    domain VARCHAR(255)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+$scDomainStmt = $pdo->prepare("SELECT domain FROM sc_domains WHERE client_id = ?");
+$scDomainStmt->execute([$client_id]);
+$scDomain = $scDomainStmt->fetchColumn() ?: '';
+
 include 'header.php';
 ?>
 <style>
@@ -139,6 +147,13 @@ include 'header.php';
   <li class="nav-item"><a class="nav-link" href="positions.php?client_id=<?php echo $client_id; ?>&slug=<?php echo $slug; ?>">Keyword Position</a></li>
   <li class="nav-item"><a class="nav-link" href="clusters.php?client_id=<?php echo $client_id; ?>&slug=<?php echo $slug; ?>">Clusters</a></li>
 </ul>
+
+<div class="mb-3">
+  <div class="d-flex">
+    <input type="text" id="scDomain" value="<?= htmlspecialchars($scDomain) ?>" class="form-control me-2" readonly placeholder="Connect Search Console">
+    <button type="button" id="changeScDomain" class="btn btn-outline-secondary btn-sm"><?= $scDomain ? 'Change' : 'Connect' ?></button>
+  </div>
+</div>
 
 <div class="mb-3 d-flex justify-content-between align-items-center">
   <div>
@@ -549,9 +564,9 @@ while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
 <div class="d-flex justify-content-between mb-2 sticky-controls">
   <div class="d-flex">
     <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success btn-sm me-2">Update</button>
-    <button type="button" id="toggleAddForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
+    <button type="button" id="toggleAddForm" class="btn btn-warning btn-sm me-2">Import Keywords</button>
     <button type="button" id="toggleClusterForm" class="btn btn-info btn-sm me-2">Update Clusters</button>
-    <button type="button" id="copyKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
+    <button type="button" id="openImportKw" class="btn btn-secondary btn-sm me-2">Copy To Keyword Planner</button>
     <button type="button" id="copyLinks" class="btn btn-dark btn-sm me-2">Copy Links</button>
   </div>
   <form id="filterForm" method="GET" class="d-flex">
@@ -679,6 +694,55 @@ foreach ($stmt as $row) {
   </div>
 </div>
 
+<div class="modal fade" id="gscModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Select Search Console Property</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <select id="gscSiteSelect" class="form-select"></select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="connectGsc">Connect</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="gscKwModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Import Keywords</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="kwFilter" class="form-control mb-2" placeholder="Filter keywords...">
+        <div class="table-responsive" style="max-height:60vh;">
+          <table class="table table-sm table-hover" id="kwTable">
+            <thead class="table-light">
+              <tr>
+                <th><input type="checkbox" id="kwSelectAll"></th>
+                <th data-sort="keyword">Keyword</th>
+                <th data-sort="clicks" class="text-end">Clicks</th>
+                <th data-sort="impressions" class="text-end">Impressions</th>
+                <th data-sort="ctr" class="text-end">CTR</th>
+                <th data-sort="position" class="text-end">Position</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="copyToPlanner">Copy To Keyword Planner</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('click', function(e) {
   if (e.target.classList.contains('remove-row')) {
@@ -735,19 +799,6 @@ function showCopiedToast(msg) {
   const toast = bootstrap.Toast.getOrCreateInstance(el);
   toast.show();
 }
-document.getElementById('copyKeywords').addEventListener('click', function() {
-  const rows = document.querySelectorAll('#kwTableBody tr');
-  const keywords = [];
-  rows.forEach(tr => {
-    const cell = tr.querySelector('td:nth-child(2)');
-    if (cell) {
-      keywords.push(cell.innerText.trim());
-    }
-  });
-  navigator.clipboard.writeText(keywords.join('\n')).then(() => {
-    showCopiedToast('Keywords copied to clipboard');
-  });
-});
 
 document.getElementById('copyLinks').addEventListener('click', function() {
   const rows = document.querySelectorAll('#kwTableBody tr');
@@ -763,6 +814,174 @@ document.getElementById('copyLinks').addEventListener('click', function() {
     showCopiedToast('Links copied to clipboard.');
   });
 });
+
+const changeBtn = document.getElementById('changeScDomain');
+if (changeBtn) {
+  changeBtn.addEventListener('click', function() {
+    fetch('gsc_fetch.php?props=1')
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'auth' && data.url) {
+          window.location = data.url;
+        } else if (data.status === 'ok') {
+          const sel = document.getElementById('gscSiteSelect');
+          sel.innerHTML = '';
+          data.sites.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.siteUrl;
+            opt.textContent = s.siteUrl + ' [' + s.permissionLevel + ']';
+            sel.appendChild(opt);
+          });
+          const modal = new bootstrap.Modal(document.getElementById('gscModal'));
+          modal.show();
+        } else {
+          alert(data.error || 'Failed to load properties');
+        }
+      })
+      .catch(err => alert('Error: ' + err));
+  });
+}
+
+const connectBtn = document.getElementById('connectGsc');
+if (connectBtn) {
+  connectBtn.addEventListener('click', function() {
+    const site = document.getElementById('gscSiteSelect').value;
+    if (!site) return;
+    fetch('gsc_fetch.php', {
+      method: 'POST',
+      headers: {'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({
+        client_id: '<?= $client_id ?>',
+        site: site,
+        ajax: 1
+      })
+    }).then(r => r.json()).then(data => {
+      if (data.status === 'ok') {
+        document.getElementById('scDomain').value = site;
+        changeBtn.textContent = 'Change';
+        bootstrap.Modal.getInstance(document.getElementById('gscModal')).hide();
+      } else {
+        alert(data.error || 'Failed to connect');
+      }
+    }).catch(err => alert('Error: ' + err));
+  });
+}
+
+let kwData = [];
+let kwFilterVal = '';
+let selectedKws = new Set();
+let sortKey = 'impressions';
+let sortDir = 'desc';
+
+document.getElementById('openImportKw')?.addEventListener('click', () => {
+  const site = document.getElementById('scDomain').value.trim();
+  if (!site) { alert('No Search Console property connected'); return; }
+  const modalEl = document.getElementById('gscKwModal');
+  const modal = new bootstrap.Modal(modalEl);
+  modal.show();
+  const tbody = document.querySelector('#kwTable tbody');
+  tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+  fetch('gsc_keywords.php?client_id=<?= $client_id ?>&site=' + encodeURIComponent(site))
+    .then(r => r.json()).then(data => {
+      if (data.status === 'ok') {
+        kwData = data.rows;
+        renderKwTable();
+      } else {
+        tbody.innerHTML = '<tr><td colspan="5">Failed to load</td></tr>';
+        alert(data.error || 'Failed to load');
+      }
+    }).catch(err => {
+      tbody.innerHTML = '<tr><td colspan="5">Error</td></tr>';
+      alert('Error: ' + err);
+    });
+});
+
+function renderKwTable() {
+  const tbody = document.querySelector('#kwTable tbody');
+  tbody.innerHTML = '';
+  const rows = kwData.filter(r => (r.keys[0]||'').toLowerCase().includes(kwFilterVal));
+  rows.forEach(r=>{
+    const kw = r.keys[0] || '';
+    const checked = selectedKws.has(kw) ? 'checked' : '';
+    const clicks = r.clicks ?? 0;
+    const impr = r.impressions ?? 0;
+    const ctr = r.ctr ? (r.ctr*100).toFixed(2)+'%' : '';
+    const pos = r.position ? r.position.toFixed(2) : '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><input type="checkbox" class="kw-check" data-kw="${kw}" ${checked}></td><td>${kw}</td><td class="text-end">${clicks}</td><td class="text-end">${impr}</td><td class="text-end">${ctr}</td><td class="text-end">${pos}</td>`;
+    tbody.appendChild(tr);
+  });
+  const all = document.getElementById('kwSelectAll');
+  all.checked = rows.length && rows.every(r=>selectedKws.has(r.keys[0]||''));
+}
+
+const kwFilter = document.getElementById('kwFilter');
+if (kwFilter) {
+  kwFilter.addEventListener('input', function() {
+    kwFilterVal = this.value.toLowerCase();
+    renderKwTable();
+  });
+}
+
+document.querySelectorAll('#kwTable thead th[data-sort]').forEach((th) => {
+  th.dataset.label = th.textContent;
+  th.addEventListener('click', () => {
+    const key = th.dataset.sort;
+    if (!key) return;
+    sortDir = (sortKey === key && sortDir === 'asc') ? 'desc' : 'asc';
+    sortKey = key;
+    kwData.sort((a, b) => {
+      let va, vb;
+      if (key === 'keyword') {
+        va = (a.keys[0] || '').toLowerCase();
+        vb = (b.keys[0] || '').toLowerCase();
+      } else {
+        va = a[key] || 0;
+        vb = b[key] || 0;
+      }
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    document.querySelectorAll('#kwTable thead th[data-sort]').forEach((h) => {
+      h.textContent = h.dataset.label;
+      delete h.dataset.dir;
+    });
+    th.dataset.dir = sortDir;
+    th.textContent = th.dataset.label + (sortDir === 'asc' ? ' \u25B2' : ' \u25BC');
+    renderKwTable();
+  });
+});
+
+document.getElementById('kwSelectAll').addEventListener('change', function(){
+  const checked = this.checked;
+  document.querySelectorAll('#kwTable tbody .kw-check').forEach(cb=>{
+    cb.checked = checked;
+    const kw = cb.dataset.kw;
+    if (checked) selectedKws.add(kw); else selectedKws.delete(kw);
+  });
+});
+
+document.addEventListener('change', function(e){
+  if (e.target.classList.contains('kw-check')) {
+    const kw = e.target.dataset.kw;
+    if (e.target.checked) selectedKws.add(kw); else selectedKws.delete(kw);
+    const rows = kwData.filter(r => (r.keys[0]||'').toLowerCase().includes(kwFilterVal));
+    const all = document.getElementById('kwSelectAll');
+    all.checked = rows.length && rows.every(r=>selectedKws.has(r.keys[0]||''));
+  }
+});
+
+const copyBtn = document.getElementById('copyToPlanner');
+if (copyBtn) {
+  copyBtn.addEventListener('click', function(){
+    if (!selectedKws.size) { alert('No keywords selected'); return; }
+    navigator.clipboard.writeText(Array.from(selectedKws).join('\n')).then(()=>{
+      showCopiedToast('Keywords copied to clipboard');
+      bootstrap.Modal.getInstance(document.getElementById('gscKwModal')).hide();
+    });
+  });
+}
 </script>
 
 <?php include 'footer.php'; ?>
