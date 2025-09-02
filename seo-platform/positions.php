@@ -297,6 +297,9 @@ include 'header.php';
     <button type="button" id="toggleImportPosForm" class="btn btn-primary btn-sm me-2" style="display:none;">Import Positions</button>
     <button type="button" id="openImportKw" class="btn btn-info btn-sm me-2">Import Keywords</button>
     <button type="button" id="copyPosKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
+    <?php if ($country): ?>
+    <button type="button" id="removeCountry" class="btn btn-danger btn-sm me-2">Remove Country</button>
+    <?php endif; ?>
   </div>
   <form id="posFilterForm" method="GET" class="d-flex">
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
@@ -482,6 +485,32 @@ document.getElementById('copyPosKeywords').addEventListener('click', function() 
     showCopiedToast('Keywords copied to clipboard');
   });
 });
+
+const removeBtn = document.getElementById('removeCountry');
+if (removeBtn) {
+  removeBtn.addEventListener('click', () => {
+    if (!currentCountry) return;
+    const name = countryNames[currentCountry] || currentCountry.toUpperCase();
+    if (!confirm(`Remove ${name} and all its keywords?`)) return;
+    selectedCountries.delete(currentCountry);
+    fetch('gsc_countries.php', {
+      method: 'POST',
+      headers: {'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({
+        client_id: '<?= $client_id ?>',
+        countries: JSON.stringify(Array.from(selectedCountries))
+      })
+    }).then(r=>r.json()).then(data=>{
+      if (data.status === 'ok') {
+        const params = new URLSearchParams(window.location.search);
+        params.delete('country');
+        window.location.search = params.toString();
+      } else {
+        alert(data.error || 'Remove failed');
+      }
+    }).catch(err=>alert('Error: '+err));
+  });
+}
 
 const changeBtn = document.getElementById('changeScDomain');
 if (changeBtn) {
