@@ -919,7 +919,7 @@ function renderKwTable() {
     const ctr = r.ctr ? (r.ctr*100).toFixed(2)+'%' : '';
     const pos = r.position ? r.position.toFixed(2) : '';
     const tr = document.createElement('tr');
-    if (existingKeywords.has(kw.toLowerCase())) tr.classList.add('existing-kw');
+    if (existingKeywords.has(kw.toLowerCase())) tr.classList.add('table-warning');
     tr.innerHTML = `<td><input type="checkbox" class="kw-check" data-kw="${kw}" ${checked}></td><td>${kw}</td><td class="text-end">${clicks}</td><td class="text-end">${impr}</td><td class="text-end">${ctr}</td><td class="text-end">${pos}</td>`;
     tbody.appendChild(tr);
   });
@@ -1001,7 +1001,6 @@ if (copyBtn) {
     if (!selectedKws.size) { alert('No keywords selected'); return; }
     navigator.clipboard.writeText(Array.from(selectedKws).join('\n')).then(()=>{
       showCopiedToast('Keywords copied to clipboard');
-      bootstrap.Modal.getInstance(document.getElementById('gscKwModal')).hide();
     });
   });
 }
