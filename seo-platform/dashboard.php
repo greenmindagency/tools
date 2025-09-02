@@ -564,7 +564,7 @@ $existingKeywords = $kwStmt->fetchAll(PDO::FETCH_COLUMN);
 <div class="d-flex justify-content-between mb-2 sticky-controls">
   <div class="d-flex">
     <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success btn-sm me-2">Update</button>
-    <button type="button" id="toggleAddForm" class="btn btn-warning btn-sm me-2">Import Keywords</button>
+    <button type="button" id="toggleAddForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
     <button type="button" id="toggleClusterForm" class="btn btn-info btn-sm me-2">Update Clusters</button>
     <button type="button" id="openImportKw" class="btn btn-secondary btn-sm me-2">Import Keywords</button>
     <button type="button" id="copyLinks" class="btn btn-dark btn-sm me-2">Copy Links</button>
