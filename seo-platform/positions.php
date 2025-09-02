@@ -56,9 +56,10 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS keyword_positions (
     m9 FLOAT DEFAULT NULL,
     m10 FLOAT DEFAULT NULL,
     m11 FLOAT DEFAULT NULL,
-    m12 FLOAT DEFAULT NULL
+    m12 FLOAT DEFAULT NULL,
+    m13 FLOAT DEFAULT NULL
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-for ($i = 1; $i <= 12; $i++) {
+for ($i = 1; $i <= 13; $i++) {
     $pdo->exec("ALTER TABLE keyword_positions ADD COLUMN IF NOT EXISTS m{$i} FLOAT DEFAULT NULL");
 }
 $pdo->exec("ALTER TABLE keyword_positions ADD COLUMN IF NOT EXISTS sort_order INT");
@@ -109,7 +110,7 @@ if (isset($_POST['update_positions'])) {
 
 if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name'])) {
     $monthIndex = (int)($_POST['position_month'] ?? 0);
-    $col = 'm' . ($monthIndex + 1);
+    $col = 'm' . ($monthIndex + 2);
     $tmp = $_FILES['csv_file']['tmp_name'];
     $rawRows = [];
     if (is_uploaded_file($tmp)) {
@@ -196,7 +197,7 @@ $posStmt->execute($posParams);
 $positions = $posStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $firstPagePerc = [];
-for ($i = 1; $i <= 12; $i++) {
+for ($i = 2; $i <= 13; $i++) {
     $good = 0;
     $count = 0;
     foreach ($positions as $row) {
@@ -326,7 +327,7 @@ include 'header.php';
     <tr class="table-info">
       <td></td>
       <td><strong>% in Top 10</strong></td>
-      <?php for ($i=11;$i>=0;$i--): $p = $firstPagePerc[$i+1]; ?>
+      <?php for ($i=12;$i>=1;$i--): $p = $firstPagePerc[$i+1]; ?>
         <td class="text-center fw-bold"><?= $p ?>%</td>
       <?php endfor; ?>
     </tr>
@@ -334,7 +335,7 @@ include 'header.php';
       <tr data-id="<?= $row['id'] ?>">
         <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-row">-</button><input type="hidden" name="delete_pos[<?= $row['id'] ?>]" value="0" class="delete-flag"></td>
         <td><?= htmlspecialchars($row['keyword']) ?></td>
-        <?php for ($i=11;$i>=0;$i--): $col = 'm'.($i+1); ?>
+        <?php for ($i=12;$i>=1;$i--): $col = 'm'.($i+1); ?>
           <?php $val = $row[$col]; $bg = ''; if ($val !== null && $val !== '') { $bg = ((float)$val <= 10) ? '#d4edda' : '#f8d7da'; } ?>
           <td class="text-center" style="background-color: <?= $bg ?>;"><?= $val !== null ? htmlspecialchars($val) : '' ?></td>
         <?php endfor; ?>
