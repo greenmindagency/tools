@@ -67,12 +67,10 @@ function get_access_token() {
 
 $clientId = (int)($_POST['client_id'] ?? 0);
 $site     = trim($_POST['site'] ?? '');
-$start    = trim($_POST['start'] ?? '');
-$end      = trim($_POST['end'] ?? '');
 $country  = trim($_POST['country'] ?? '');
-$monthIdx = (int)($_POST['month_index'] ?? 0);
+$months   = json_decode($_POST['months'] ?? '[]', true);
 
-if (!$clientId || !$site || !$start || !$end) {
+if (!$clientId || !$site || !is_array($months) || !$months) {
     echo json_encode(['status'=>'error','error'=>'Missing parameters']);
     exit;
 }
@@ -83,31 +81,9 @@ if (!$accessToken) {
     exit;
 }
 
-$body = [
-    'startDate'  => $start,
-    'endDate'    => $end,
-    'dimensions' => ['query'],
-    'rowLimit'   => 25000,
-    'dataState'  => 'all'
-];
-if ($country) {
-    $body['dimensionFilterGroups'] = [[
-        'filters' => [
-            [
-                'dimension' => 'country',
-                'operator'  => 'equals',
-                'expression'=> strtolower($country)
-            ]
-        ]
-    ]];
-}
-
 $endpoint = 'https://searchconsole.googleapis.com/webmasters/v3/sites/' . rawurlencode($site) . '/searchAnalytics/query';
 
 try {
-    $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
-    $rows = $resp['rows'] ?? [];
-
     $mapStmt = $pdo->prepare('SELECT id, keyword FROM keyword_positions WHERE client_id = ? AND country = ?');
     $mapStmt->execute([$clientId, $country]);
     $kwMap = [];
@@ -115,21 +91,53 @@ try {
         $kwMap[strtolower(trim($r['keyword']))] = $r['id'];
     }
 
-    $col = 'm' . ($monthIdx + 1);
-    $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE client_id = ? AND country = ?")->execute([$clientId, $country]);
+    $total = 0;
+    foreach ($months as $m) {
+        $start = $m['start'] ?? '';
+        $end   = $m['end'] ?? '';
+        $idx   = (int)($m['index'] ?? 0);
+        if (!$start || !$end) continue;
 
-    usort($rows, fn($a,$b) => ($b['impressions'] ?? 0) <=> ($a['impressions'] ?? 0));
-    $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ?, sort_order = ? WHERE id = ?");
-    $order = 1;
-    foreach ($rows as $row) {
-        $kw = strtolower(trim($row['keys'][0] ?? ''));
-        if ($kw === '' || !isset($kwMap[$kw])) continue;
-        $pos = isset($row['position']) ? round($row['position'], 2) : null;
-        $update->execute([$pos, $order, $kwMap[$kw]]);
-        $order++;
+        $body = [
+            'startDate'  => $start,
+            'endDate'    => $end,
+            'dimensions' => ['query'],
+            'rowLimit'   => 25000,
+            'dataState'  => 'all'
+        ];
+        if ($country) {
+            $body['dimensionFilterGroups'] = [[
+                'filters' => [
+                    [
+                        'dimension' => 'country',
+                        'operator'  => 'equals',
+                        'expression'=> strtolower($country)
+                    ]
+                ]
+            ]];
+        }
+
+        $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
+        $rows = $resp['rows'] ?? [];
+
+        $col = 'm' . ($idx + 1);
+        $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE client_id = ? AND country = ?")
+            ->execute([$clientId, $country]);
+
+        usort($rows, fn($a,$b) => ($b['impressions'] ?? 0) <=> ($a['impressions'] ?? 0));
+        $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ?, sort_order = ? WHERE id = ?");
+        $order = 1;
+        foreach ($rows as $row) {
+            $kw = strtolower(trim($row['keys'][0] ?? ''));
+            if ($kw === '' || !isset($kwMap[$kw])) continue;
+            $pos = isset($row['position']) ? round($row['position'], 2) : null;
+            $update->execute([$pos, $order, $kwMap[$kw]]);
+            $order++;
+        }
+        $total += $order - 1;
     }
 
-    echo json_encode(['status'=>'ok','updated'=>$order-1]);
+    echo json_encode(['status'=>'ok','updated'=>$total]);
 } catch (Exception $e) {
     echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
 }

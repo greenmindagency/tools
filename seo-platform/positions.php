@@ -244,7 +244,7 @@ include 'header.php';
   <div class="row g-2">
     <div class="col-sm"><div class="d-flex"><input type="text" id="scDomain" value="<?= htmlspecialchars($scDomain) ?>" class="form-control me-2" readonly placeholder="Connect Search Console"><button type="button" id="changeScDomain" class="btn btn-outline-secondary btn-sm"><?= $scDomain ? 'Change' : 'Connect' ?></button></div></div>
     <div class="col-sm">
-      <select id="scMonth" class="form-select">
+      <select id="scMonth" class="form-select" multiple size="5">
         <?php
         for ($i = 0; $i < 12; $i++) {
             $ts = strtotime("first day of -$i month");
@@ -929,9 +929,12 @@ if (fetchBtn) {
     const site = document.getElementById('scDomain').value.trim();
     if (!site) { alert('No Search Console property connected'); return; }
     const sel = document.getElementById('scMonth');
-    const start = sel.selectedOptions[0].dataset.start;
-    const end = sel.selectedOptions[0].dataset.end;
-    const monthIndex = sel.value;
+    const selected = Array.from(sel.selectedOptions).map(opt => ({
+      start: opt.dataset.start,
+      end: opt.dataset.end,
+      index: opt.value
+    }));
+    if (!selected.length) { alert('Select at least one month'); return; }
     fetchBtn.disabled = true;
     fetch('gsc_import.php', {
       method: 'POST',
@@ -939,10 +942,8 @@ if (fetchBtn) {
       body: new URLSearchParams({
         client_id: '<?= $client_id ?>',
         site: site,
-        start: start,
-        end: end,
         country: currentCountry,
-        month_index: monthIndex
+        months: JSON.stringify(selected)
       })
     }).then(r=>r.json()).then(data=>{
       fetchBtn.disabled = false;
