@@ -89,23 +89,34 @@ try {
     while ($r = $mapStmt->fetch(PDO::FETCH_ASSOC)) {
         $kwMap[strtolower(trim($r['keyword']))] = $r['id'];
     }
-    // determine which months to fetch: empty columns plus current month
+    // determine which months to fetch: empty columns plus latest months
     $months = [];
+    $hasEmpty = false;
     for ($i = 0; $i < 12; $i++) {
         $col = 'm' . ($i + 1);
         $cntStmt = $pdo->prepare("SELECT COUNT(*) FROM keyword_positions WHERE client_id = ? AND country = ? AND `$col` IS NOT NULL");
         $cntStmt->execute([$clientId, $country]);
         if ($cntStmt->fetchColumn() == 0) {
+            $hasEmpty = true;
             $start = date('Y-m-d', strtotime("first day of -$i month"));
             $end   = date('Y-m-d', strtotime("last day of -$i month"));
             $months[$i] = ['start' => $start, 'end' => $end, 'index' => $i];
         }
     }
+    // always refresh current month
     $months[0] = [
         'start' => date('Y-m-d', strtotime('first day of this month')),
         'end'   => date('Y-m-d', strtotime('last day of this month')),
         'index' => 0
     ];
+    // if no empty columns, also refresh previous month
+    if (!$hasEmpty) {
+        $months[1] = [
+            'start' => date('Y-m-d', strtotime('first day of -1 month')),
+            'end'   => date('Y-m-d', strtotime('last day of -1 month')),
+            'index' => 1
+        ];
+    }
     ksort($months);
     $months = array_values($months);
 
