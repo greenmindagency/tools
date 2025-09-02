@@ -211,7 +211,7 @@ for ($i = 1; $i <= 12; $i++) {
 }
 
 $months = [];
-for ($i = 0; $i < 12; $i++) {
+for ($i = 1; $i <= 12; $i++) {
     $months[] = date('M Y', strtotime("-$i month"));
 }
 
