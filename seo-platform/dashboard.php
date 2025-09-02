@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
 
             if ($xlsx->sheetsCount() > 1) {
                 $pRows = $xlsx->rows(1);
-                $pIns = $pdo->prepare("INSERT INTO keyword_positions (client_id, keyword, sort_order, m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+                $pIns = $pdo->prepare("INSERT INTO keyword_positions (client_id, keyword, sort_order, m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
                 for ($i = 1; $i < count($pRows); $i++) {
                     $r = $pRows[$i];
                     $kw = $r[0] ?? '';
@@ -328,7 +328,7 @@ if (isset($_POST['import_plan'])) {
 
         if ($xlsx && $xlsx->sheetsCount() > 1) {
             $pRows = $xlsx->rows(1);
-            $pIns = $pdo->prepare("INSERT INTO keyword_positions (client_id, keyword, sort_order, m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            $pIns = $pdo->prepare("INSERT INTO keyword_positions (client_id, keyword, sort_order, m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             for ($i = 1; $i < count($pRows); $i++) {
                 $r = $pRows[$i];
                 $kw = $r[0] ?? '';
@@ -462,14 +462,14 @@ function createXlsxBackup(PDO $pdo, int $client_id, string $dir, string $client_
         $header[] = 'M'.$i;
     }
     $posRows[] = $header;
-    $pstmt = $pdo->prepare("SELECT keyword, sort_order, m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12 FROM keyword_positions WHERE client_id = ? ORDER BY sort_order IS NULL, sort_order, id DESC");
+    $pstmt = $pdo->prepare("SELECT keyword, sort_order, m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13 FROM keyword_positions WHERE client_id = ? ORDER BY sort_order IS NULL, sort_order, id DESC");
     $pstmt->execute([$client_id]);
     while ($row = $pstmt->fetch(PDO::FETCH_ASSOC)) {
         $line = [
             $row['keyword'],
             $row['sort_order']
         ];
-        for ($i = 1; $i <= 12; $i++) {
+        for ($i = 2; $i <= 13; $i++) {
             $line[] = $row['m'.$i];
         }
         $posRows[] = $line;
@@ -546,13 +546,18 @@ $limit = $q === '' ? " LIMIT $perPage OFFSET $offset" : '';
 $query = "SELECT * $baseQuery ORDER BY volume DESC, form ASC$limit";
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
+$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $posMap = [];
-$posStmt = $pdo->prepare("SELECT keyword, m1 FROM keyword_positions WHERE client_id = ?");
-$posStmt->execute([$client_id]);
-while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
-    if ($r['m1'] !== null && $r['m1'] !== '') {
-        $posMap[strtolower($r['keyword'])] = $r['m1'];
+if ($rows) {
+    $placeholders = implode(',', array_fill(0, count($rows), '?'));
+    $posStmt = $pdo->prepare("SELECT keyword, m2 FROM keyword_positions WHERE client_id = ? AND country = '' AND keyword IN ($placeholders)");
+    $kwParams = array_merge([$client_id], array_column($rows, 'keyword'));
+    $posStmt->execute($kwParams);
+    while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
+        if ($r['m2'] !== null && $r['m2'] !== '') {
+            $posMap[strtolower($r['keyword'])] = $r['m2'];
+        }
     }
 }
 
@@ -605,7 +610,7 @@ $existingKeywords = $kwStmt->fetchAll(PDO::FETCH_COLUMN);
     </thead>
 <tbody id="kwTableBody">
 <?php
-foreach ($stmt as $row) {
+foreach ($rows as $row) {
     $volume = $row['volume'];
     $form   = $row['form'];
 
