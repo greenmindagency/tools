@@ -92,7 +92,7 @@ try {
     // determine which months to fetch: empty columns plus latest months
     $months = [];
     $hasEmpty = false;
-    for ($i = 0; $i < 12; $i++) {
+    for ($i = 0; $i < 13; $i++) {
         $col = 'm' . ($i + 1);
         $cntStmt = $pdo->prepare("SELECT COUNT(*) FROM keyword_positions WHERE client_id = ? AND country = ? AND `$col` IS NOT NULL");
         $cntStmt->execute([$clientId, $country]);
