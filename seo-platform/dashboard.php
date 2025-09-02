@@ -141,6 +141,7 @@ include 'header.php';
 ?>
 <style>
   .highlight-cell { background-color: #e9e9e9 !important; }
+  .existing-kw { background-color: #fff3cd; }
 </style>
 <ul class="nav nav-tabs mb-3">
   <li class="nav-item"><a class="nav-link active" href="dashboard.php?client_id=<?php echo $client_id; ?>&slug=<?php echo $slug; ?>">Keywords</a></li>
@@ -559,6 +560,10 @@ while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
         $posMap[strtolower($r['keyword'])] = $r['m1'];
     }
 }
+
+$kwStmt = $pdo->prepare("SELECT LOWER(keyword) FROM keywords WHERE client_id = ?");
+$kwStmt->execute([$client_id]);
+$existingKeywords = $kwStmt->fetchAll(PDO::FETCH_COLUMN);
 ?>
 
 <div class="d-flex justify-content-between mb-2 sticky-controls">
@@ -566,7 +571,7 @@ while ($r = $posStmt->fetch(PDO::FETCH_ASSOC)) {
     <button type="submit" form="updateForm" name="update_keywords" class="btn btn-success btn-sm me-2">Update</button>
     <button type="button" id="toggleAddForm" class="btn btn-warning btn-sm me-2">Import Keywords</button>
     <button type="button" id="toggleClusterForm" class="btn btn-info btn-sm me-2">Update Clusters</button>
-    <button type="button" id="openImportKw" class="btn btn-secondary btn-sm me-2">Copy To Keyword Planner</button>
+    <button type="button" id="openImportKw" class="btn btn-secondary btn-sm me-2">Import Keywords</button>
     <button type="button" id="copyLinks" class="btn btn-dark btn-sm me-2">Copy Links</button>
   </div>
   <form id="filterForm" method="GET" class="d-flex">
@@ -735,8 +740,13 @@ foreach ($stmt as $row) {
             <tbody></tbody>
           </table>
         </div>
+        <form method="POST" id="kwUpdateForm" style="display:none;" class="mt-3">
+          <textarea name="keywords" id="kwUpdateTextarea" class="form-control" rows="6" placeholder="keyword volume form per line"></textarea>
+          <button type="submit" name="add_keywords" class="btn btn-success btn-sm mt-2">Update Keywords</button>
+        </form>
       </div>
       <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="showKwUpdate">Update Keyword</button>
         <button type="button" class="btn btn-primary" id="copyToPlanner">Copy To Keyword Planner</button>
       </div>
     </div>
@@ -872,6 +882,7 @@ let kwFilterVal = '';
 let selectedKws = new Set();
 let sortKey = 'impressions';
 let sortDir = 'desc';
+const existingKeywords = new Set(<?= json_encode($existingKeywords) ?>);
 
 document.getElementById('openImportKw')?.addEventListener('click', () => {
   const site = document.getElementById('scDomain').value.trim();
@@ -908,6 +919,7 @@ function renderKwTable() {
     const ctr = r.ctr ? (r.ctr*100).toFixed(2)+'%' : '';
     const pos = r.position ? r.position.toFixed(2) : '';
     const tr = document.createElement('tr');
+    if (existingKeywords.has(kw.toLowerCase())) tr.classList.add('existing-kw');
     tr.innerHTML = `<td><input type="checkbox" class="kw-check" data-kw="${kw}" ${checked}></td><td>${kw}</td><td class="text-end">${clicks}</td><td class="text-end">${impr}</td><td class="text-end">${ctr}</td><td class="text-end">${pos}</td>`;
     tbody.appendChild(tr);
   });
@@ -972,6 +984,17 @@ document.addEventListener('change', function(e){
   }
 });
 
+const showUpdateBtn = document.getElementById('showKwUpdate');
+if (showUpdateBtn) {
+  showUpdateBtn.addEventListener('click', () => {
+    if (!selectedKws.size) { alert('No keywords selected'); return; }
+    const form = document.getElementById('kwUpdateForm');
+    const ta = document.getElementById('kwUpdateTextarea');
+    ta.value = Array.from(selectedKws).join('\n');
+    form.style.display = 'block';
+  });
+}
+
 const copyBtn = document.getElementById('copyToPlanner');
 if (copyBtn) {
   copyBtn.addEventListener('click', function(){
@@ -982,6 +1005,11 @@ if (copyBtn) {
     });
   });
 }
+
+document.getElementById('gscKwModal').addEventListener('hidden.bs.modal', () => {
+  const form = document.getElementById('kwUpdateForm');
+  if (form) form.style.display = 'none';
+});
 </script>
 
 <?php include 'footer.php'; ?>
