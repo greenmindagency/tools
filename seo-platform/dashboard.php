@@ -149,12 +149,7 @@ include 'header.php';
   <li class="nav-item"><a class="nav-link" href="clusters.php?client_id=<?php echo $client_id; ?>&slug=<?php echo $slug; ?>">Clusters</a></li>
 </ul>
 
-<div class="mb-3">
-  <div class="d-flex">
-    <input type="text" id="scDomain" value="<?= htmlspecialchars($scDomain) ?>" class="form-control me-2" readonly placeholder="Connect Search Console">
-    <button type="button" id="changeScDomain" class="btn btn-outline-secondary btn-sm"><?= $scDomain ? 'Change' : 'Connect' ?></button>
-  </div>
-</div>
+<input type="hidden" id="scDomain" value="<?= htmlspecialchars($scDomain) ?>">
 
 <div class="mb-3 d-flex justify-content-between align-items-center">
   <div>
@@ -699,23 +694,6 @@ foreach ($stmt as $row) {
   </div>
 </div>
 
-<div class="modal fade" id="gscModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Select Search Console Property</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <select id="gscSiteSelect" class="form-select"></select>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary" id="connectGsc">Connect</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <div class="modal fade" id="gscKwModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
@@ -724,26 +702,38 @@ foreach ($stmt as $row) {
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <input type="text" id="kwFilter" class="form-control mb-2" placeholder="Filter keywords...">
-        <div class="table-responsive" style="max-height:60vh;">
-          <table class="table table-sm table-hover" id="kwTable">
-            <thead class="table-light">
-              <tr>
-                <th><input type="checkbox" id="kwSelectAll"></th>
-                <th data-sort="keyword">Keyword</th>
-                <th data-sort="clicks" class="text-end">Clicks</th>
-                <th data-sort="impressions" class="text-end">Impressions</th>
-                <th data-sort="ctr" class="text-end">CTR</th>
-                <th data-sort="position" class="text-end">Position</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+        <div class="d-flex">
+          <div class="nav flex-column nav-pills me-3" id="kwModalTabs" role="tablist">
+            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#kwGscList" type="button" role="tab">GSC Keywords</button>
+            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#kwUpdatePane" type="button" role="tab">Import Keywords</button>
+          </div>
+          <div class="tab-content flex-grow-1" id="kwModalTabContent">
+            <div class="tab-pane fade show active" id="kwGscList" role="tabpanel">
+              <input type="text" id="kwFilter" class="form-control mb-2" placeholder="Filter keywords...">
+              <div class="table-responsive" style="max-height:60vh;">
+                <table class="table table-sm table-hover" id="kwTable">
+                  <thead class="table-light">
+                    <tr>
+                      <th><input type="checkbox" id="kwSelectAll"></th>
+                      <th data-sort="keyword">Keyword</th>
+                      <th data-sort="clicks" class="text-end">Clicks</th>
+                      <th data-sort="impressions" class="text-end">Impressions</th>
+                      <th data-sort="ctr" class="text-end">CTR</th>
+                      <th data-sort="position" class="text-end">Position</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="tab-pane fade" id="kwUpdatePane" role="tabpanel">
+              <form method="POST" id="kwUpdateForm" class="mt-3">
+                <textarea name="keywords" id="kwUpdateTextarea" class="form-control" rows="6" placeholder="keyword volume form per line"></textarea>
+                <button type="submit" name="add_keywords" class="btn btn-success btn-sm mt-2">Update Keywords</button>
+              </form>
+            </div>
+          </div>
         </div>
-        <form method="POST" id="kwUpdateForm" style="display:none;" class="mt-3">
-          <textarea name="keywords" id="kwUpdateTextarea" class="form-control" rows="6" placeholder="keyword volume form per line"></textarea>
-          <button type="submit" name="add_keywords" class="btn btn-success btn-sm mt-2">Update Keywords</button>
-        </form>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" id="showKwUpdate">Update Keyword</button>
@@ -824,58 +814,6 @@ document.getElementById('copyLinks').addEventListener('click', function() {
     showCopiedToast('Links copied to clipboard.');
   });
 });
-
-const changeBtn = document.getElementById('changeScDomain');
-if (changeBtn) {
-  changeBtn.addEventListener('click', function() {
-    fetch('gsc_fetch.php?props=1')
-      .then(r => r.json())
-      .then(data => {
-        if (data.status === 'auth' && data.url) {
-          window.location = data.url;
-        } else if (data.status === 'ok') {
-          const sel = document.getElementById('gscSiteSelect');
-          sel.innerHTML = '';
-          data.sites.forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = s.siteUrl;
-            opt.textContent = s.siteUrl + ' [' + s.permissionLevel + ']';
-            sel.appendChild(opt);
-          });
-          const modal = new bootstrap.Modal(document.getElementById('gscModal'));
-          modal.show();
-        } else {
-          alert(data.error || 'Failed to load properties');
-        }
-      })
-      .catch(err => alert('Error: ' + err));
-  });
-}
-
-const connectBtn = document.getElementById('connectGsc');
-if (connectBtn) {
-  connectBtn.addEventListener('click', function() {
-    const site = document.getElementById('gscSiteSelect').value;
-    if (!site) return;
-    fetch('gsc_fetch.php', {
-      method: 'POST',
-      headers: {'Content-Type':'application/x-www-form-urlencoded'},
-      body: new URLSearchParams({
-        client_id: '<?= $client_id ?>',
-        site: site,
-        ajax: 1
-      })
-    }).then(r => r.json()).then(data => {
-      if (data.status === 'ok') {
-        document.getElementById('scDomain').value = site;
-        changeBtn.textContent = 'Change';
-        bootstrap.Modal.getInstance(document.getElementById('gscModal')).hide();
-      } else {
-        alert(data.error || 'Failed to connect');
-      }
-    }).catch(err => alert('Error: ' + err));
-  });
-}
 
 let kwData = [];
 let kwFilterVal = '';
@@ -986,12 +924,13 @@ document.addEventListener('change', function(e){
 
 const showUpdateBtn = document.getElementById('showKwUpdate');
 if (showUpdateBtn) {
+  const updateTabBtn = document.querySelector('#kwModalTabs [data-bs-target="#kwUpdatePane"]');
   showUpdateBtn.addEventListener('click', () => {
     if (!selectedKws.size) { alert('No keywords selected'); return; }
-    const form = document.getElementById('kwUpdateForm');
     const ta = document.getElementById('kwUpdateTextarea');
     ta.value = Array.from(selectedKws).join('\n');
-    form.style.display = 'block';
+    const tab = new bootstrap.Tab(updateTabBtn);
+    tab.show();
   });
 }
 
@@ -1006,8 +945,9 @@ if (copyBtn) {
 }
 
 document.getElementById('gscKwModal').addEventListener('hidden.bs.modal', () => {
-  const form = document.getElementById('kwUpdateForm');
-  if (form) form.style.display = 'none';
+  const firstTab = document.querySelector('#kwModalTabs [data-bs-target="#kwGscList"]');
+  const tab = new bootstrap.Tab(firstTab);
+  tab.show();
 });
 </script>
 
