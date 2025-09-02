@@ -68,9 +68,8 @@ function get_access_token() {
 $clientId = (int)($_POST['client_id'] ?? 0);
 $site     = trim($_POST['site'] ?? '');
 $country  = trim($_POST['country'] ?? '');
-$months   = json_decode($_POST['months'] ?? '[]', true);
 
-if (!$clientId || !$site || !is_array($months) || !$months) {
+if (!$clientId || !$site) {
     echo json_encode(['status'=>'error','error'=>'Missing parameters']);
     exit;
 }
@@ -90,6 +89,25 @@ try {
     while ($r = $mapStmt->fetch(PDO::FETCH_ASSOC)) {
         $kwMap[strtolower(trim($r['keyword']))] = $r['id'];
     }
+    // determine which months to fetch: empty columns plus current month
+    $months = [];
+    for ($i = 0; $i < 12; $i++) {
+        $col = 'm' . ($i + 1);
+        $cntStmt = $pdo->prepare("SELECT COUNT(*) FROM keyword_positions WHERE client_id = ? AND country = ? AND `$col` IS NOT NULL");
+        $cntStmt->execute([$clientId, $country]);
+        if ($cntStmt->fetchColumn() == 0) {
+            $start = date('Y-m-d', strtotime("first day of -$i month"));
+            $end   = date('Y-m-d', strtotime("last day of -$i month"));
+            $months[$i] = ['start' => $start, 'end' => $end, 'index' => $i];
+        }
+    }
+    $months[0] = [
+        'start' => date('Y-m-d', strtotime('first day of this month')),
+        'end'   => date('Y-m-d', strtotime('last day of this month')),
+        'index' => 0
+    ];
+    ksort($months);
+    $months = array_values($months);
 
     $total = 0;
     foreach ($months as $m) {
