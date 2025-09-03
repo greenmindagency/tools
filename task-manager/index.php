@@ -1278,31 +1278,51 @@ document.querySelectorAll('form.ajax').forEach(f=>{
       if (selected) selected.innerHTML = '';
       showToast('Comment added');
     } else if (fd.has('clock_in')) {
-      const res = await fetch('index.php', {method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'}});
-      const data = await res.json();
-      document.getElementById('status-body').innerHTML = data.status_html;
-      workSeconds = 0;
-      updateWorkTimer();
-      timerInterval = setInterval(updateWorkTimer,1000);
       const btn = f.querySelector('button');
-      btn.name = 'clock_out';
-      btn.textContent = 'Clock Out';
-      btn.classList.remove('btn-success');
-      btn.classList.add('btn-danger');
-      showToast('Clocked in');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Updating...';
+      try {
+        const res = await fetch('index.php', {method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'}});
+        const data = await res.json();
+        document.getElementById('status-body').innerHTML = data.status_html;
+        workSeconds = 0;
+        updateWorkTimer();
+        timerInterval = setInterval(updateWorkTimer,1000);
+        btn.name = 'clock_out';
+        btn.textContent = 'Clock Out';
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-danger');
+        showToast('Clocked in');
+      } catch (err) {
+        btn.textContent = originalText;
+        showToast('Error');
+      } finally {
+        btn.disabled = false;
+      }
     } else if (fd.has('clock_out')) {
-      const res = await fetch('index.php', {method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'}});
-      const data = await res.json();
-      document.getElementById('status-body').innerHTML = data.status_html;
-      clearInterval(timerInterval);
-      workSeconds = 0;
-      updateWorkTimer();
       const btn = f.querySelector('button');
-      btn.name = 'clock_in';
-      btn.textContent = 'Clock In';
-      btn.classList.remove('btn-danger');
-      btn.classList.add('btn-success');
-      showToast('Clocked out');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Updating...';
+      try {
+        const res = await fetch('index.php', {method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'}});
+        const data = await res.json();
+        document.getElementById('status-body').innerHTML = data.status_html;
+        clearInterval(timerInterval);
+        workSeconds = 0;
+        updateWorkTimer();
+        btn.name = 'clock_in';
+        btn.textContent = 'Clock In';
+        btn.classList.remove('btn-danger');
+        btn.classList.add('btn-success');
+        showToast('Clocked out');
+      } catch (err) {
+        btn.textContent = originalText;
+        showToast('Error');
+      } finally {
+        btn.disabled = false;
+      }
     } else {
       await fetch('index.php', {method:'POST', body:fd});
     }
