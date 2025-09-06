@@ -1,7 +1,7 @@
 <?php
 $host = "localhost";
-$dbname = "greenm38_seo_platform";
-$username = "greenm38_seo_platform"; // replace with your actual username
+$dbname = "greenm38_smc_platform";
+$username = "greenm38_smc_platform"; // replace with your actual username
 $password = "ph&zpit.MNeQ"; // replace with your secure password
 
 try {
