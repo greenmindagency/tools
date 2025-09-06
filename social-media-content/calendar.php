@@ -67,8 +67,13 @@ $base = "client_id=$client_id&slug=$slug";
     </div>
   </div>
   <div class="col-md-4">
-    <label class="form-label">Occasion Country</label>
-    <input type="text" id="occCountry" class="form-control" placeholder="e.g. Egypt">
+    <label class="form-label">Occasion Countries</label>
+    <div id="occCountries">
+      <div class="input-group mb-2">
+        <input type="text" name="occ_country[]" class="form-control" placeholder="e.g. Egypt">
+        <button class="btn btn-outline-success" type="button" onclick="addOccCountry(this)">+</button>
+      </div>
+    </div>
   </div>
   <div class="col-md-2">
     <label class="form-label">Posts per Month</label>
@@ -80,9 +85,17 @@ $base = "client_id=$client_id&slug=$slug";
     <button type="button" id="saveCal" class="btn btn-outline-secondary">Save</button>
   </div>
 </form>
-<div id="progress" class="progress mt-4 d-none"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div></div>
+<div id="progress" class="progress mt-4 d-none"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%">0%</div></div>
 <div id="occList" class="mt-4"></div>
 <div id="calendar" class="mt-4"></div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="genToast" class="toast text-bg-success" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
 <script>
 const clientId = <?=$client_id?>;
 const sourceText = <?= json_encode($sourceText) ?>;
@@ -91,6 +104,12 @@ function addCountry(btn){
   div.className='input-group mb-2';
   div.innerHTML='<input type="text" name="country[]" class="form-control" placeholder="e.g. Egypt"><button class="btn btn-outline-danger" type="button" onclick="this.parentNode.remove()">-</button>';
   document.getElementById('countries').appendChild(div);
+}
+function addOccCountry(btn){
+  const div=document.createElement('div');
+  div.className='input-group mb-2';
+  div.innerHTML='<input type="text" name="occ_country[]" class="form-control" placeholder="e.g. Egypt"><button class="btn btn-outline-danger" type="button" onclick="this.parentNode.remove()">-</button>';
+  document.getElementById('occCountries').appendChild(div);
 }
 async function getCode(name){
   const res=await fetch('https://restcountries.com/v3.1/name/'+encodeURIComponent(name)+'?fields=cca2');
@@ -162,19 +181,26 @@ function render(entries,year,month){
 document.getElementById('fetchOccasions').addEventListener('click',async()=>{
   const monthVal=document.getElementById('month').value;
   const [year,month]=monthVal.split('-').map(Number);
-  const occCountry=document.getElementById('occCountry').value.trim();
-  if(!occCountry){return;}
-  const code=await getCode(occCountry);
-  if(!code){alert('Occasion country not found');return;}
-  loadedOccasions=await fetchHolidays(year,code);
+  const occCountries=Array.from(document.querySelectorAll('input[name="occ_country[]"]')).map(i=>i.value.trim()).filter(Boolean);
+  if(!occCountries.length){return;}
+  setProgress(10);
+  loadedOccasions=[];
+  for(const name of occCountries){
+    const code=await getCode(name);
+    if(!code){continue;}
+    const hols=await fetchHolidays(year,code);
+    loadedOccasions.push(...hols.map(h=>({...h,country:name})));
+  }
   const listDiv=document.getElementById('occList');
   listDiv.innerHTML='';
-  loadedOccasions.filter(h=>h.date.startsWith(`${year}-${String(month).padStart(2,'0')}`)).forEach((h,i)=>{
+  const monthStr=String(month).padStart(2,'0');
+  loadedOccasions.filter(h=>h.date.startsWith(`${year}-${monthStr}`)).forEach((h,i)=>{
     const div=document.createElement('div');
     div.className='form-check form-check-inline';
     div.innerHTML=`<input class="form-check-input" type="checkbox" id="occ${i}" data-date="${h.date}" data-name="${h.localName}" checked><label class="form-check-label" for="occ${i}">${h.date} - ${h.localName}</label>`;
     listDiv.appendChild(div);
   });
+  setProgress(100);
 });
 
 document.getElementById('generate').addEventListener('click',async()=>{
@@ -207,6 +233,7 @@ document.getElementById('generate').addEventListener('click',async()=>{
   }
   setProgress(100);
   render(entries,year,month);
+  showToast('Content generated');
 });
 
 document.getElementById('saveCal').addEventListener('click',()=>{
@@ -217,6 +244,16 @@ document.getElementById('saveCal').addEventListener('click',()=>{
 
 const progress=document.getElementById('progress');
 const bar=progress.querySelector('.progress-bar');
-function setProgress(p){progress.classList.remove('d-none');bar.style.width=p+'%';if(p>=100)setTimeout(()=>progress.classList.add('d-none'),500);}
+function showToast(msg){
+  const tEl=document.getElementById('genToast');
+  tEl.querySelector('.toast-body').textContent=msg;
+  bootstrap.Toast.getOrCreateInstance(tEl).show();
+}
+function setProgress(p){
+  progress.classList.remove('d-none');
+  bar.style.width=p+'%';
+  bar.textContent=p+'%';
+  if(p>=100)setTimeout(()=>progress.classList.add('d-none'),500);
+}
 </script>
 <?php include 'footer.php'; ?>
