@@ -157,9 +157,14 @@ document.getElementById('generate').addEventListener('click',async()=>{
     const js=await res.json();
     titles=js.titles||[];
   }
-  let idx=0;
-  for(const e of entries){
-    if(!e.title && idx<titles.length){e.title=titles[idx++];}
+  const emptyIdx=entries.map((e,i)=>!e.title?i:null).filter(i=>i!==null);
+  const cnt=Math.min(titles.length, emptyIdx.length);
+  if(cnt>0){
+    const step=(emptyIdx.length-1)/(cnt-1||1);
+    for(let i=0;i<cnt;i++){
+      const idx=emptyIdx[Math.round(i*step)];
+      entries[idx].title=titles[i];
+    }
   }
   render(entries,year,month);
 });

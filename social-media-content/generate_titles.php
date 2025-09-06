@@ -34,7 +34,18 @@ if ($response !== false) {
     $text = preg_replace('/^```\\w*\\n?|```$/m', '', $text);
     $arr = json_decode(trim($text), true);
     if (is_array($arr)) {
-        $titles = array_map('strval', $arr);
+        foreach ($arr as $item) {
+            if (is_array($item)) {
+                if (isset($item['title'])) {
+                    $titles[] = trim((string)$item['title']);
+                } else {
+                    $val = $item[0] ?? implode(' ', $item);
+                    $titles[] = trim((string)$val);
+                }
+            } else {
+                $titles[] = trim((string)$item);
+            }
+        }
     } else {
         $titles = array_filter(array_map('trim', explode("\n", $text)));
     }
