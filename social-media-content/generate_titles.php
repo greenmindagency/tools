@@ -37,17 +37,21 @@ if ($response !== false) {
         foreach ($arr as $item) {
             if (is_array($item)) {
                 if (isset($item['title'])) {
-                    $titles[] = trim((string)$item['title']);
+                    $titles[] = trim(remove_emojis((string)$item['title']));
                 } else {
                     $val = $item[0] ?? implode(' ', $item);
-                    $titles[] = trim((string)$val);
+                    $titles[] = trim(remove_emojis((string)$val));
                 }
             } else {
-                $titles[] = trim((string)$item);
+                $titles[] = trim(remove_emojis((string)$item));
             }
         }
     } else {
-        $titles = array_filter(array_map('trim', explode("\n", $text)));
+        $titles = array_filter(array_map(function($t){return trim(remove_emojis($t));}, explode("\n", $text)));
     }
 }
 echo json_encode(['titles' => $titles]);
+
+function remove_emojis($text) {
+    return preg_replace('/[\x{1F300}-\x{1F6FF}\x{1F900}-\x{1F9FF}\x{2600}-\x{27BF}]/u', '', $text);
+}

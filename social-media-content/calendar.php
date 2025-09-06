@@ -58,7 +58,7 @@ $base = "client_id=$client_id&slug=$slug";
     </select>
   </div>
   <div class="col-md-4">
-    <label class="form-label">Countries</label>
+    <label class="form-label">Content Countries</label>
     <div id="countries">
       <div class="input-group mb-2">
         <input type="text" name="country[]" class="form-control" placeholder="e.g. Egypt">
@@ -66,16 +66,22 @@ $base = "client_id=$client_id&slug=$slug";
       </div>
     </div>
   </div>
+  <div class="col-md-4">
+    <label class="form-label">Occasion Country</label>
+    <input type="text" id="occCountry" class="form-control" placeholder="e.g. Egypt">
+  </div>
   <div class="col-md-2">
     <label class="form-label">Posts per Month</label>
     <input type="number" id="ppm" class="form-control" value="8" min="0">
   </div>
   <div class="col-md-2 d-flex align-items-end">
+    <button type="button" id="fetchOccasions" class="btn btn-secondary me-2">Occasions</button>
     <button type="button" id="generate" class="btn btn-primary me-2">Generate</button>
     <button type="button" id="saveCal" class="btn btn-outline-secondary">Save</button>
   </div>
 </form>
 <div id="progress" class="progress mt-4 d-none"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div></div>
+<div id="occList" class="mt-4"></div>
 <div id="calendar" class="mt-4"></div>
 <script>
 const clientId = <?=$client_id?>;
@@ -98,6 +104,10 @@ async function fetchHolidays(year,code){
   const res=await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/${code}`);
   return res.ok?res.json():[];
 }
+function stripEmojis(str){
+  return str.replace(/[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{27BF}]/gu,'');
+}
+let loadedOccasions=[];
 let dragSrc=null;
 function render(entries,year,month){
   const cal=document.getElementById('calendar');
@@ -131,7 +141,7 @@ function render(entries,year,month){
     td.appendChild(lbl);
     const title=document.createElement('div');
     title.className='title';
-    title.textContent=e.title||'';
+    title.textContent=stripEmojis(e.title||'');
     title.draggable=true;
     title.addEventListener('dragstart',()=>{dragSrc=i;});
     td.appendChild(title);
@@ -149,30 +159,35 @@ function render(entries,year,month){
   window.currentEntries=entries;
 }
 
+document.getElementById('fetchOccasions').addEventListener('click',async()=>{
+  const monthVal=document.getElementById('month').value;
+  const [year,month]=monthVal.split('-').map(Number);
+  const occCountry=document.getElementById('occCountry').value.trim();
+  if(!occCountry){return;}
+  const code=await getCode(occCountry);
+  if(!code){alert('Occasion country not found');return;}
+  loadedOccasions=await fetchHolidays(year,code);
+  const listDiv=document.getElementById('occList');
+  listDiv.innerHTML='';
+  loadedOccasions.filter(h=>h.date.startsWith(`${year}-${String(month).padStart(2,'0')}`)).forEach((h,i)=>{
+    const div=document.createElement('div');
+    div.className='form-check form-check-inline';
+    div.innerHTML=`<input class="form-check-input" type="checkbox" id="occ${i}" data-date="${h.date}" data-name="${h.localName}" checked><label class="form-check-label" for="occ${i}">${h.date} - ${h.localName}</label>`;
+    listDiv.appendChild(div);
+  });
+});
+
 document.getElementById('generate').addEventListener('click',async()=>{
   const monthVal=document.getElementById('month').value;
   const [year,month]=monthVal.split('-').map(Number);
   const countries=Array.from(document.querySelectorAll('input[name="country[]"]')).map(i=>i.value.trim()).filter(Boolean);
   const ppm=parseInt(document.getElementById('ppm').value)||0;
-  const codes=[];
-  setProgress(5);
-  for(const c of countries){const code=await getCode(c);if(code)codes.push(code);}
-  setProgress(25);
-  const holidays={};
-  for(const code of codes){
-    const list=await fetchHolidays(year,code);
-    list.forEach(h=>{holidays[h.date]=h.localName;});
-  }
-  setProgress(45);
-  const daysInMonth=new Date(year,month,0).getDate();
-  const entries=[];
-  for(let d=1;d<=daysInMonth;d++){
-    const date=new Date(year,month-1,d);
-    const iso=date.toISOString().split('T')[0];
-    const title=holidays[iso]?`Happy ${holidays[iso]}`:'';
-    entries.push({date:iso,title});
-  }
-  const holidayCount=entries.filter(e=>e.title).length;
+  const selected={};
+  document.querySelectorAll('#occList input:checked').forEach(ch=>{selected[ch.dataset.date]=ch.dataset.name;});
+  setProgress(20);
+  const dates=await fetch(`dates.php?year=${year}&month=${month}`).then(r=>r.json());
+  const entries=dates.map(d=>({date:d.date,title:selected[d.date]?`Happy ${stripEmojis(selected[d.date])}`:''}));
+  const holidayCount=Object.keys(selected).length;
   const remaining=Math.max(ppm-holidayCount,0);
   let titles=[];
   if(remaining>0){
@@ -187,7 +202,7 @@ document.getElementById('generate').addEventListener('click',async()=>{
     const step=(workingIdx.length-1)/(cnt-1||1);
     for(let i=0;i<cnt;i++){
       const idx=workingIdx[Math.round(i*step)];
-      entries[idx].title=titles[i];
+      entries[idx].title=stripEmojis(titles[i]);
     }
   }
   setProgress(100);
