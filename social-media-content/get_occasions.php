@@ -9,7 +9,7 @@ $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
 $monthName = date('F', mktime(0,0,0,$month,1,$year));
 $eventMap = [];
 foreach ($countries as $country) {
-    $prompt = "List all public holidays, religious events and seasonal occasions such as Back to School and Black Friday in $country during $monthName $year. Provide dates in YYYY-MM-DD format and return as JSON array with fields date and name.";
+    $prompt = "List all public holidays, religious events and seasonal occasions such as Back to School and Black Friday in $country during $monthName $year. Provide dates in YYYY-MM-DD format and return as JSON array with fields date and name. please insure the occasions to be in the currunt $monthName $year since some occassions changed from year to year, you cam insure online for this";
     $payload = json_encode(['contents' => [[ 'parts' => [['text' => $prompt]] ]]]);
     $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent');
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
