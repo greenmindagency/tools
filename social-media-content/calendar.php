@@ -178,12 +178,24 @@ document.getElementById('fetchOccasions').addEventListener('click',async()=>{
     const listDiv=document.getElementById('occList');
     listDiv.innerHTML='';
     const monthStr=String(month).padStart(2,'0');
-    loadedOccasions.filter(h=>h.date.startsWith(`${year}-${monthStr}`)).forEach((h,i)=>{
-      const div=document.createElement('div');
-      div.className='form-check form-check-inline';
-      div.innerHTML=`<input class="form-check-input" type="checkbox" id="occ${i}" data-date="${h.date}" data-name="${h.name}" checked><label class="form-check-label" for="occ${i}">${h.date} - ${h.name}</label>`;
-      listDiv.appendChild(div);
-    });
+    let idx=0;
+    function addGroup(title,items){
+      if(!items||!items.length)return;
+      const h=document.createElement('h6');
+      h.textContent=title;
+      listDiv.appendChild(h);
+      items.filter(h=>h.date.startsWith(`${year}-${monthStr}`)).forEach(item=>{
+        const div=document.createElement('div');
+        div.className='form-check form-check-inline';
+        const id=`occ${idx++}`;
+        div.innerHTML=`<input class="form-check-input" type="checkbox" id="${id}" data-date="${item.date}" data-name="${item.name}" checked><label class="form-check-label" for="${id}">${item.date} - ${item.name}</label>`;
+        listDiv.appendChild(div);
+      });
+    }
+    addGroup('All Countries',loadedOccasions.all);
+    for(const [c,items] of Object.entries(loadedOccasions.countries||{})){
+      addGroup(c,items);
+    }
     setProgress(100);
   }catch(e){
     showToast('Failed to load occasions');
