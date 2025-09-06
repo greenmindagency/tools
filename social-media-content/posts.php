@@ -30,21 +30,20 @@ include 'header.php';
 $base = "client_id=$client_id&slug=$slug";
 ?>
 <ul class="nav nav-tabs mb-3">
-  <li class="nav-item"><a class="nav-link" href="content.php?<?=$base?>">Content</a></li>
-  <li class="nav-item"><a class="nav-link" href="calendar.php?<?=$base?>">Content Calendar</a></li>
+  <li class="nav-item"><a class="nav-link" href="source.php?<?=$base?>">Source</a></li>
+  <li class="nav-item"><a class="nav-link" href="calendar.php?<?=$base?>">Calendar</a></li>
   <li class="nav-item"><a class="nav-link active" href="posts.php?<?=$base?>">Posts</a></li>
 </ul>
 <div id="postsContainer" class="row g-3"></div>
 <script>
 const clientId=<?=$client_id?>;
 const container=document.getElementById('postsContainer');
-const data=JSON.parse(localStorage.getItem('smc_content_'+clientId)||'{}');
-Object.entries(data).forEach(([title,obj])=>{
-  const wrap=document.createElement('div');
-  wrap.className='col-12';
-  const media = obj.media ? `<iframe src="${obj.media}" width="300" height="200" allowfullscreen></iframe>` : '';
-  wrap.innerHTML=`<h5>${title}</h5><p>${obj.text.replace(/</g,'&lt;')}</p>${media}`;
-  container.appendChild(wrap);
+const data=JSON.parse(localStorage.getItem('smc_calendar_'+clientId)||'[]');
+data.forEach(item=>{
+  const div=document.createElement('div');
+  div.className='col-12';
+  div.innerHTML=`<h5>${item.title}</h5><p>${item.date}</p>`;
+  container.appendChild(div);
 });
 </script>
 <?php include 'footer.php'; ?>

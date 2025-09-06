@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['client_id'] = $client['id'];
         $name = $client['name'];
         $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', iconv('UTF-8','ASCII//TRANSLIT',$name)), '-'));
-        header("Location: content.php?client_id={$client['id']}&slug=$slug");
+        header("Location: source.php?client_id={$client['id']}&slug=$slug");
         exit;
     } elseif (count($matches) > 1) {
         $_SESSION['client_ids'] = array_column($matches, 'id');

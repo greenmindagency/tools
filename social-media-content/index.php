@@ -77,7 +77,7 @@ foreach ($stmt as $client) {
     $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', $client['name']), '-'));
     $escName = htmlspecialchars($client['name'], ENT_QUOTES);
     echo "<li class='list-group-item d-flex justify-content-between align-items-center'>";
-    echo "<a class='me-auto' href='content.php?client_id=$id&slug=$slug'>$name</a>";
+    echo "<a class='me-auto' href='source.php?client_id=$id&slug=$slug'>$name</a>";
     if ($_SESSION['is_admin'] ?? false) {
         $user = htmlspecialchars($client['username'] ?? '', ENT_QUOTES);
         echo "<div class='btn-group btn-group-sm' role='group'>";

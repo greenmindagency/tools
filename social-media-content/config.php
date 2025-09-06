@@ -1,4 +1,5 @@
 <?php
+// Database connection dedicated for the social media content tool
 $host = "localhost";
 $dbname = "greenm38_smc_platform";
 $username = "greenm38_smc_platform"; // replace with your actual username
@@ -16,6 +17,12 @@ try {
         name VARCHAR(255) NOT NULL,
         username VARCHAR(255),
         pass_hash VARCHAR(255)
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+    // Store uploaded source material for each client
+    $pdo->exec("CREATE TABLE IF NOT EXISTS client_sources (
+        client_id INT PRIMARY KEY,
+        source LONGTEXT
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 } catch (PDOException $e) {
     die("Connection failed: " . $e->getMessage());
