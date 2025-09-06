@@ -111,18 +111,6 @@ function addOccCountry(btn){
   div.innerHTML='<input type="text" name="occ_country[]" class="form-control" placeholder="e.g. Egypt"><button class="btn btn-outline-danger" type="button" onclick="this.parentNode.remove()">-</button>';
   document.getElementById('occCountries').appendChild(div);
 }
-async function getCode(name){
-  const res=await fetch('https://restcountries.com/v3.1/name/'+encodeURIComponent(name)+'?fields=cca2');
-  if(res.ok){
-    const js=await res.json();
-    return js[0]?.cca2||'';
-  }
-  return '';
-}
-async function fetchHolidays(year,code){
-  const res=await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/${code}`);
-  return res.ok?res.json():[];
-}
 function stripEmojis(str){
   return str.replace(/[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{27BF}]/gu,'');
 }
@@ -184,23 +172,22 @@ document.getElementById('fetchOccasions').addEventListener('click',async()=>{
   const occCountries=Array.from(document.querySelectorAll('input[name="occ_country[]"]')).map(i=>i.value.trim()).filter(Boolean);
   if(!occCountries.length){return;}
   setProgress(10);
-  loadedOccasions=[];
-  for(const name of occCountries){
-    const code=await getCode(name);
-    if(!code){continue;}
-    const hols=await fetchHolidays(year,code);
-    loadedOccasions.push(...hols.map(h=>({...h,country:name})));
+  try{
+    const res=await fetch('get_occasions.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({year,month,countries:occCountries})});
+    loadedOccasions=await res.json();
+    const listDiv=document.getElementById('occList');
+    listDiv.innerHTML='';
+    const monthStr=String(month).padStart(2,'0');
+    loadedOccasions.filter(h=>h.date.startsWith(`${year}-${monthStr}`)).forEach((h,i)=>{
+      const div=document.createElement('div');
+      div.className='form-check form-check-inline';
+      div.innerHTML=`<input class="form-check-input" type="checkbox" id="occ${i}" data-date="${h.date}" data-name="${h.name}" checked><label class="form-check-label" for="occ${i}">${h.date} - ${h.name}</label>`;
+      listDiv.appendChild(div);
+    });
+    setProgress(100);
+  }catch(e){
+    showToast('Failed to load occasions');
   }
-  const listDiv=document.getElementById('occList');
-  listDiv.innerHTML='';
-  const monthStr=String(month).padStart(2,'0');
-  loadedOccasions.filter(h=>h.date.startsWith(`${year}-${monthStr}`)).forEach((h,i)=>{
-    const div=document.createElement('div');
-    div.className='form-check form-check-inline';
-    div.innerHTML=`<input class="form-check-input" type="checkbox" id="occ${i}" data-date="${h.date}" data-name="${h.localName}" checked><label class="form-check-label" for="occ${i}">${h.date} - ${h.localName}</label>`;
-    listDiv.appendChild(div);
-  });
-  setProgress(100);
 });
 
 document.getElementById('generate').addEventListener('click',async()=>{
@@ -238,8 +225,10 @@ document.getElementById('generate').addEventListener('click',async()=>{
 
 document.getElementById('saveCal').addEventListener('click',()=>{
   const data=window.currentEntries||[];
-  fetch('save_calendar.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(r=>r.json()).then(()=>alert('Saved (demo)'));
-  localStorage.setItem('smc_calendar_'+clientId, JSON.stringify(data));
+  fetch('save_calendar.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId, entries:data})})
+    .then(r=>r.json())
+    .then(()=>showToast('Calendar saved'))
+    .catch(()=>showToast('Save failed'));
 });
 
 const progress=document.getElementById('progress');

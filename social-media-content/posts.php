@@ -34,16 +34,18 @@ $base = "client_id=$client_id&slug=$slug";
   <li class="nav-item"><a class="nav-link" href="calendar.php?<?=$base?>">Calendar</a></li>
   <li class="nav-item"><a class="nav-link active" href="posts.php?<?=$base?>">Posts</a></li>
 </ul>
-<div id="postsContainer" class="row g-3"></div>
-<script>
-const clientId=<?=$client_id?>;
-const container=document.getElementById('postsContainer');
-const data=JSON.parse(localStorage.getItem('smc_calendar_'+clientId)||'[]');
-data.forEach(item=>{
-  const div=document.createElement('div');
-  div.className='col-12';
-  div.innerHTML=`<h5>${item.title}</h5><p>${item.date}</p>`;
-  container.appendChild(div);
-});
-</script>
+<?php
+// fetch saved posts from database
+$stmt = $pdo->prepare('SELECT post_date,title FROM client_calendar WHERE client_id = ? ORDER BY post_date');
+$stmt->execute([$client_id]);
+$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+?>
+<div class="row g-3">
+<?php foreach ($rows as $row): ?>
+  <div class="col-12">
+    <h5><?=htmlspecialchars($row['title'])?></h5>
+    <p><?=$row['post_date']?></p>
+  </div>
+<?php endforeach; ?>
+</div>
 <?php include 'footer.php'; ?>

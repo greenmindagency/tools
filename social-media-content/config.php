@@ -24,6 +24,15 @@ try {
         client_id INT PRIMARY KEY,
         source LONGTEXT
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+    // Saved calendar entries for each client
+    $pdo->exec("CREATE TABLE IF NOT EXISTS client_calendar (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        client_id INT NOT NULL,
+        post_date DATE NOT NULL,
+        title VARCHAR(255),
+        UNIQUE KEY uniq_client_date (client_id, post_date)
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 } catch (PDOException $e) {
     die("Connection failed: " . $e->getMessage());
 }
