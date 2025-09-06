@@ -68,6 +68,10 @@ $loggedIn = isset($_SESSION['is_admin']) || isset($_SESSION['client_id']) || !em
           <a class="nav-link <?= $active ?>" href="/tools/task-manager/">Task Manager</a>
         </li>
         <li class="nav-item">
+          <?php $active = strpos($current, '/social-media-content/') !== false ? 'active' : ''; ?>
+          <a class="nav-link <?= $active ?>" href="/tools/social-media-content/">Social Media Content</a>
+        </li>
+        <li class="nav-item">
           <?php $active = strpos($current, '/privacy-policy.php') !== false ? 'active' : ''; ?>
           <a class="nav-link <?= $active ?>" href="/tools/privacy-policy.php">Privacy Policy</a>
         </li>
