@@ -5,8 +5,6 @@ if (!($_SESSION['is_admin'] ?? false) && empty($_SESSION['client_ids']) && !isse
     exit;
 }
 require 'config.php';
-$pdo->exec("ALTER TABLE clients ADD COLUMN IF NOT EXISTS username VARCHAR(255)");
-$pdo->exec("ALTER TABLE clients ADD COLUMN IF NOT EXISTS pass_hash VARCHAR(255)");
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_SESSION['is_admin'] ?? false)) {
     if (isset($_POST['client_name'])) {

@@ -9,14 +9,14 @@ try {
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     ]);
     $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
-    $tables = ['clients','keywords','keyword_positions','sc_domains','keyword_stats'];
-    foreach ($tables as $tbl) {
-        try {
-            $pdo->exec("ALTER TABLE `".$tbl."` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-        } catch (PDOException $e) {
-            // ignore missing tables
-        }
-    }
+
+    // Ensure required tables exist
+    $pdo->exec("CREATE TABLE IF NOT EXISTS clients (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        username VARCHAR(255),
+        pass_hash VARCHAR(255)
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 } catch (PDOException $e) {
     die("Connection failed: " . $e->getMessage());
 }

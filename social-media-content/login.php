@@ -2,8 +2,6 @@
 require_once __DIR__ . '/session.php';
 require 'config.php';
 $error = '';
-$pdo->exec("ALTER TABLE clients ADD COLUMN IF NOT EXISTS username VARCHAR(255)");
-$pdo->exec("ALTER TABLE clients ADD COLUMN IF NOT EXISTS pass_hash VARCHAR(255)");
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = trim($_POST['username'] ?? '');
     $pass = $_POST['password'] ?? '';
