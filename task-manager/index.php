@@ -386,7 +386,7 @@ function duplicate_task_recursive($pdo, $taskId, $newParentId = null, $depth = 0
 
 function load_meta($pdo) {
     $users = $pdo->query('SELECT id,username FROM users ORDER BY sort_order, username')->fetchAll(PDO::FETCH_ASSOC);
-    $clients = $pdo->query('SELECT c.id,c.name,c.priority,c.progress_percent,COUNT(t.id) AS task_count FROM clients c JOIN tasks t ON t.client_id=c.id AND t.status!="archived" GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.priority IS NULL), c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
+    $clients = $pdo->query('SELECT c.id,c.name,c.priority,c.progress_percent,COUNT(t.id) AS task_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id AND t.status!="archived" GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.priority IS NULL), c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
 
     $workerTotals = [];
     $clientStmt = $pdo->query('SELECT id, progress_percent FROM clients WHERE progress_percent IS NOT NULL');
@@ -457,7 +457,7 @@ function load_meta($pdo) {
         $userLoadClasses[$name] = $class;
     }
     $usersByTasks = array_map(fn($name) => ['username' => $name], array_keys($loadPercent));
-    $clients = $pdo->query('SELECT c.id,c.name,c.priority,c.progress_percent,COUNT(t.id) AS task_count FROM clients c JOIN tasks t ON t.client_id=c.id AND t.status!="archived" GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.progress_percent IS NULL), c.progress_percent DESC, c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
+    $clients = $pdo->query('SELECT c.id,c.name,c.priority,c.progress_percent,COUNT(t.id) AS task_count FROM clients c LEFT JOIN tasks t ON t.client_id=c.id AND t.status!="archived" GROUP BY c.id,c.name,c.priority,c.sort_order,c.progress_percent ORDER BY (c.progress_percent IS NULL), c.progress_percent DESC, c.sort_order, c.name')->fetchAll(PDO::FETCH_ASSOC);
     return [$users, $clients, $userLoadClasses, $usersByTasks];
 }
 
