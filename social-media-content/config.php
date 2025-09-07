@@ -33,6 +33,14 @@ try {
         title VARCHAR(255),
         UNIQUE KEY uniq_client_date (client_id, post_date)
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+    // Manual occasions repository
+    $pdo->exec("CREATE TABLE IF NOT EXISTS occasions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        country VARCHAR(100) NOT NULL,
+        occasion_date DATE NOT NULL,
+        name VARCHAR(255) NOT NULL
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 } catch (PDOException $e) {
     die("Connection failed: " . $e->getMessage());
 }
