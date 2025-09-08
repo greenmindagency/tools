@@ -58,9 +58,8 @@ $base = "client_id=$client_id&slug=$slug";
   </div>
   <div class="col-md-5">
     <div class="d-flex justify-content-end mb-2">
-      <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="genBtn">&#9889;</button>
-      <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="regenBtn">&#x21bb;</button>
-      <button type="button" class="btn btn-sm btn-outline-primary" id="promptBtn">&#x2728;</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="genBtn" data-bs-toggle="tooltip" title="Generate content">&#9889;</button>
+      <button type="button" class="btn btn-sm btn-outline-primary" id="promptBtn" data-bs-toggle="tooltip" title="Generate with prompt">&#x2728;</button>
     </div>
     <div class="mb-2">
       <div><strong>Date:</strong> <span id="postDate"></span></div>
@@ -78,27 +77,20 @@ $base = "client_id=$client_id&slug=$slug";
   <div class="col-md-4">
     <div class="input-group mb-3">
       <input type="text" class="form-control" id="mediaUrl" placeholder="Enter media URL">
-      <button class="btn btn-outline-secondary" type="button" id="importImgBtn">Import Image</button>
-      <button class="btn btn-outline-secondary" type="button" id="importVidBtn">Import Video</button>
-    </div>
-    <div id="imageSection" style="display:none;">
-      <label class="form-label">Image Size</label>
-      <select id="imgSize" class="form-select mb-2">
-        <option value="1080x1080">1080x1080</option>
-        <option value="1080x1350">1080x1350</option>
-        <option value="1920x1080">1920x1080</option>
-        <option value="1080x1920">1080x1920</option>
+      <select class="form-select" id="mediaType">
+        <option value="image">Image</option>
+        <option value="video">Video</option>
       </select>
-      <div id="imgContainer" class="mb-4"></div>
+      <select class="form-select" id="mediaSize"></select>
+      <button class="btn btn-outline-secondary" type="button" id="importMediaBtn">Import</button>
     </div>
-    <div id="videoSection" style="display:none;">
-      <label class="form-label">Video Size</label>
-      <select id="vidSize" class="form-select mb-2">
-        <option value="1920x1080">1920x1080</option>
-        <option value="1080x1920">1080x1920</option>
-        <option value="1280x720">1280x720</option>
-      </select>
-      <div id="vidContainer"></div>
+    <div id="imageSection" style="display:none;" class="mb-3">
+      <div id="imgContainer" class="mb-2"></div>
+      <ul id="imgList" class="list-group"></ul>
+    </div>
+    <div id="videoSection" style="display:none;" class="mb-3">
+      <div id="vidContainer" class="mb-2"></div>
+      <ul id="vidList" class="list-group"></ul>
     </div>
   </div>
 </div>
@@ -135,6 +127,10 @@ let currentDate = null;
 let currentEntries = [];
 let imgLinks = [];
 let vidLinks = [];
+let imgSize = '1080x1080';
+let vidSize = '1920x1080';
+const imgSizes = ['1080x1080','1080x1350','1920x1080','1080x1920'];
+const vidSizes = ['1920x1080','1080x1920','1280x720'];
 let promptModal;
 function showToast(msg){
   const t=document.getElementById('contentToast');
@@ -190,7 +186,26 @@ function loadPosts(){
     renderVideos();
   });
 }
-window.addEventListener('load',()=>{promptModal=new bootstrap.Modal(document.getElementById('promptModal'));loadPosts();});
+function updateSizeOptions(){
+  const type=document.getElementById('mediaType').value;
+  const size=document.getElementById('mediaSize');
+  size.innerHTML='';
+  const sizes=type==='image'?imgSizes:vidSizes;
+  const current=type==='image'?imgSize:vidSize;
+  sizes.forEach(s=>{
+    const opt=document.createElement('option');
+    opt.value=s;
+    opt.textContent=s;
+    if(s===current) opt.selected=true;
+    size.appendChild(opt);
+  });
+}
+window.addEventListener('load',()=>{
+  promptModal=new bootstrap.Modal(document.getElementById('promptModal'));
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
+  updateSizeOptions();
+  loadPosts();
+});
 document.getElementById('month').addEventListener('change',loadPosts);
 document.getElementById('saveBtn').addEventListener('click',()=>{
   if(!currentDate) return;
@@ -207,7 +222,11 @@ function regen(custom=''){
   const title=entry?entry.title:'';
   showToast('Generating...');
   const body={source:sourceText,title};
-  if(custom) body.prompt=custom;
+  if(custom){
+    body.prompt=custom;
+    const curr=document.getElementById('contentText').value.trim();
+    if(curr) body.content=curr;
+  }
   fetch('generate_content.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
     .then(r=>r.json()).then(js=>{
       const t=js.content||'';
@@ -216,7 +235,6 @@ function regen(custom=''){
     }).catch(()=>showToast('Generation failed'));
 }
 document.getElementById('genBtn').addEventListener('click',()=>regen());
-document.getElementById('regenBtn').addEventListener('click',()=>regen());
 document.getElementById('promptBtn').addEventListener('click',()=>{promptModal.show();});
 document.getElementById('promptSubmit').addEventListener('click',()=>{
   const txt=document.getElementById('promptText').value.trim();
@@ -235,9 +253,11 @@ document.getElementById('addCommentBtn').addEventListener('click',()=>{
 });
 function renderImages(){
   const section=document.getElementById('imageSection');
-  const [w,h]=document.getElementById('imgSize').value.split('x');
+  const [w,h]=imgSize.split('x');
   const container=document.getElementById('imgContainer');
+  const list=document.getElementById('imgList');
   container.innerHTML='';
+  list.innerHTML='';
   if(!imgLinks.length){section.style.display='none';return;}
   section.style.display='';
   if(imgLinks.length>1){
@@ -255,12 +275,25 @@ function renderImages(){
   } else {
     container.innerHTML=`<iframe src="${imgLinks[0]}" style="border:0;width:100%;aspect-ratio:${w}/${h};" allowfullscreen></iframe>`;
   }
+  imgLinks.forEach((_,i)=>{
+    const li=document.createElement('li');
+    li.className='list-group-item d-flex justify-content-between align-items-center';
+    li.textContent=`Slide ${i+1}`;
+    const btn=document.createElement('button');
+    btn.className='btn btn-sm btn-outline-danger';
+    btn.textContent='Remove';
+    btn.addEventListener('click',()=>{imgLinks.splice(i,1);renderImages();});
+    li.appendChild(btn);
+    list.appendChild(li);
+  });
 }
 function renderVideos(){
   const section=document.getElementById('videoSection');
-  const [w,h]=document.getElementById('vidSize').value.split('x');
+  const [w,h]=vidSize.split('x');
   const container=document.getElementById('vidContainer');
+  const list=document.getElementById('vidList');
   container.innerHTML='';
+  list.innerHTML='';
   if(!vidLinks.length){section.style.display='none';return;}
   section.style.display='';
   if(vidLinks.length>1){
@@ -278,22 +311,36 @@ function renderVideos(){
   } else {
     container.innerHTML=`<iframe src="${vidLinks[0]}" style="border:0;width:100%;aspect-ratio:${w}/${h};" allowfullscreen></iframe>`;
   }
+  vidLinks.forEach((_,i)=>{
+    const li=document.createElement('li');
+    li.className='list-group-item d-flex justify-content-between align-items-center';
+    li.textContent=`Slide ${i+1}`;
+    const btn=document.createElement('button');
+    btn.className='btn btn-sm btn-outline-danger';
+    btn.textContent='Remove';
+    btn.addEventListener('click',()=>{vidLinks.splice(i,1);renderVideos();});
+    li.appendChild(btn);
+    list.appendChild(li);
+  });
 }
-document.getElementById('imgSize').addEventListener('change',renderImages);
-document.getElementById('vidSize').addEventListener('change',renderVideos);
+document.getElementById('mediaType').addEventListener('change',()=>{updateSizeOptions();renderImages();renderVideos();});
+document.getElementById('mediaSize').addEventListener('change',e=>{
+  if(document.getElementById('mediaType').value==='image'){
+    imgSize=e.target.value;renderImages();
+  }else{
+    vidSize=e.target.value;renderVideos();
+  }
+});
 function toPreview(url){
   const m=url.match(/\/d\/([^/]+)/)||url.match(/[?&]id=([^&]+)/);
   return m?`https://drive.google.com/file/d/${m[1]}/preview`:url;
 }
-document.getElementById('importImgBtn').addEventListener('click',()=>{
+document.getElementById('importMediaBtn').addEventListener('click',()=>{
   const url=document.getElementById('mediaUrl').value.trim();
-  if(url){imgLinks.push(toPreview(url));renderImages();}
+  const type=document.getElementById('mediaType').value;
+  if(url){(type==='image'?imgLinks:vidLinks).push(toPreview(url));}
   document.getElementById('mediaUrl').value='';
-});
-document.getElementById('importVidBtn').addEventListener('click',()=>{
-  const url=document.getElementById('mediaUrl').value.trim();
-  if(url){vidLinks.push(toPreview(url));renderVideos();}
-  document.getElementById('mediaUrl').value='';
+  if(type==='image') renderImages(); else renderVideos();
 });
 </script>
 <?php include 'footer.php'; ?>
