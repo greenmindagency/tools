@@ -220,34 +220,17 @@ function renderImages(){
   const container=document.getElementById('imgContainer');
   container.innerHTML='';
   if(imgLinks.length>1){
-    const carousel=document.createElement('div');
-    carousel.id='imgCarousel';
-    carousel.className='carousel slide';
-    carousel.setAttribute('data-bs-ride','carousel');
-    carousel.setAttribute('data-bs-interval','5000');
-    const inner=document.createElement('div');
-    inner.className='carousel-inner';
-    imgLinks.forEach((src,i)=>{
-      const item=document.createElement('div');
-      item.className='carousel-item'+(i===0?' active':'');
-      const frame=document.createElement('iframe');
-      frame.src=src;
-      frame.width=w;frame.height=h;
-      frame.style.border='0';
-      frame.allowFullscreen=true;
-      item.appendChild(frame);
-      inner.appendChild(item);
-    });
-    carousel.appendChild(inner);
-    container.appendChild(carousel);
-    new bootstrap.Carousel(carousel);
+    const slides=imgLinks.map((src,i)=>`
+      <div class="carousel-item${i===0?' active':''}">
+        <iframe src="${src}" style="border:0;width:${w}px;height:${h}px;" allowfullscreen></iframe>
+      </div>`).join('');
+    container.innerHTML=`
+      <div id="imgCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
+        <div class="carousel-inner">${slides}</div>
+      </div>`;
+    new bootstrap.Carousel(document.getElementById('imgCarousel'));
   } else if(imgLinks.length===1){
-    const frame=document.createElement('iframe');
-    frame.src=imgLinks[0];
-    frame.width=w;frame.height=h;
-    frame.style.border='0';
-    frame.allowFullscreen=true;
-    container.appendChild(frame);
+    container.innerHTML=`<iframe src="${imgLinks[0]}" style="border:0;width:${w}px;height:${h}px;" allowfullscreen></iframe>`;
   }
 }
 function renderVideos(){
@@ -255,49 +238,34 @@ function renderVideos(){
   const container=document.getElementById('vidContainer');
   container.innerHTML='';
   if(vidLinks.length>1){
-    const carousel=document.createElement('div');
-    carousel.id='vidCarousel';
-    carousel.className='carousel slide';
-    carousel.setAttribute('data-bs-ride','carousel');
-    carousel.setAttribute('data-bs-interval','5000');
-    const inner=document.createElement('div');
-    inner.className='carousel-inner';
-    vidLinks.forEach((src,i)=>{
-      const item=document.createElement('div');
-      item.className='carousel-item'+(i===0?' active':'');
-      const frame=document.createElement('iframe');
-      frame.src=src;
-      frame.width=w;frame.height=h;
-      frame.style.border='0';
-      frame.allowFullscreen=true;
-      item.appendChild(frame);
-      inner.appendChild(item);
-    });
-    carousel.appendChild(inner);
-    container.appendChild(carousel);
-    new bootstrap.Carousel(carousel);
+    const slides=vidLinks.map((src,i)=>`
+      <div class="carousel-item${i===0?' active':''}">
+        <iframe src="${src}" style="border:0;width:${w}px;height:${h}px;" allowfullscreen></iframe>
+      </div>`).join('');
+    container.innerHTML=`
+      <div id="vidCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
+        <div class="carousel-inner">${slides}</div>
+      </div>`;
+    new bootstrap.Carousel(document.getElementById('vidCarousel'));
   } else if(vidLinks.length===1){
-    const frame=document.createElement('iframe');
-    frame.src=vidLinks[0];
-    frame.width=w;frame.height=h;
-    frame.style.border='0';
-    frame.allowFullscreen=true;
-    container.appendChild(frame);
+    container.innerHTML=`<iframe src="${vidLinks[0]}" style="border:0;width:${w}px;height:${h}px;" allowfullscreen></iframe>`;
   }
 }
 document.getElementById('imgSize').addEventListener('change',renderImages);
 document.getElementById('vidSize').addEventListener('change',renderVideos);
 function toPreview(url){
-  const m=url.match(/\/d\/([^/]+)/);
+  const m=url.match(/\/d\/([^/]+)/)||url.match(/[?&]id=([^&]+)/);
   return m?`https://drive.google.com/file/d/${m[1]}/preview`:url;
 }
 document.getElementById('importImgBtn').addEventListener('click',()=>{
   const url=document.getElementById('mediaUrl').value.trim();
   if(url){imgLinks.push(toPreview(url));renderImages();}
+  document.getElementById('mediaUrl').value='';
 });
 document.getElementById('importVidBtn').addEventListener('click',()=>{
   const url=document.getElementById('mediaUrl').value.trim();
   if(url){vidLinks.push(toPreview(url));renderVideos();}
+  document.getElementById('mediaUrl').value='';
 });
 </script>
 <?php include 'footer.php'; ?>
