@@ -72,7 +72,7 @@ $base = "client_id=$client_id&slug=$slug";
   </div>
   <div class="col-md-3 d-flex justify-content-end">
     <button type="button" id="generate" class="btn btn-sm btn-primary me-2">Generate</button>
-    <button type="button" id="saveCal" class="btn btn-sm btn-outline-secondary me-2">Save</button>
+    <button type="button" id="saveCal" class="btn btn-sm btn-success me-2">Save</button>
     <button type="button" id="shareCal" class="btn btn-sm btn-outline-secondary" title="Share calendar"><i class="bi bi-share"></i></button>
   </div>
 </form>
