@@ -69,7 +69,8 @@ $base = "client_id=$client_id&slug=$slug";
   </div>
   <div class="col-md-3 d-flex justify-content-end">
     <button type="button" id="generate" class="btn btn-primary me-2">Generate</button>
-    <button type="button" id="saveCal" class="btn btn-outline-secondary">Save</button>
+    <button type="button" id="saveCal" class="btn btn-outline-secondary me-2">Save</button>
+    <button type="button" id="shareCal" class="btn btn-outline-secondary">Share</button>
   </div>
 </form>
 <div id="progress" class="progress mt-4 d-none"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%">0%</div></div>
@@ -285,6 +286,22 @@ async function loadSaved(){
 });
 
 document.getElementById('saveCal').addEventListener('click',saveMonth);
+document.getElementById('shareCal').addEventListener('click',async()=>{
+  const monthVal=document.getElementById('month').value;
+  const [year,month]=monthVal.split('-').map(Number);
+  try{
+    const res=await fetch('share_calendar.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,year,month})});
+    const js=await res.json();
+    if(js.short_url){
+      await navigator.clipboard.writeText(js.short_url);
+      showToast('Share link copied');
+    }else{
+      showToast('Share failed');
+    }
+  }catch(e){
+    showToast('Share failed');
+  }
+});
 
 const progress=document.getElementById('progress');
 const bar=progress.querySelector('.progress-bar');

@@ -20,6 +20,9 @@ $stmt = $pdo->prepare("SELECT * FROM clients WHERE id = ?");
 $stmt->execute([$client_id]);
 $client = $stmt->fetch();
 if (!$client) die('Client not found');
+$stmt = $pdo->prepare('SELECT source FROM client_sources WHERE client_id = ?');
+$stmt->execute([$client_id]);
+$sourceText = $stmt->fetchColumn() ?: '';
 $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', $client['name']), '-'));
 $breadcrumb_client = [
     'name' => $client['name'],
@@ -35,85 +38,144 @@ $base = "client_id=$client_id&slug=$slug";
   <li class="nav-item"><a class="nav-link" href="posts.php?<?=$base?>">Posts</a></li>
 </ul>
 <div class="row">
-  <div class="col-md-4">
-    <ul id="contentList" class="list-group"></ul>
-  </div>
   <div class="col-md-8">
-    <form id="contentForm">
-      <div class="mb-3">
-        <label class="form-label">Post Content</label>
-        <textarea class="form-control" id="contentText" rows="10"></textarea>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Google Drive Media Link</label>
-        <input type="url" class="form-control" id="mediaLink" placeholder="https://drive.google.com/...">
-      </div>
-      <button type="button" class="btn btn-primary" id="saveContent">Save</button>
-    </form>
+    <div class="d-flex justify-content-end mb-2">
+      <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="regenBtn">&#x21bb;</button>
+      <button type="button" class="btn btn-sm btn-outline-success me-1" id="saveBtn">&#x1F4BE;</button>
+      <button type="button" class="btn btn-sm btn-outline-primary" id="promptBtn">&#x2728;</button>
+    </div>
+    <textarea id="contentText" class="form-control" rows="12"></textarea>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Month</label>
+    <select id="month" class="form-select mb-3">
+      <?php
+      $current = new DateTime('first day of this month');
+      for ($i=-3; $i<=9; $i++) {
+          $dt = (clone $current)->modify("$i month");
+          $val = $dt->format('Y-m');
+          $label = $dt->format('F Y');
+          $sel = $i===0 ? 'selected' : '';
+          $style = $i===0 ? "style=\"background-color:#eee;\"" : '';
+          echo "<option value='$val' $sel $style>$label</option>";
+      }
+      ?>
+    </select>
+    <div id="postList" class="list-group small"></div>
     <div class="mt-4">
-      <h6>Comments</h6>
-      <div id="comments" class="border rounded p-2" style="min-height:80px;"></div>
-      <div class="input-group mt-2">
-        <input type="text" id="commentText" class="form-control" placeholder="Add a comment...">
-        <button class="btn btn-outline-secondary" type="button" id="addComment">Add</button>
+      <label class="form-label">Image Source</label>
+      <select id="imgSize" class="form-select mb-2">
+        <option value="1080x1080">1080x1080</option>
+        <option value="1080x1350">1080x1350</option>
+        <option value="1920x1080">1920x1080</option>
+        <option value="1080x1920">1080x1920</option>
+      </select>
+      <iframe id="imgFrame" src="https://drive.google.com/file/d/1vI6a1UHWL0Xy3Oyx6WXcFgEhXQxdEBKE/preview" width="1080" height="1080" style="width:100%;border:0;" allowfullscreen></iframe>
+    </div>
+    <div class="mt-4">
+      <label class="form-label">Video Source</label>
+      <select id="vidSize" class="form-select mb-2">
+        <option value="1920x1080">1920x1080</option>
+        <option value="1080x1920">1080x1920</option>
+        <option value="1280x720">1280x720</option>
+      </select>
+      <iframe id="vidFrame" src="https://drive.google.com/file/d/1vI6a1UHWL0Xy3Oyx6WXcFgEhXQxdEBKE/preview" width="1920" height="1080" style="width:100%;border:0;" allowfullscreen></iframe>
+    </div>
+  </div>
+</div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="contentToast" class="toast text-bg-success" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="promptModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Enter prompt for this post</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <textarea id="promptText" class="form-control" rows="3"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="promptSubmit">Generate</button>
       </div>
     </div>
   </div>
 </div>
 <script>
 const clientId = <?=$client_id?>;
-let data = JSON.parse(localStorage.getItem('smc_content_'+clientId) || '{}');
-let currentKey = null;
-const listEl = document.getElementById('contentList');
-const textEl = document.getElementById('contentText');
-const mediaEl = document.getElementById('mediaLink');
-const commentsEl = document.getElementById('comments');
-function renderList(){
-  listEl.innerHTML='';
-  Object.keys(data).forEach(key=>{
-    const li=document.createElement('li');
-    li.className='list-group-item';
-    li.textContent=key;
-    li.addEventListener('click',()=>load(key));
-    listEl.appendChild(li);
+const sourceText = <?= json_encode($sourceText) ?>;
+let currentDate = null;
+let currentEntries = [];
+let promptModal;
+function showToast(msg){
+  const t=document.getElementById('contentToast');
+  t.querySelector('.toast-body').textContent=msg;
+  bootstrap.Toast.getOrCreateInstance(t).show();
+}
+function loadPosts(){
+  const val=document.getElementById('month').value;
+  const [year,month]=val.split('-');
+  fetch(`load_calendar.php?client_id=${clientId}&year=${year}&month=${month}`).then(r=>r.json()).then(js=>{
+    currentEntries=js;
+    const list=document.getElementById('postList');
+    list.innerHTML='';
+    js.forEach(e=>{
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='list-group-item list-group-item-action';
+      btn.textContent=`${e.post_date} ${e.title||''}`;
+      btn.addEventListener('click',()=>{currentDate=e.post_date;document.getElementById('contentText').value=e.title||'';});
+      list.appendChild(btn);
+    });
+    if(js[0]){currentDate=js[0].post_date;document.getElementById('contentText').value=js[0].title||'';}
   });
 }
-function load(key){
-  currentKey = key;
-  const obj=data[key]||{text:'',media:'',comments:[]};
-  textEl.value=obj.text;
-  mediaEl.value=obj.media;
-  renderComments(obj.comments);
-}
-function renderComments(arr){
-  commentsEl.innerHTML='';
-  arr.forEach(c=>{
-    const div=document.createElement('div');
-    div.textContent=c;
-    commentsEl.appendChild(div);
-  });
-}
-document.getElementById('saveContent').addEventListener('click',()=>{
-  if(!currentKey){
-    const name=prompt('Enter post title');
-    if(!name) return;
-    currentKey=name;
-  }
-  const comments = Array.from(commentsEl.children).map(d=>d.textContent);
-  data[currentKey]={text:textEl.value, media:mediaEl.value, comments};
-  localStorage.setItem('smc_content_'+clientId, JSON.stringify(data));
-  renderList();
+window.addEventListener('load',()=>{promptModal=new bootstrap.Modal(document.getElementById('promptModal'));loadPosts();});
+document.getElementById('month').addEventListener('change',loadPosts);
+document.getElementById('saveBtn').addEventListener('click',()=>{
+  if(!currentDate) return;
+  const title=document.getElementById('contentText').value;
+  fetch('save_calendar.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,year:currentDate.slice(0,4),month:currentDate.slice(5,7),entries:[{date:currentDate,title}]})}).then(()=>{showToast('Saved');loadPosts();});
 });
-document.getElementById('addComment').addEventListener('click',()=>{
-  const txt=document.getElementById('commentText').value.trim();
-  if(!txt) return;
-  const div=document.createElement('div');
-  div.textContent=txt;
-  commentsEl.appendChild(div);
-  document.getElementById('commentText').value='';
+function regen(custom=''){
+  if(!currentDate) return;
+  const used=currentEntries.filter(e=>e.post_date!==currentDate).map(e=>e.title.trim().toLowerCase()).filter(Boolean);
+  showToast('Generating...');
+  const [year,month]=currentDate.split('-').slice(0,2).map(Number);
+  const body={source:sourceText,count:1,month:new Date(year,month-1).toLocaleString('default',{month:'long'}),year,existing:used};
+  if(custom) body.prompt=custom;
+  fetch('generate_titles.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()).then(js=>{
+    const t=js.titles && js.titles[0]?js.titles[0]:'';
+    document.getElementById('contentText').value=t;
+    showToast('Generated');
+  }).catch(()=>showToast('Generation failed'));
+}
+document.getElementById('regenBtn').addEventListener('click',()=>regen());
+document.getElementById('promptBtn').addEventListener('click',()=>{promptModal.show();});
+document.getElementById('promptSubmit').addEventListener('click',()=>{
+  const txt=document.getElementById('promptText').value.trim();
+  promptModal.hide();
+  document.getElementById('promptText').value='';
+  if(txt) regen(txt);
 });
-renderList();
-const firstKey=Object.keys(data)[0];
-if(firstKey) load(firstKey);
+document.getElementById('imgSize').addEventListener('change',e=>{
+  const [w,h]=e.target.value.split('x');
+  const f=document.getElementById('imgFrame');
+  f.setAttribute('width',w);
+  f.setAttribute('height',h);
+});
+document.getElementById('vidSize').addEventListener('change',e=>{
+  const [w,h]=e.target.value.split('x');
+  const f=document.getElementById('vidFrame');
+  f.setAttribute('width',w);
+  f.setAttribute('height',h);
+});
 </script>
 <?php include 'footer.php'; ?>

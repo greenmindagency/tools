@@ -34,6 +34,16 @@ try {
         UNIQUE KEY uniq_client_date (client_id, post_date)
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
+    // Short links for shared calendars
+    $pdo->exec("CREATE TABLE IF NOT EXISTS calendar_links (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        client_id INT NOT NULL,
+        year INT NOT NULL,
+        month INT NOT NULL,
+        short_url VARCHAR(255),
+        UNIQUE KEY uniq_client_month (client_id, year, month)
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
     // Manual occasions repository, scoped per client
     $pdo->exec("CREATE TABLE IF NOT EXISTS occasions (
         id INT AUTO_INCREMENT PRIMARY KEY,
