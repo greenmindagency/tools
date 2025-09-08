@@ -149,7 +149,7 @@ function loadPosts(){
     const list=document.getElementById('postList');
     list.innerHTML='';
     if(!js.length){
-      list.innerHTML='<div class="list-group-item">No content for this month</div>';
+      list.innerHTML='<div class="list-group-item">No posts for this month</div>';
       currentDate=null;
       document.getElementById('contentText').value='';
       document.getElementById('postDate').textContent='';
