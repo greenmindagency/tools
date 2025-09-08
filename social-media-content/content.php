@@ -123,10 +123,12 @@ $base = "client_id=$client_id&slug=$slug";
 const clientId = <?=$client_id?>;
 const sourceText = <?= json_encode($sourceText) ?>;
 const currentUser = <?= json_encode($_SESSION['username'] ?? '') ?>;
+const isAdmin = <?= json_encode($isAdmin) ?>;
 let currentDate = null;
 let currentEntries = [];
 let imgLinks = [];
 let vidLinks = [];
+let comments = [];
 const sizeOptions = ['1080x1350','1080x1920','1080x1080'];
 let imgSize = '1080x1350';
 let vidSize = '1080x1920';
@@ -158,6 +160,8 @@ function loadPosts(){
       updateSizeOptions();
       renderImages();
       renderVideos();
+      comments=[];
+      renderComments();
       return;
     }
     js.forEach(e=>{
@@ -177,6 +181,8 @@ function loadPosts(){
         updateSizeOptions();
         renderImages();
         renderVideos();
+        comments=[];
+        renderComments();
       });
       list.appendChild(btn);
     });
@@ -192,6 +198,8 @@ function loadPosts(){
     updateSizeOptions();
     renderImages();
     renderVideos();
+    comments=[];
+    renderComments();
   });
 }
 function updateSizeOptions(){
@@ -250,13 +258,47 @@ document.getElementById('promptSubmit').addEventListener('click',()=>{
   document.getElementById('promptText').value='';
   if(txt) regen(txt);
 });
+function renderComments(){
+  const list=document.getElementById('commentList');
+  list.innerHTML='';
+  comments.forEach((c,i)=>{
+    const div=document.createElement('div');
+    div.className='mb-1';
+    const strong=document.createElement('strong');
+    strong.textContent=c.user+': ';
+    const span=document.createElement('span');
+    span.textContent=c.text;
+    div.appendChild(strong);
+    div.appendChild(span);
+    if(isAdmin || c.user===currentUser){
+      const actions=document.createElement('span');
+      actions.className='ms-2';
+      const edit=document.createElement('button');
+      edit.type='button';
+      edit.className='btn btn-sm btn-outline-primary me-1';
+      edit.textContent='Edit';
+      edit.addEventListener('click',()=>{
+        const t=prompt('Edit comment',c.text);
+        if(t!==null){c.text=t.trim();renderComments();}
+      });
+      const del=document.createElement('button');
+      del.type='button';
+      del.className='btn btn-sm btn-outline-danger';
+      del.textContent='Remove';
+      del.addEventListener('click',()=>{comments.splice(i,1);renderComments();});
+      actions.appendChild(edit);
+      actions.appendChild(del);
+      div.appendChild(actions);
+    }
+    list.appendChild(div);
+  });
+}
 document.getElementById('addCommentBtn').addEventListener('click',()=>{
   const text=document.getElementById('commentText').value.trim();
   if(currentUser && text){
-    const div=document.createElement('div');
-    div.innerHTML=`<strong>${currentUser}:</strong> ${text}`;
-    document.getElementById('commentList').appendChild(div);
+    comments.push({user:currentUser,text});
     document.getElementById('commentText').value='';
+    renderComments();
   }
 });
 function frameHtml(src,size){
@@ -290,7 +332,7 @@ function renderImages(){
   imgLinks.forEach((_,i)=>{
     const li=document.createElement('li');
     li.className='list-group-item d-flex justify-content-between align-items-center';
-    li.textContent=`Slide ${i+1}`;
+    li.innerHTML=`Slide <span class="badge bg-secondary">${i+1}</span>`;
     const btn=document.createElement('button');
     btn.className='btn btn-sm btn-outline-danger';
     btn.textContent='Remove';
@@ -325,7 +367,7 @@ function renderVideos(){
   vidLinks.forEach((_,i)=>{
     const li=document.createElement('li');
     li.className='list-group-item d-flex justify-content-between align-items-center';
-    li.textContent=`Slide ${i+1}`;
+    li.innerHTML=`Slide <span class="badge bg-secondary">${i+1}</span>`;
     const btn=document.createElement('button');
     btn.className='btn btn-sm btn-outline-danger';
     btn.textContent='Remove';
