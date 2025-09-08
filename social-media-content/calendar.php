@@ -42,7 +42,7 @@ $base = "client_id=$client_id&slug=$slug";
   <li class="nav-item"><a class="nav-link active" href="calendar.php?<?=$base?>">Calendar</a></li>
   <li class="nav-item"><a class="nav-link" href="posts.php?<?=$base?>">Posts</a></li>
 </ul>
-<form class="row g-2 align-items-end" onsubmit="return false;">
+<form class="row g-2 align-items-center" onsubmit="return false;">
   <div class="col-md-3">
     <label class="form-label">Month</label>
     <select id="month" class="form-select">
@@ -61,7 +61,7 @@ $base = "client_id=$client_id&slug=$slug";
   <div class="col-md-4">
     <label class="form-label">Content Countries</label>
     <div id="countries">
-      <div class="input-group mb-2">
+      <div class="input-group">
         <input type="text" name="country[]" class="form-control" placeholder="e.g. Egypt">
         <button class="btn btn-outline-success" type="button" onclick="addCountry(this)">+</button>
       </div>
@@ -78,7 +78,6 @@ $base = "client_id=$client_id&slug=$slug";
 </form>
 <div id="progress" class="progress mt-4 d-none"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%">0%</div></div>
 <div id="occWarning" class="alert alert-warning mt-4 d-none">No occasions imported for selected countries and month.</div>
-<div id="occList" class="mt-4"></div>
 <div id="calendar" class="mt-4"></div>
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
   <div id="genToast" class="toast text-bg-success" role="alert" aria-live="assertive" aria-atomic="true">
@@ -93,7 +92,7 @@ const clientId = <?=$client_id?>;
 const sourceText = <?= json_encode($sourceText) ?>;
 function addCountry(btn){
   const div=document.createElement('div');
-  div.className='input-group mb-2';
+  div.className='input-group mt-2';
   div.innerHTML='<input type="text" name="country[]" class="form-control" placeholder="e.g. Egypt"><button class="btn btn-outline-danger" type="button" onclick="this.parentNode.remove()">-</button>';
   document.getElementById('countries').appendChild(div);
 }
@@ -126,6 +125,11 @@ function render(entries,year,month){
         render(entries,year,month);
       }
     });
+    if(e.holiday){
+      td.classList.add('bg-danger-subtle');
+    }else if(e.title){
+      td.classList.add('bg-success-subtle');
+    }
     const [yr,mn,dd]=e.date.split('-').map(Number);
     const lbl=document.createElement('div');
     lbl.className='fw-bold';
@@ -164,34 +168,17 @@ document.getElementById('generate').addEventListener('click',async()=>{
   }catch(e){
     occData=[];
   }
-  const listDiv=document.getElementById('occList');
-  listDiv.innerHTML='';
   const warn=document.getElementById('occWarning');
   if(!occData.length){
     warn.classList.remove('d-none');
   }else{
     warn.classList.add('d-none');
-    const groups={};
-    occData.forEach(o=>{(groups[o.country]=groups[o.country]||[]).push(o);});
-    let idx=0;
-    for(const [c,items] of Object.entries(groups)){
-      const h=document.createElement('h6');
-      h.textContent=c;
-      listDiv.appendChild(h);
-      items.forEach(item=>{
-        const div=document.createElement('div');
-        div.className='form-check form-check-inline';
-        const id=`occ${idx++}`;
-        div.innerHTML=`<input class="form-check-input" type="checkbox" id="${id}" data-date="${item.date}" data-name="${item.name}" checked><label class="form-check-label" for="${id}">${item.date} - ${item.name}</label>`;
-        listDiv.appendChild(div);
-      });
-    }
   }
   const selected={};
-  document.querySelectorAll('#occList input:checked').forEach(ch=>{selected[ch.dataset.date]=ch.dataset.name;});
+  occData.forEach(o=>{selected[o.date]=o.name;});
   setProgress(30);
   const dates=await fetch(`dates.php?year=${year}&month=${month}`).then(r=>r.json());
-  const entries=dates.map(d=>({date:d.date,title:selected[d.date]?`Happy ${stripEmojis(selected[d.date])}`:''}));
+  const entries=dates.map(d=>({date:d.date,title:selected[d.date]?`Happy ${stripEmojis(selected[d.date])}`:'',holiday:!!selected[d.date]}));
   const holidayCount=Object.keys(selected).length;
   const remaining=Math.max(ppm-holidayCount,0);
   let titles=[];

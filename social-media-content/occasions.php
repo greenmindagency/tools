@@ -85,9 +85,16 @@ $base = "client_id=$client_id&slug=$slug";
 <script>
 const existing = <?= json_encode($countries) ?>;
 const container = document.getElementById('countriesContainer');
+
 function addCountry(name='', lines=''){
   const div = document.createElement('div');
   div.className = 'card mb-3';
+  const rows = lines
+    ? lines.split(/\n/).filter(l=>l.trim()).map(line=>{
+        const [d,n]=line.split(/\t|,/);
+        return `<tr><td contenteditable>${d?d.trim():''}</td><td contenteditable>${n?n.trim():''}</td></tr>`;
+      }).join('')
+    : '<tr><td contenteditable></td><td contenteditable></td></tr>';
   div.innerHTML = `
     <div class="card-header">
       <div class="input-group">
@@ -96,26 +103,54 @@ function addCountry(name='', lines=''){
       </div>
     </div>
     <div class="card-body">
-      <textarea name="data[]" class="form-control paste" rows="5">${lines}</textarea>
-      <table class="table table-sm preview mt-2"></table>
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Date</th><th>Occasion</th></tr></thead>
+        <tbody contenteditable="true">${rows}</tbody>
+      </table>
+      <input type="hidden" name="data[]">
+      <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="addRow(this)">Add Row</button>
     </div>`;
   container.appendChild(div);
-  div.querySelector('.paste').addEventListener('input', e=>updateTable(e.target));
-  updateTable(div.querySelector('.paste'));
+  const tbody = div.querySelector('tbody');
+  tbody.addEventListener('paste', handlePaste);
 }
-function updateTable(ta){
-  const tbl = ta.parentElement.querySelector('.preview');
-  tbl.innerHTML='';
-  const lines = ta.value.split(/\n/).filter(l=>l.trim());
-  for(const line of lines){
-    const row = tbl.insertRow();
+
+function addRow(btn){
+  const tbody = btn.closest('.card-body').querySelector('tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = '<td contenteditable></td><td contenteditable></td>';
+  tbody.appendChild(tr);
+}
+
+function handlePaste(e){
+  e.preventDefault();
+  const text = e.clipboardData.getData('text/plain');
+  const lines = text.split(/\r?\n/).filter(l=>l.trim());
+  const tbody = e.target.closest('tbody');
+  tbody.innerHTML='';
+  lines.forEach(line=>{
     const [d,n] = line.split(/\t|,/);
-    row.insertCell().textContent = d?.trim()||'';
-    row.insertCell().textContent = n?.trim()||'';
-  }
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td contenteditable>${d?d.trim():''}</td><td contenteditable>${n?n.trim():''}</td>`;
+    tbody.appendChild(tr);
+  });
 }
+
 existing.forEach(c=>addCountry(c.name, c.lines));
 if(!existing.length) addCountry();
 document.getElementById('addCountry').addEventListener('click',()=>addCountry());
+
+document.getElementById('occForm').addEventListener('submit',()=>{
+  container.querySelectorAll('.card').forEach(card=>{
+    const rows=[];
+    card.querySelectorAll('tbody tr').forEach(tr=>{
+      const tds=tr.querySelectorAll('td');
+      const d=tds[0].textContent.trim();
+      const n=tds[1].textContent.trim();
+      if(d && n) rows.push(d+'\t'+n);
+    });
+    card.querySelector('input[name="data[]"]').value=rows.join('\n');
+  });
+});
 </script>
 <?php include 'footer.php'; ?>
