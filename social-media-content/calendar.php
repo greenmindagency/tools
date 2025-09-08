@@ -232,7 +232,11 @@ async function loadSaved(){
   setProgress(10);
   let occData=[];
   try{
-    const res=await fetch('get_occasions.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({year,month})});
+    const res=await fetch('get_occasions.php',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({year,month,client_id:clientId})
+    });
     occData=await res.json();
   }catch(e){
     occData=[];

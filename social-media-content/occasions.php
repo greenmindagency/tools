@@ -22,12 +22,12 @@ $saved = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $countries = $_POST['country'] ?? [];
     $data = $_POST['data'] ?? [];
-    $del = $pdo->prepare('DELETE FROM occasions WHERE country = ?');
-    $ins = $pdo->prepare('INSERT INTO occasions (country, occasion_date, name) VALUES (?,?,?)');
+    $del = $pdo->prepare('DELETE FROM occasions WHERE client_id = ? AND country = ?');
+    $ins = $pdo->prepare('INSERT INTO occasions (client_id, country, occasion_date, name) VALUES (?,?,?,?)');
     foreach ($countries as $i => $country) {
         $country = trim($country);
         if ($country === '') continue;
-        $del->execute([$country]);
+        $del->execute([$client_id, $country]);
         $lines = preg_split("/\r?\n/", $data[$i] ?? '');
         foreach ($lines as $line) {
             if (trim($line) === '') continue;
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $date = trim($parts[0]);
             $name = trim($parts[1]);
             if ($date && $name) {
-                $ins->execute([$country, $date, $name]);
+                $ins->execute([$client_id, $country, $date, $name]);
             }
         }
     }
@@ -44,11 +44,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $countries = [];
-$stmt = $pdo->query("SELECT DISTINCT country FROM occasions ORDER BY country");
+$stmt = $pdo->prepare("SELECT DISTINCT country FROM occasions WHERE client_id = ? ORDER BY country");
+$stmt->execute([$client_id]);
 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $c = $row['country'];
-    $occs = $pdo->prepare('SELECT occasion_date,name FROM occasions WHERE country = ? ORDER BY occasion_date');
-    $occs->execute([$c]);
+    $occs = $pdo->prepare('SELECT occasion_date,name FROM occasions WHERE client_id = ? AND country = ? ORDER BY occasion_date');
+    $occs->execute([$client_id, $c]);
     $lines = [];
     foreach ($occs as $o) {
         $lines[] = $o['occasion_date']."\t".$o['name'];

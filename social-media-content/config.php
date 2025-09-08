@@ -34,13 +34,21 @@ try {
         UNIQUE KEY uniq_client_date (client_id, post_date)
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
-    // Manual occasions repository
+    // Manual occasions repository, scoped per client
     $pdo->exec("CREATE TABLE IF NOT EXISTS occasions (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        client_id INT NOT NULL,
         country VARCHAR(100) NOT NULL,
         occasion_date DATE NOT NULL,
-        name VARCHAR(255) NOT NULL
+        name VARCHAR(255) NOT NULL,
+        INDEX idx_client (client_id)
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+    // Ensure client_id column exists for legacy tables
+    if (!$pdo->query("SHOW COLUMNS FROM occasions LIKE 'client_id'")->fetch()) {
+        $pdo->exec("ALTER TABLE occasions ADD COLUMN client_id INT NOT NULL AFTER id");
+        $pdo->exec("ALTER TABLE occasions ADD INDEX idx_client (client_id)");
+    }
 } catch (PDOException $e) {
     die("Connection failed: " . $e->getMessage());
 }
