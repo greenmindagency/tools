@@ -60,13 +60,8 @@ $base = "client_id=$client_id&slug=$slug";
     </select>
   </div>
   <div class="col-md-4">
-    <label class="form-label">Content Countries</label>
-    <div id="countries">
-      <div class="input-group">
-        <input type="text" name="country[]" class="form-control" placeholder="e.g. Egypt">
-        <button class="btn btn-outline-success" type="button" onclick="addCountry(this)">+</button>
-      </div>
-    </div>
+    <label class="form-label">Output Languages</label>
+    <input type="text" id="langs" class="form-control" placeholder="e.g. English, Arabic">
   </div>
   <div class="col-md-2">
     <label class="form-label">Posts per Month</label>
@@ -78,7 +73,7 @@ $base = "client_id=$client_id&slug=$slug";
   </div>
 </form>
 <div id="progress" class="progress mt-4 d-none"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%">0%</div></div>
-<div id="occWarning" class="alert alert-warning mt-4 d-none">No occasions imported for selected countries and month.</div>
+<div id="occWarning" class="alert alert-warning mt-4 d-none">No occasions imported for selected month.</div>
 <div id="calendar" class="mt-4"></div>
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
   <div id="genToast" class="toast text-bg-success" role="alert" aria-live="assertive" aria-atomic="true">
@@ -112,13 +107,12 @@ let promptModal;
 let promptIdx = null;
 window.addEventListener('load', () => {
   promptModal = new bootstrap.Modal(document.getElementById('promptModal'));
+  const langVal = localStorage.getItem('sm_langs_'+clientId);
+  if(langVal) document.getElementById('langs').value = langVal;
 });
-function addCountry(btn){
-  const div=document.createElement('div');
-  div.className='input-group mt-2';
-  div.innerHTML='<input type="text" name="country[]" class="form-control" placeholder="e.g. Egypt"><button class="btn btn-outline-danger" type="button" onclick="this.parentNode.remove()">-</button>';
-  document.getElementById('countries').appendChild(div);
-}
+document.getElementById('langs').addEventListener('change', ()=>{
+  localStorage.setItem('sm_langs_'+clientId, document.getElementById('langs').value.trim());
+});
 function stripEmojis(str){
   return str.replace(/[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{27BF}]/gu,'');
 }
@@ -233,12 +227,12 @@ async function loadSaved(){
   document.getElementById('generate').addEventListener('click',async()=>{
     const monthVal=document.getElementById('month').value;
     const [year,month]=monthVal.split('-').map(Number);
-    const countries=getCountries();
+    const langs=getLangs();
   const ppm=parseInt(document.getElementById('ppm').value)||0;
   setProgress(10);
   let occData=[];
   try{
-    const res=await fetch('get_occasions.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({year,month,countries})});
+    const res=await fetch('get_occasions.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({year,month})});
     occData=await res.json();
   }catch(e){
     occData=[];
@@ -258,9 +252,18 @@ async function loadSaved(){
   const remaining=Math.max(ppm-holidayCount,0);
   let titles=[];
   if(remaining>0){
-    const res=await fetch('generate_titles.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:sourceText,count:remaining,month:new Date(year,month-1).toLocaleString('default',{month:'long'}),year,countries})});
-    const js=await res.json();
-    titles=js.titles||[];
+    const monthName=new Date(year,month-1).toLocaleString('default',{month:'long'});
+    const perLang=Math.ceil(remaining/(langs.length||1));
+    const usedLangs=langs.length?langs:[''];
+    for(const lg of usedLangs){
+      const body={source:sourceText,count:perLang,month:monthName,year};
+      if(lg) body.languages=[lg];
+      const res=await fetch('generate_titles.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const js=await res.json();
+      if(js.titles) titles=titles.concat(js.titles);
+    }
+    if(langs.length>1) titles.sort(()=>Math.random()-0.5);
+    titles=titles.slice(0,remaining);
   }
   setProgress(70);
   const workingIdx=entries.map((e,i)=>{const dow=new Date(e.date+'T00:00:00').getDay();return (!e.title && dow<=4)?i:null;}).filter(i=>i!==null);
@@ -303,16 +306,18 @@ document.getElementById('promptSubmit').addEventListener('click',()=>{
   promptModal.hide();
 });
 
-function getCountries(){
-  return Array.from(document.querySelectorAll('input[name="country[]"]')).map(i=>i.value.trim()).filter(Boolean);
+function getLangs(){
+  return document.getElementById('langs').value.split(',').map(s=>s.trim()).filter(Boolean);
 }
 
 async function regenCell(idx, custom=''){
   const monthVal=document.getElementById('month').value;
   const [year,month]=monthVal.split('-').map(Number);
-  const countries=getCountries();
+  const langs=getLangs();
+  const lang=langs.length?langs[Math.floor(Math.random()*langs.length)]:'';
   setProgress(10);
-  const body={source:sourceText,count:1,month:new Date(year,month-1).toLocaleString('default',{month:'long'}),year,countries};
+  const body={source:sourceText,count:1,month:new Date(year,month-1).toLocaleString('default',{month:'long'}),year};
+  if(lang) body.languages=[lang];
   if(custom) body.prompt=custom;
   const res=await fetch('generate_titles.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const js=await res.json();

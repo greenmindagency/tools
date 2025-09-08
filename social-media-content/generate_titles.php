@@ -6,17 +6,24 @@ $source = $input['source'] ?? '';
 $count = max(0, (int)($input['count'] ?? 0));
 $month = $input['month'] ?? '';
 $year = $input['year'] ?? '';
-$countries = $input['countries'] ?? [];
-$countryList = is_array($countries) ? implode(', ', $countries) : '';
+$languages = $input['languages'] ?? [];
+$languageList = is_array($languages) ? implode(', ', $languages) : '';
 $custom = trim($input['prompt'] ?? '');
 $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-$prompt = $custom !== ''
-    ? $custom
-    : "You are an expert social media planner. Using the following source material:\n".
-      $source.
-      "\nGenerate $count engaging social media post titles for $month $year".
-      ($countryList ? " targeting the following countries: $countryList" : "") .
-      ". Return the titles as a JSON array.";
+$base = "You are an expert social media planner. Using the following source material:\n".
+        $source . "\n";
+if ($custom !== '') {
+    $prompt = $base . $custom;
+    if ($languageList) {
+        $prompt .= "\nRespond in $languageList.";
+    }
+} else {
+    $prompt = $base . "Generate $count engaging social media post titles for $month $year.";
+    if ($languageList) {
+        $prompt .= " Write the titles in $languageList.";
+    }
+    $prompt .= " Return the titles as a JSON array.";
+}
 $payload = json_encode([
     'contents' => [[ 'parts' => [['text' => $prompt]] ]]
 ]);
