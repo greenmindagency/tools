@@ -13,9 +13,12 @@ if (!$client_id || !$year || !$month) {
 $start = sprintf('%04d-%02d-01', $year, $month);
 $end = date('Y-m-t', strtotime($start));
 $onlyContent = isset($_GET['with_content']);
+$onlyTitle   = isset($_GET['with_title']);
 $sql = 'SELECT post_date, title, content, images, videos FROM client_calendar WHERE client_id = ? AND post_date BETWEEN ? AND ?';
 if ($onlyContent) {
     $sql .= " AND content IS NOT NULL AND TRIM(content) <> '' AND title IS NOT NULL AND TRIM(title) <> ''";
+} elseif ($onlyTitle) {
+    $sql .= " AND title IS NOT NULL AND TRIM(title) <> ''";
 }
 $sql .= ' ORDER BY post_date';
 $stmt = $pdo->prepare($sql);

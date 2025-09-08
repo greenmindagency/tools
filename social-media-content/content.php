@@ -145,13 +145,13 @@ function loadPosts(){
   const val=document.getElementById('month').value;
   const [year,month]=val.split('-');
   const prev=currentDate;
-  const url=`load_calendar.php?client_id=${clientId}&year=${year}&month=${month}&with_content=1`;
+  const url=`load_calendar.php?client_id=${clientId}&year=${year}&month=${month}&with_title=1`;
   fetch(url).then(r=>r.json()).then(js=>{
     currentEntries=js;
     const list=document.getElementById('postList');
     list.innerHTML='';
     if(!js.length){
-      list.innerHTML='<div class="list-group-item">No posts with content for this month</div>';
+      list.innerHTML='<div class="list-group-item">No posts for this month</div>';
       currentDate=null;
       document.getElementById('contentText').value='';
       document.getElementById('postDate').textContent='';
