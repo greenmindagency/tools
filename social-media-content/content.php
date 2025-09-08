@@ -82,7 +82,7 @@ $base = "client_id=$client_id&slug=$slug";
         <option value="video">Video</option>
       </select>
       <select class="form-select" id="mediaSize"></select>
-      <button class="btn btn-outline-secondary" type="button" id="importMediaBtn">Import</button>
+      <button class="btn btn-outline-secondary" type="button" id="importMediaBtn" data-bs-toggle="tooltip" title="Import media">&#x1F4E5;</button>
     </div>
     <div id="imageSection" style="display:none;" class="mb-3">
       <div id="imgContainer" class="mb-2"></div>
@@ -127,10 +127,11 @@ let currentDate = null;
 let currentEntries = [];
 let imgLinks = [];
 let vidLinks = [];
-let imgSize = '1080x1080';
-let vidSize = '1920x1080';
-const imgSizes = ['1080x1080','1080x1350','1920x1080','1080x1920'];
-const vidSizes = ['1920x1080','1080x1920','1280x720'];
+const sizeOptions = ['1080x1350','1080x1920','1080x1080'];
+let imgSize = '1080x1350';
+let vidSize = '1080x1920';
+const imgSizes = sizeOptions;
+const vidSizes = sizeOptions;
 let promptModal;
 function showToast(msg){
   const t=document.getElementById('contentToast');
@@ -154,6 +155,7 @@ function loadPosts(){
       document.getElementById('postTitle').textContent='';
       imgLinks=[];
       vidLinks=[];
+      updateSizeOptions();
       renderImages();
       renderVideos();
       return;
@@ -170,6 +172,9 @@ function loadPosts(){
         document.getElementById('postTitle').textContent=e.title;
         imgLinks = e.images ? JSON.parse(e.images || '[]') || [] : [];
         vidLinks = e.videos ? JSON.parse(e.videos || '[]') || [] : [];
+        imgSize = e.image_size || sizeOptions[0];
+        vidSize = e.video_size || sizeOptions[1];
+        updateSizeOptions();
         renderImages();
         renderVideos();
       });
@@ -182,6 +187,9 @@ function loadPosts(){
     document.getElementById('postTitle').textContent=first.title;
     imgLinks = first.images ? JSON.parse(first.images || '[]') || [] : [];
     vidLinks = first.videos ? JSON.parse(first.videos || '[]') || [] : [];
+    imgSize = first.image_size || sizeOptions[0];
+    vidSize = first.video_size || sizeOptions[1];
+    updateSizeOptions();
     renderImages();
     renderVideos();
   });
@@ -213,7 +221,7 @@ document.getElementById('saveBtn').addEventListener('click',()=>{
   fetch('save_content.php',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({client_id:clientId,date:currentDate,content,images:imgLinks,videos:vidLinks})
+    body:JSON.stringify({client_id:clientId,date:currentDate,content,images:imgLinks,videos:vidLinks,image_size:imgSize,video_size:vidSize})
   }).then(()=>{showToast('Saved');loadPosts();});
 });
 function regen(custom=''){
@@ -251,9 +259,13 @@ document.getElementById('addCommentBtn').addEventListener('click',()=>{
     document.getElementById('commentText').value='';
   }
 });
+function frameHtml(src,size){
+  const [w,h]=size.split('x').map(Number);
+  const ratio=(h/w*100).toFixed(2);
+  return `<div style="position:relative;width:100%;padding-top:${ratio}%"><iframe src="${src}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;" allowfullscreen></iframe></div>`;
+}
 function renderImages(){
   const section=document.getElementById('imageSection');
-  const [w,h]=imgSize.split('x');
   const container=document.getElementById('imgContainer');
   const list=document.getElementById('imgList');
   container.innerHTML='';
@@ -263,7 +275,7 @@ function renderImages(){
   if(imgLinks.length>1){
     const slides=imgLinks.map((src,i)=>`
       <div class="carousel-item${i===0?' active':''}">
-        <iframe src="${src}" style="border:0;width:100%;aspect-ratio:${w}/${h};" allowfullscreen></iframe>
+        ${frameHtml(src,imgSize)}
       </div>`).join('');
     const indicators=imgLinks.map((_,i)=>`<button type="button" data-bs-target="#imgCarousel" data-bs-slide-to="${i}" class="${i===0?'active':''}" aria-current="${i===0?'true':'false'}" aria-label="Slide ${i+1}" style="width:auto;height:auto;text-indent:0;">${i+1}</button>`).join('');
     container.innerHTML=`
@@ -273,7 +285,7 @@ function renderImages(){
       </div>`;
     new bootstrap.Carousel(document.getElementById('imgCarousel'));
   } else {
-    container.innerHTML=`<iframe src="${imgLinks[0]}" style="border:0;width:100%;aspect-ratio:${w}/${h};" allowfullscreen></iframe>`;
+    container.innerHTML=frameHtml(imgLinks[0],imgSize);
   }
   imgLinks.forEach((_,i)=>{
     const li=document.createElement('li');
@@ -289,7 +301,6 @@ function renderImages(){
 }
 function renderVideos(){
   const section=document.getElementById('videoSection');
-  const [w,h]=vidSize.split('x');
   const container=document.getElementById('vidContainer');
   const list=document.getElementById('vidList');
   container.innerHTML='';
@@ -299,7 +310,7 @@ function renderVideos(){
   if(vidLinks.length>1){
     const slides=vidLinks.map((src,i)=>`
       <div class="carousel-item${i===0?' active':''}">
-        <iframe src="${src}" style="border:0;width:100%;aspect-ratio:${w}/${h};" allowfullscreen></iframe>
+        ${frameHtml(src,vidSize)}
       </div>`).join('');
     const indicators=vidLinks.map((_,i)=>`<button type="button" data-bs-target="#vidCarousel" data-bs-slide-to="${i}" class="${i===0?'active':''}" aria-current="${i===0?'true':'false'}" aria-label="Slide ${i+1}" style="width:auto;height:auto;text-indent:0;">${i+1}</button>`).join('');
     container.innerHTML=`
@@ -309,7 +320,7 @@ function renderVideos(){
       </div>`;
     new bootstrap.Carousel(document.getElementById('vidCarousel'));
   } else {
-    container.innerHTML=`<iframe src="${vidLinks[0]}" style="border:0;width:100%;aspect-ratio:${w}/${h};" allowfullscreen></iframe>`;
+    container.innerHTML=frameHtml(vidLinks[0],vidSize);
   }
   vidLinks.forEach((_,i)=>{
     const li=document.createElement('li');
