@@ -258,7 +258,6 @@ async function loadSaved(){
 });
 
 document.getElementById('saveCal').addEventListener('click',saveMonth);
-});
 
 const progress=document.getElementById('progress');
 const bar=progress.querySelector('.progress-bar');
