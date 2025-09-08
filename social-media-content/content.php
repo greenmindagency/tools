@@ -144,7 +144,11 @@ function showToast(msg){
 function loadPosts(){
   const val=document.getElementById('month').value;
   const [year,month]=val.split('-');
-  fetch(`load_calendar.php?client_id=${clientId}&year=${year}&month=${month}&with_content=1`).then(r=>r.json()).then(js=>{
+  const base=`load_calendar.php?client_id=${clientId}&year=${year}&month=${month}`;
+  fetch(base+`&with_content=1`).then(r=>r.json()).then(js=>{
+    if(js.length) return js;
+    return fetch(base).then(r=>r.json());
+  }).then(js=>{
     currentEntries=js;
     const list=document.getElementById('postList');
     list.innerHTML='';
