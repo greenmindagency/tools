@@ -141,7 +141,7 @@ function loadPosts(){
   const val=document.getElementById('month').value;
   const [year,month]=val.split('-');
   fetch(`load_calendar.php?client_id=${clientId}&year=${year}&month=${month}`).then(r=>r.json()).then(js=>{
-    js=js.filter(e=>e.title && e.title.trim());
+    js=js.filter(e=>e.content && e.content.trim());
     currentEntries=js;
     const list=document.getElementById('postList');
     list.innerHTML='';
@@ -155,6 +155,10 @@ function loadPosts(){
         document.getElementById('contentText').value=e.content||'';
         document.getElementById('postDate').textContent=e.post_date;
         document.getElementById('postTitle').textContent=e.title;
+        imgLinks = e.images ? JSON.parse(e.images || '[]') || [] : [];
+        vidLinks = e.videos ? JSON.parse(e.videos || '[]') || [] : [];
+        renderImages();
+        renderVideos();
       });
       list.appendChild(btn);
     });
@@ -163,6 +167,10 @@ function loadPosts(){
       document.getElementById('contentText').value=js[0].content||'';
       document.getElementById('postDate').textContent=js[0].post_date;
       document.getElementById('postTitle').textContent=js[0].title;
+      imgLinks = js[0].images ? JSON.parse(js[0].images || '[]') || [] : [];
+      vidLinks = js[0].videos ? JSON.parse(js[0].videos || '[]') || [] : [];
+      renderImages();
+      renderVideos();
     }
   });
 }
@@ -171,7 +179,11 @@ document.getElementById('month').addEventListener('change',loadPosts);
 document.getElementById('saveBtn').addEventListener('click',()=>{
   if(!currentDate) return;
   const content=document.getElementById('contentText').value;
-  fetch('save_content.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,date:currentDate,content})}).then(()=>{showToast('Saved');loadPosts();});
+  fetch('save_content.php',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({client_id:clientId,date:currentDate,content,images:imgLinks,videos:vidLinks})
+  }).then(()=>{showToast('Saved');loadPosts();});
 });
 function regen(custom=''){
   if(!currentDate) return;
@@ -221,9 +233,6 @@ function renderImages(){
       const frame=document.createElement('iframe');
       frame.src=src;
       frame.width=w;frame.height=h;
-      frame.style.width=w+'px';
-      frame.style.height=h+'px';
-      frame.style.maxWidth='100%';
       frame.style.border='0';
       frame.allowFullscreen=true;
       item.appendChild(frame);
@@ -236,9 +245,6 @@ function renderImages(){
     const frame=document.createElement('iframe');
     frame.src=imgLinks[0];
     frame.width=w;frame.height=h;
-    frame.style.width=w+'px';
-    frame.style.height=h+'px';
-    frame.style.maxWidth='100%';
     frame.style.border='0';
     frame.allowFullscreen=true;
     container.appendChild(frame);
@@ -262,9 +268,6 @@ function renderVideos(){
       const frame=document.createElement('iframe');
       frame.src=src;
       frame.width=w;frame.height=h;
-      frame.style.width=w+'px';
-      frame.style.height=h+'px';
-      frame.style.maxWidth='100%';
       frame.style.border='0';
       frame.allowFullscreen=true;
       item.appendChild(frame);
@@ -277,9 +280,6 @@ function renderVideos(){
     const frame=document.createElement('iframe');
     frame.src=vidLinks[0];
     frame.width=w;frame.height=h;
-    frame.style.width=w+'px';
-    frame.style.height=h+'px';
-    frame.style.maxWidth='100%';
     frame.style.border='0';
     frame.allowFullscreen=true;
     container.appendChild(frame);
@@ -287,13 +287,17 @@ function renderVideos(){
 }
 document.getElementById('imgSize').addEventListener('change',renderImages);
 document.getElementById('vidSize').addEventListener('change',renderVideos);
+function toPreview(url){
+  const m=url.match(/\/d\/([^/]+)/);
+  return m?`https://drive.google.com/file/d/${m[1]}/preview`:url;
+}
 document.getElementById('importImgBtn').addEventListener('click',()=>{
   const url=document.getElementById('mediaUrl').value.trim();
-  if(url){imgLinks.push(url);renderImages();}
+  if(url){imgLinks.push(toPreview(url));renderImages();}
 });
 document.getElementById('importVidBtn').addEventListener('click',()=>{
   const url=document.getElementById('mediaUrl').value.trim();
-  if(url){vidLinks.push(url);renderVideos();}
+  if(url){vidLinks.push(toPreview(url));renderVideos();}
 });
 </script>
 <?php include 'footer.php'; ?>

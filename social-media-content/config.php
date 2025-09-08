@@ -32,11 +32,19 @@ try {
         post_date DATE NOT NULL,
         title VARCHAR(255),
         content TEXT,
+        images TEXT,
+        videos TEXT,
         UNIQUE KEY uniq_client_date (client_id, post_date)
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
     if (!$pdo->query("SHOW COLUMNS FROM client_calendar LIKE 'content'")->fetch()) {
         $pdo->exec("ALTER TABLE client_calendar ADD COLUMN content TEXT AFTER title");
+    }
+    if (!$pdo->query("SHOW COLUMNS FROM client_calendar LIKE 'images'")->fetch()) {
+        $pdo->exec("ALTER TABLE client_calendar ADD COLUMN images TEXT AFTER content");
+    }
+    if (!$pdo->query("SHOW COLUMNS FROM client_calendar LIKE 'videos'")->fetch()) {
+        $pdo->exec("ALTER TABLE client_calendar ADD COLUMN videos TEXT AFTER images");
     }
 
     // Short links for shared calendars
