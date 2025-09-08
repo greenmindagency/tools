@@ -37,16 +37,27 @@ $base = "client_id=$client_id&slug=$slug";
 </ul>
 <?php
 // fetch saved posts from database
-$stmt = $pdo->prepare('SELECT post_date,title FROM client_calendar WHERE client_id = ? ORDER BY post_date');
+$stmt = $pdo->prepare('SELECT post_date,title FROM client_calendar WHERE client_id = ? ORDER BY post_date DESC');
 $stmt->execute([$client_id]);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$grouped = [];
+foreach ($rows as $row) {
+    $key = date('F Y', strtotime($row['post_date']));
+    $grouped[$key][] = $row;
+}
 ?>
-<div class="row g-3">
-<?php foreach ($rows as $row): ?>
-  <div class="col-12">
-    <h5><?=htmlspecialchars($row['title'])?></h5>
-    <p><?=$row['post_date']?></p>
-  </div>
+<?php foreach ($grouped as $month => $items): ?>
+  <h4><?=htmlspecialchars($month)?></h4>
+  <table class="table table-bordered mb-4">
+    <thead><tr><th>Date</th><th>Title</th></tr></thead>
+    <tbody>
+    <?php foreach ($items as $row): ?>
+      <tr>
+        <td><?=$row['post_date']?></td>
+        <td><?=htmlspecialchars($row['title'])?></td>
+      </tr>
+    <?php endforeach; ?>
+    </tbody>
+  </table>
 <?php endforeach; ?>
-</div>
 <?php include 'footer.php'; ?>
