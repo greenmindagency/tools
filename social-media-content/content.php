@@ -58,8 +58,9 @@ $base = "client_id=$client_id&slug=$slug";
   </div>
   <div class="col-md-5">
     <div class="d-flex justify-content-end mb-2">
-      <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="genBtn" data-bs-toggle="tooltip" title="Generate content">&#9889;</button>
-      <button type="button" class="btn btn-sm btn-outline-primary" id="promptBtn" data-bs-toggle="tooltip" title="Generate with prompt">&#x2728;</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="genBtn">&#9889;</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="regenBtn">&#x21bb;</button>
+      <button type="button" class="btn btn-sm btn-outline-primary" id="promptBtn">&#x2728;</button>
     </div>
     <div class="mb-2">
       <div><strong>Date:</strong> <span id="postDate"></span></div>
@@ -144,7 +145,7 @@ function loadPosts(){
   const val=document.getElementById('month').value;
   const [year,month]=val.split('-');
   const prev=currentDate;
-  const url=`load_calendar.php?client_id=${clientId}&year=${year}&month=${month}&with_content=1`;
+  const url=`load_calendar.php?client_id=${clientId}&year=${year}&month=${month}&with_title=1`;
   fetch(url).then(r=>r.json()).then(js=>{
     currentEntries=js;
     const list=document.getElementById('postList');
@@ -189,11 +190,7 @@ function loadPosts(){
     renderVideos();
   });
 }
-window.addEventListener('load',()=>{
-  promptModal=new bootstrap.Modal(document.getElementById('promptModal'));
-  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
-  loadPosts();
-});
+window.addEventListener('load',()=>{promptModal=new bootstrap.Modal(document.getElementById('promptModal'));loadPosts();});
 document.getElementById('month').addEventListener('change',loadPosts);
 document.getElementById('saveBtn').addEventListener('click',()=>{
   if(!currentDate) return;
@@ -204,17 +201,13 @@ document.getElementById('saveBtn').addEventListener('click',()=>{
     body:JSON.stringify({client_id:clientId,date:currentDate,content,images:imgLinks,videos:vidLinks})
   }).then(()=>{showToast('Saved');loadPosts();});
 });
-function generate(custom=''){
+function regen(custom=''){
   if(!currentDate) return;
   const entry=currentEntries.find(e=>e.post_date===currentDate);
   const title=entry?entry.title:'';
   showToast('Generating...');
   const body={source:sourceText,title};
-  if(custom){
-    body.prompt=custom;
-    const existing=document.getElementById('contentText').value.trim();
-    if(existing) body.content=existing;
-  }
+  if(custom) body.prompt=custom;
   fetch('generate_content.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
     .then(r=>r.json()).then(js=>{
       const t=js.content||'';
@@ -222,13 +215,14 @@ function generate(custom=''){
       showToast('Generated');
     }).catch(()=>showToast('Generation failed'));
 }
-document.getElementById('genBtn').addEventListener('click',()=>generate());
+document.getElementById('genBtn').addEventListener('click',()=>regen());
+document.getElementById('regenBtn').addEventListener('click',()=>regen());
 document.getElementById('promptBtn').addEventListener('click',()=>{promptModal.show();});
 document.getElementById('promptSubmit').addEventListener('click',()=>{
   const txt=document.getElementById('promptText').value.trim();
   promptModal.hide();
   document.getElementById('promptText').value='';
-  if(txt) generate(txt);
+  if(txt) regen(txt);
 });
 document.getElementById('addCommentBtn').addEventListener('click',()=>{
   const text=document.getElementById('commentText').value.trim();

@@ -5,16 +5,11 @@ $input = json_decode(file_get_contents('php://input'), true) ?: [];
 $source = $input['source'] ?? '';
 $title = $input['title'] ?? '';
 $custom = trim($input['prompt'] ?? '');
-$existing = trim($input['content'] ?? '');
 $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
 $base = "You are an expert social media copywriter. The content is for social media platforms and should include relevant hashtags. Using the following source material:\n" .
         $source . "\nTitle: " . $title . "\n";
 if ($custom !== '') {
-    if ($existing !== '') {
-        $prompt = $base . "Here is the current draft:\n" . $existing . "\n" . $custom;
-    } else {
-        $prompt = $base . $custom;
-    }
+    $prompt = $base . $custom;
 } else {
     $prompt = $base . "Write a compelling social media post for the above title. Include 3-5 relevant hashtags.";
 }
