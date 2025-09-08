@@ -53,7 +53,8 @@ $base = "client_id=$client_id&slug=$slug";
           $val = $dt->format('Y-m');
           $label = $dt->format('F Y');
           $sel = $i===0 ? 'selected' : '';
-          echo "<option value='$val' $sel>$label</option>";
+          $style = $i===0 ? "style=\"background-color:#eee;\"" : '';
+          echo "<option value='$val' $sel $style>$label</option>";
       }
       ?>
     </select>
@@ -116,6 +117,7 @@ function render(entries,year,month){
   entries.forEach((e,i)=>{
     const td=document.createElement('td');
     td.dataset.date=e.date;
+    td.style.position='relative';
     td.addEventListener('dragover',ev=>ev.preventDefault());
     td.addEventListener('drop',()=>{
       if(dragSrc!==null && dragSrc!==i){
@@ -125,22 +127,49 @@ function render(entries,year,month){
         render(entries,year,month);
       }
     });
-    if(e.holiday){
-      td.classList.add('bg-danger-subtle');
-    }else if(e.title){
-      td.classList.add('bg-success-subtle');
-    }
     const [yr,mn,dd]=e.date.split('-').map(Number);
     const lbl=document.createElement('div');
     lbl.className='fw-bold';
     lbl.textContent=`${dd}/${mn}/${yr}`;
     td.appendChild(lbl);
     const title=document.createElement('div');
-    title.className='title';
+    title.className='title d-inline-block px-1';
     title.textContent=stripEmojis(e.title||'');
     title.draggable=true;
+    title.contentEditable=true;
     title.addEventListener('dragstart',()=>{dragSrc=i;});
+    title.addEventListener('input',()=>{
+      entries[i].title=title.textContent;
+      if(entries[i].holiday) return;
+      title.classList.toggle('bg-success-subtle', !!entries[i].title);
+    });
+    if(e.holiday){
+      title.classList.add('bg-danger-subtle');
+    }else if(e.title){
+      title.classList.add('bg-success-subtle');
+    }
     td.appendChild(title);
+    const btnWrap=document.createElement('div');
+    btnWrap.style.position='absolute';
+    btnWrap.style.top='2px';
+    btnWrap.style.right='2px';
+    const regen=document.createElement('button');
+    regen.type='button';
+    regen.className='btn btn-sm btn-outline-secondary regen-cell';
+    regen.dataset.idx=i;
+    regen.innerHTML='\u21bb';
+    const save=document.createElement('button');
+    save.type='button';
+    save.className='btn btn-sm btn-outline-success ms-1 save-cell';
+    save.dataset.idx=i;
+    save.innerHTML='\u{1F4BE}';
+    const prompt=document.createElement('button');
+    prompt.type='button';
+    prompt.className='btn btn-sm btn-outline-primary ms-1 prompt-cell';
+    prompt.dataset.idx=i;
+    prompt.innerHTML='\u2728';
+    btnWrap.append(regen,save,prompt);
+    td.appendChild(btnWrap);
     row.appendChild(td);
     if(new Date(e.date+'T00:00:00').getDay()===6){
       body.appendChild(row);
@@ -153,6 +182,20 @@ function render(entries,year,month){
   }
   cal.appendChild(table);
   window.currentEntries=entries;
+  window.currentYear=year;
+  window.currentMonth=month;
+  document.querySelectorAll('.regen-cell').forEach(btn=>{
+    btn.addEventListener('click',()=>regenCell(btn.dataset.idx));
+  });
+  document.querySelectorAll('.prompt-cell').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const p=prompt('Enter prompt for this date');
+      if(p) regenCell(btn.dataset.idx,p);
+    });
+  });
+  document.querySelectorAll('.save-cell').forEach(btn=>{
+    btn.addEventListener('click',saveMonth);
+  });
 }
 
 async function loadSaved(){
@@ -167,10 +210,10 @@ async function loadSaved(){
   render(entries,year,month);
 }
 
-document.getElementById('generate').addEventListener('click',async()=>{
-  const monthVal=document.getElementById('month').value;
-  const [year,month]=monthVal.split('-').map(Number);
-  const countries=Array.from(document.querySelectorAll('input[name="country[]"]')).map(i=>i.value.trim()).filter(Boolean);
+  document.getElementById('generate').addEventListener('click',async()=>{
+    const monthVal=document.getElementById('month').value;
+    const [year,month]=monthVal.split('-').map(Number);
+    const countries=getCountries();
   const ppm=parseInt(document.getElementById('ppm').value)||0;
   setProgress(10);
   let occData=[];
@@ -214,12 +257,7 @@ document.getElementById('generate').addEventListener('click',async()=>{
   showToast('Content generated');
 });
 
-document.getElementById('saveCal').addEventListener('click',()=>{
-  const data=window.currentEntries||[];
-  fetch('save_calendar.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId, entries:data})})
-    .then(r=>r.json())
-    .then(()=>showToast('Calendar saved'))
-    .catch(()=>showToast('Save failed'));
+document.getElementById('saveCal').addEventListener('click',saveMonth);
 });
 
 const progress=document.getElementById('progress');
@@ -238,5 +276,34 @@ function setProgress(p){
 
 document.getElementById('month').addEventListener('change',loadSaved);
 window.addEventListener('load',loadSaved);
+
+function getCountries(){
+  return Array.from(document.querySelectorAll('input[name="country[]"]')).map(i=>i.value.trim()).filter(Boolean);
+}
+
+async function regenCell(idx, custom=''){
+  const monthVal=document.getElementById('month').value;
+  const [year,month]=monthVal.split('-').map(Number);
+  const countries=getCountries();
+  setProgress(10);
+  const body={source:sourceText,count:1,month:new Date(year,month-1).toLocaleString('default',{month:'long'}),year,countries};
+  if(custom) body.prompt=custom;
+  const res=await fetch('generate_titles.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const js=await res.json();
+  const t=js.titles && js.titles[0] ? stripEmojis(js.titles[0]) : '';
+  window.currentEntries[idx].title=t;
+  setProgress(100);
+  render(window.currentEntries,year,month);
+}
+
+function saveMonth(){
+  const data=window.currentEntries||[];
+  const year=window.currentYear;
+  const month=window.currentMonth;
+  fetch('save_calendar.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,year,month,entries:data})})
+    .then(r=>r.json())
+    .then(()=>showToast('Calendar saved'))
+    .catch(()=>showToast('Save failed'));
+}
 </script>
 <?php include 'footer.php'; ?>

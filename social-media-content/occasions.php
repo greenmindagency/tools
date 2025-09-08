@@ -127,7 +127,8 @@ function handlePaste(e){
   const text = e.clipboardData.getData('text/plain');
   const lines = text.split(/\r?\n/).filter(l=>l.trim());
   const tbody = e.target.closest('tbody');
-  tbody.innerHTML='';
+  const empty = tbody.children.length===1 && Array.from(tbody.children[0].children).every(td=>!td.textContent.trim());
+  if(empty) tbody.innerHTML='';
   lines.forEach(line=>{
     const [d,n] = line.split(/\t|,/);
     const tr = document.createElement('tr');

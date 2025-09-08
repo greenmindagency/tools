@@ -8,12 +8,15 @@ $month = $input['month'] ?? '';
 $year = $input['year'] ?? '';
 $countries = $input['countries'] ?? [];
 $countryList = is_array($countries) ? implode(', ', $countries) : '';
+$custom = trim($input['prompt'] ?? '');
 $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-$prompt = "You are an expert social media planner. Using the following source material:\n".
-          $source.
-          "\nGenerate $count engaging social media post titles for $month $year".
-          ($countryList ? " targeting the following countries: $countryList" : "") .
-          ". Return the titles as a JSON array.";
+$prompt = $custom !== ''
+    ? $custom
+    : "You are an expert social media planner. Using the following source material:\n".
+      $source.
+      "\nGenerate $count engaging social media post titles for $month $year".
+      ($countryList ? " targeting the following countries: $countryList" : "") .
+      ". Return the titles as a JSON array.";
 $payload = json_encode([
     'contents' => [[ 'parts' => [['text' => $prompt]] ]]
 ]);
