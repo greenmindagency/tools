@@ -82,9 +82,18 @@ $base = "client_id=$client_id&slug=$slug";
   <button type="button" id="addCountry" class="btn btn-outline-success mt-2">Add Country</button>
   <button type="submit" class="btn btn-primary mt-2">Save</button>
 </form>
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="copyToast" class="toast text-bg-success" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
 <script>
 const existing = <?= json_encode($countries) ?>;
 const container = document.getElementById('countriesContainer');
+const clientName = <?= json_encode($client['name']) ?>;
 
 function addCountry(name='', lines=''){
   const div = document.createElement('div');
@@ -99,6 +108,7 @@ function addCountry(name='', lines=''){
     <div class="card-header">
       <div class="input-group">
         <input type="text" name="country[]" class="form-control country-name" placeholder="Country" value="${name}">
+        <button type="button" class="btn btn-outline-secondary" onclick="copyPrompt(this)">Copy Prompt</button>
         <button type="button" class="btn btn-outline-danger" onclick="this.closest('.card').remove()">-</button>
       </div>
     </div>
@@ -153,5 +163,21 @@ document.getElementById('occForm').addEventListener('submit',()=>{
     card.querySelector('input[name="data[]"]').value=rows.join('\n');
   });
 });
+
+function copyPrompt(btn){
+  const country = btn.closest('.input-group').querySelector('.country-name').value.trim();
+  if(!country) return;
+  const year = new Date().getFullYear();
+  const text = `please make a table for occassions days for ${clientName} in ${country} for the ${year} and make the table start with the date and the next column in the occassion name Please use the format for the date like this ${year}-01-01\n\nplease also include relgions muslimes occassions and of course the bank holidays occassions and days related to the country for festival`;
+  navigator.clipboard.writeText(text).then(()=>{
+    showToast('Prompt copied to clipboard');
+  });
+}
+
+function showToast(msg){
+  const toastEl = document.getElementById('copyToast');
+  toastEl.querySelector('.toast-body').textContent = msg;
+  new bootstrap.Toast(toastEl).show();
+}
 </script>
 <?php include 'footer.php'; ?>
