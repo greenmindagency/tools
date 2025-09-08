@@ -88,9 +88,28 @@ $base = "client_id=$client_id&slug=$slug";
     </div>
   </div>
 </div>
+<div class="modal fade" id="promptModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Enter prompt for this date</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <textarea id="promptText" class="form-control" rows="3"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="promptSubmit">Generate</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
 const clientId = <?=$client_id?>;
 const sourceText = <?= json_encode($sourceText) ?>;
+const promptModal = new bootstrap.Modal(document.getElementById('promptModal'));
+let promptIdx = null;
 function addCountry(btn){
   const div=document.createElement('div');
   div.className='input-group mt-2';
@@ -117,7 +136,7 @@ function render(entries,year,month){
   entries.forEach((e,i)=>{
     const td=document.createElement('td');
     td.dataset.date=e.date;
-    td.style.position='relative';
+    td.classList.add('align-top','p-3');
     td.addEventListener('dragover',ev=>ev.preventDefault());
     td.addEventListener('drop',()=>{
       if(dragSrc!==null && dragSrc!==i){
@@ -132,6 +151,25 @@ function render(entries,year,month){
     lbl.className='fw-bold';
     lbl.textContent=`${dd}/${mn}/${yr}`;
     td.appendChild(lbl);
+    const btnWrap=document.createElement('div');
+    btnWrap.className='d-flex justify-content-center gap-1 my-1';
+    const regen=document.createElement('button');
+    regen.type='button';
+    regen.className='btn btn-sm btn-outline-secondary regen-cell';
+    regen.dataset.idx=i;
+    regen.innerHTML='\u21bb';
+    const save=document.createElement('button');
+    save.type='button';
+    save.className='btn btn-sm btn-outline-success save-cell';
+    save.dataset.idx=i;
+    save.innerHTML='\u{1F4BE}';
+    const prompt=document.createElement('button');
+    prompt.type='button';
+    prompt.className='btn btn-sm btn-outline-primary prompt-cell';
+    prompt.dataset.idx=i;
+    prompt.innerHTML='\u2728';
+    btnWrap.append(regen,save,prompt);
+    td.appendChild(btnWrap);
     const title=document.createElement('div');
     title.className='title d-inline-block px-1';
     title.textContent=stripEmojis(e.title||'');
@@ -149,27 +187,6 @@ function render(entries,year,month){
       title.classList.add('bg-success-subtle');
     }
     td.appendChild(title);
-    const btnWrap=document.createElement('div');
-    btnWrap.style.position='absolute';
-    btnWrap.style.top='2px';
-    btnWrap.style.right='2px';
-    const regen=document.createElement('button');
-    regen.type='button';
-    regen.className='btn btn-sm btn-outline-secondary regen-cell';
-    regen.dataset.idx=i;
-    regen.innerHTML='\u21bb';
-    const save=document.createElement('button');
-    save.type='button';
-    save.className='btn btn-sm btn-outline-success ms-1 save-cell';
-    save.dataset.idx=i;
-    save.innerHTML='\u{1F4BE}';
-    const prompt=document.createElement('button');
-    prompt.type='button';
-    prompt.className='btn btn-sm btn-outline-primary ms-1 prompt-cell';
-    prompt.dataset.idx=i;
-    prompt.innerHTML='\u2728';
-    btnWrap.append(regen,save,prompt);
-    td.appendChild(btnWrap);
     row.appendChild(td);
     if(new Date(e.date+'T00:00:00').getDay()===6){
       body.appendChild(row);
@@ -189,8 +206,8 @@ function render(entries,year,month){
   });
   document.querySelectorAll('.prompt-cell').forEach(btn=>{
     btn.addEventListener('click',()=>{
-      const p=prompt('Enter prompt for this date');
-      if(p) regenCell(btn.dataset.idx,p);
+      promptIdx=btn.dataset.idx;
+      promptModal.show();
     });
   });
   document.querySelectorAll('.save-cell').forEach(btn=>{
@@ -275,6 +292,13 @@ function setProgress(p){
 
 document.getElementById('month').addEventListener('change',loadSaved);
 window.addEventListener('load',loadSaved);
+
+document.getElementById('promptSubmit').addEventListener('click',()=>{
+  const txt=document.getElementById('promptText').value.trim();
+  if(txt) regenCell(promptIdx,txt);
+  document.getElementById('promptText').value='';
+  promptModal.hide();
+});
 
 function getCountries(){
   return Array.from(document.querySelectorAll('input[name="country[]"]')).map(i=>i.value.trim()).filter(Boolean);
