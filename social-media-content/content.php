@@ -33,9 +33,10 @@ include 'header.php';
 $base = "client_id=$client_id&slug=$slug";
 ?>
 <ul class="nav nav-tabs mb-3">
+  <li class="nav-item"><a class="nav-link" href="source.php?<?=$base?>">Source</a></li>
+  <li class="nav-item"><a class="nav-link" href="occasions.php?<?=$base?>">Occasions</a></li>
+  <li class="nav-item"><a class="nav-link" href="calendar.php?<?=$base?>">Calendar</a></li>
   <li class="nav-item"><a class="nav-link active" href="content.php?<?=$base?>">Content</a></li>
-  <li class="nav-item"><a class="nav-link" href="calendar.php?<?=$base?>">Content Calendar</a></li>
-  <li class="nav-item"><a class="nav-link" href="posts.php?<?=$base?>">Posts</a></li>
 </ul>
 <div class="row">
   <div class="col-md-3">

@@ -63,7 +63,7 @@ $base = "client_id=$client_id&slug=$slug";
   <li class="nav-item"><a class="nav-link active" href="source.php?<?=$base?>">Source</a></li>
   <li class="nav-item"><a class="nav-link" href="occasions.php?<?=$base?>">Occasions</a></li>
   <li class="nav-item"><a class="nav-link" href="calendar.php?<?=$base?>">Calendar</a></li>
-  <li class="nav-item"><a class="nav-link" href="posts.php?<?=$base?>">Posts</a></li>
+  <li class="nav-item"><a class="nav-link" href="content.php?<?=$base?>">Content</a></li>
 </ul>
 <?php if ($saved): ?><div class="alert alert-success"><?= htmlspecialchars($saved) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
