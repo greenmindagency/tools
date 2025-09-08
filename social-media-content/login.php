@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (password_verify($pass, $row['pass_hash'])) {
             if (strcasecmp($row['username'], 'greenmindagency') === 0) {
                 $_SESSION['is_admin'] = true;
+                $_SESSION['username'] = $row['username'];
                 header('Location: index.php');
                 exit;
             }
@@ -21,12 +22,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (count($matches) === 1) {
         $client = $matches[0];
         $_SESSION['client_id'] = $client['id'];
+        $_SESSION['username'] = $client['username'];
         $name = $client['name'];
         $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', iconv('UTF-8','ASCII//TRANSLIT',$name)), '-'));
         header("Location: source.php?client_id={$client['id']}&slug=$slug");
         exit;
     } elseif (count($matches) > 1) {
         $_SESSION['client_ids'] = array_column($matches, 'id');
+        $_SESSION['username'] = $user;
         header('Location: index.php');
         exit;
     }

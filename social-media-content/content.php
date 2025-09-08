@@ -71,10 +71,6 @@ $base = "client_id=$client_id&slug=$slug";
     <div class="mt-3">
       <h6>Comments</h6>
       <div id="commentList" class="mb-2"></div>
-      <div class="input-group mb-2">
-        <span class="input-group-text">Username</span>
-        <input type="text" class="form-control" id="commentUser">
-      </div>
       <textarea id="commentText" class="form-control mb-2" rows="2" placeholder="Comment"></textarea>
       <button type="button" class="btn btn-outline-secondary" id="addCommentBtn">Add Comment</button>
     </div>
@@ -130,6 +126,7 @@ $base = "client_id=$client_id&slug=$slug";
 <script>
 const clientId = <?=$client_id?>;
 const sourceText = <?= json_encode($sourceText) ?>;
+const currentUser = <?= json_encode($_SESSION['username'] ?? '') ?>;
 let currentDate = null;
 let currentEntries = [];
 let imgLinks = [];
@@ -198,13 +195,11 @@ document.getElementById('promptSubmit').addEventListener('click',()=>{
   if(txt) regen(txt);
 });
 document.getElementById('addCommentBtn').addEventListener('click',()=>{
-  const user=document.getElementById('commentUser').value.trim();
   const text=document.getElementById('commentText').value.trim();
-  if(user&&text){
+  if(currentUser && text){
     const div=document.createElement('div');
-    div.innerHTML=`<strong>${user}:</strong> ${text}`;
+    div.innerHTML=`<strong>${currentUser}:</strong> ${text}`;
     document.getElementById('commentList').appendChild(div);
-    document.getElementById('commentUser').value='';
     document.getElementById('commentText').value='';
   }
 });
