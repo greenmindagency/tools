@@ -144,11 +144,22 @@ function showToast(msg){
 function loadPosts(){
   const val=document.getElementById('month').value;
   const [year,month]=val.split('-');
-  fetch(`load_calendar.php?client_id=${clientId}&year=${year}&month=${month}`).then(r=>r.json()).then(js=>{
-    js=js.filter(e=>e.content && e.content.trim());
+  fetch(`load_calendar.php?client_id=${clientId}&year=${year}&month=${month}&with_content=1`).then(r=>r.json()).then(js=>{
     currentEntries=js;
     const list=document.getElementById('postList');
     list.innerHTML='';
+    if(!js.length){
+      list.innerHTML='<div class="list-group-item">No content for this month</div>';
+      currentDate=null;
+      document.getElementById('contentText').value='';
+      document.getElementById('postDate').textContent='';
+      document.getElementById('postTitle').textContent='';
+      imgLinks=[];
+      vidLinks=[];
+      renderImages();
+      renderVideos();
+      return;
+    }
     js.forEach(e=>{
       const btn=document.createElement('button');
       btn.type='button';
@@ -166,16 +177,14 @@ function loadPosts(){
       });
       list.appendChild(btn);
     });
-    if(js[0]){
-      currentDate=js[0].post_date;
-      document.getElementById('contentText').value=js[0].content||'';
-      document.getElementById('postDate').textContent=js[0].post_date;
-      document.getElementById('postTitle').textContent=js[0].title;
-      imgLinks = js[0].images ? JSON.parse(js[0].images || '[]') || [] : [];
-      vidLinks = js[0].videos ? JSON.parse(js[0].videos || '[]') || [] : [];
-      renderImages();
-      renderVideos();
-    }
+    currentDate=js[0].post_date;
+    document.getElementById('contentText').value=js[0].content||'';
+    document.getElementById('postDate').textContent=js[0].post_date;
+    document.getElementById('postTitle').textContent=js[0].title;
+    imgLinks = js[0].images ? JSON.parse(js[0].images || '[]') || [] : [];
+    vidLinks = js[0].videos ? JSON.parse(js[0].videos || '[]') || [] : [];
+    renderImages();
+    renderVideos();
   });
 }
 window.addEventListener('load',()=>{promptModal=new bootstrap.Modal(document.getElementById('promptModal'));loadPosts();});

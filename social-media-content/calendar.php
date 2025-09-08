@@ -219,11 +219,12 @@ function render(entries,year,month){
 async function loadSaved(){
   const monthVal=document.getElementById('month').value;
   const [year,month]=monthVal.split('-').map(Number);
-  const res=await fetch(`load_calendar.php?client_id=${clientId}&year=${year}&month=${month}`);
-  const saved=await res.json();
+  const [saved,dates] = await Promise.all([
+    fetch(`load_calendar.php?client_id=${clientId}&year=${year}&month=${month}`).then(r=>r.json()),
+    fetch(`dates.php?year=${year}&month=${month}`).then(r=>r.json())
+  ]);
   const map={};
   saved.forEach(r=>{map[r.post_date]={title:r.title};});
-  const dates=await fetch(`dates.php?year=${year}&month=${month}`).then(r=>r.json());
   const entries=dates.map(d=>({date:d.date,title:map[d.date]?stripEmojis(map[d.date].title):'',holiday:false}));
   render(entries,year,month);
 }
