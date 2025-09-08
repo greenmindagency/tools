@@ -144,16 +144,14 @@ function showToast(msg){
 function loadPosts(){
   const val=document.getElementById('month').value;
   const [year,month]=val.split('-');
-  const base=`load_calendar.php?client_id=${clientId}&year=${year}&month=${month}`;
-  fetch(base+`&with_content=1`).then(r=>r.json()).then(js=>{
-    if(js.length) return js;
-    return fetch(base).then(r=>r.json());
-  }).then(js=>{
+  const prev=currentDate;
+  const url=`load_calendar.php?client_id=${clientId}&year=${year}&month=${month}&with_content=1`;
+  fetch(url).then(r=>r.json()).then(js=>{
     currentEntries=js;
     const list=document.getElementById('postList');
     list.innerHTML='';
     if(!js.length){
-      list.innerHTML='<div class="list-group-item">No posts for this month</div>';
+      list.innerHTML='<div class="list-group-item">No posts with content for this month</div>';
       currentDate=null;
       document.getElementById('contentText').value='';
       document.getElementById('postDate').textContent='';
@@ -181,12 +179,13 @@ function loadPosts(){
       });
       list.appendChild(btn);
     });
-    currentDate=js[0].post_date;
-    document.getElementById('contentText').value=js[0].content||'';
-    document.getElementById('postDate').textContent=js[0].post_date;
-    document.getElementById('postTitle').textContent=js[0].title;
-    imgLinks = js[0].images ? JSON.parse(js[0].images || '[]') || [] : [];
-    vidLinks = js[0].videos ? JSON.parse(js[0].videos || '[]') || [] : [];
+    const first=js.find(e=>e.post_date===prev)||js[0];
+    currentDate=first.post_date;
+    document.getElementById('contentText').value=first.content||'';
+    document.getElementById('postDate').textContent=first.post_date;
+    document.getElementById('postTitle').textContent=first.title;
+    imgLinks = first.images ? JSON.parse(first.images || '[]') || [] : [];
+    vidLinks = first.videos ? JSON.parse(first.videos || '[]') || [] : [];
     renderImages();
     renderVideos();
   });

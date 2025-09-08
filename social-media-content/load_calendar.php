@@ -15,7 +15,7 @@ $end = date('Y-m-t', strtotime($start));
 $onlyContent = isset($_GET['with_content']);
 $sql = 'SELECT post_date, title, content, images, videos FROM client_calendar WHERE client_id = ? AND post_date BETWEEN ? AND ?';
 if ($onlyContent) {
-    $sql .= " AND content IS NOT NULL AND TRIM(content) <> ''";
+    $sql .= " AND content IS NOT NULL AND TRIM(content) <> '' AND title IS NOT NULL AND TRIM(title) <> ''";
 }
 $sql .= ' ORDER BY post_date';
 $stmt = $pdo->prepare($sql);
