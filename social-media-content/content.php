@@ -38,15 +38,7 @@ $base = "client_id=$client_id&slug=$slug";
   <li class="nav-item"><a class="nav-link" href="posts.php?<?=$base?>">Posts</a></li>
 </ul>
 <div class="row">
-  <div class="col-md-8">
-    <div class="d-flex justify-content-end mb-2">
-      <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="regenBtn">&#x21bb;</button>
-      <button type="button" class="btn btn-sm btn-outline-success me-1" id="saveBtn">&#x1F4BE;</button>
-      <button type="button" class="btn btn-sm btn-outline-primary" id="promptBtn">&#x2728;</button>
-    </div>
-    <textarea id="contentText" class="form-control" rows="12"></textarea>
-  </div>
-  <div class="col-md-4">
+  <div class="col-md-3">
     <label class="form-label">Month</label>
     <select id="month" class="form-select mb-3">
       <?php
@@ -62,18 +54,30 @@ $base = "client_id=$client_id&slug=$slug";
       ?>
     </select>
     <div id="postList" class="list-group small"></div>
-    <div class="mt-4">
-      <label class="form-label">Image Source</label>
-      <select id="imgSize" class="form-select mb-2">
-        <option value="1080x1080">1080x1080</option>
-        <option value="1080x1350">1080x1350</option>
-        <option value="1920x1080">1920x1080</option>
-        <option value="1080x1920">1080x1920</option>
-      </select>
-      <iframe id="imgFrame" src="https://drive.google.com/file/d/1vI6a1UHWL0Xy3Oyx6WXcFgEhXQxdEBKE/preview" width="1080" height="1080" style="width:100%;border:0;" allowfullscreen></iframe>
+  </div>
+  <div class="col-md-5">
+    <div class="d-flex justify-content-end mb-2">
+      <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="regenBtn">&#x21bb;</button>
+      <button type="button" class="btn btn-sm btn-outline-success me-1" id="saveBtn">&#x1F4BE;</button>
+      <button type="button" class="btn btn-sm btn-outline-primary" id="promptBtn">&#x2728;</button>
     </div>
+    <div class="mb-2">
+      <div><strong>Date:</strong> <span id="postDate"></span></div>
+      <div><strong>Title:</strong> <span id="postTitle"></span></div>
+    </div>
+    <textarea id="contentText" class="form-control" rows="12"></textarea>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Image Size</label>
+    <select id="imgSize" class="form-select mb-2">
+      <option value="1080x1080">1080x1080</option>
+      <option value="1080x1350">1080x1350</option>
+      <option value="1920x1080">1920x1080</option>
+      <option value="1080x1920">1080x1920</option>
+    </select>
+    <iframe id="imgFrame" src="https://drive.google.com/file/d/1vI6a1UHWL0Xy3Oyx6WXcFgEhXQxdEBKE/preview" width="1080" height="1080" style="width:100%;border:0;" allowfullscreen></iframe>
     <div class="mt-4">
-      <label class="form-label">Video Source</label>
+      <label class="form-label">Video Size</label>
       <select id="vidSize" class="form-select mb-2">
         <option value="1920x1080">1920x1080</option>
         <option value="1080x1920">1080x1920</option>
@@ -131,10 +135,20 @@ function loadPosts(){
       btn.type='button';
       btn.className='list-group-item list-group-item-action';
       btn.textContent=`${e.post_date} ${e.title||''}`;
-      btn.addEventListener('click',()=>{currentDate=e.post_date;document.getElementById('contentText').value=e.title||'';});
+      btn.addEventListener('click',()=>{
+        currentDate=e.post_date;
+        document.getElementById('contentText').value=e.title||'';
+        document.getElementById('postDate').textContent=e.post_date;
+        document.getElementById('postTitle').textContent=e.title||'';
+      });
       list.appendChild(btn);
     });
-    if(js[0]){currentDate=js[0].post_date;document.getElementById('contentText').value=js[0].title||'';}
+    if(js[0]){
+      currentDate=js[0].post_date;
+      document.getElementById('contentText').value=js[0].title||'';
+      document.getElementById('postDate').textContent=js[0].post_date;
+      document.getElementById('postTitle').textContent=js[0].title||'';
+    }
   });
 }
 window.addEventListener('load',()=>{promptModal=new bootstrap.Modal(document.getElementById('promptModal'));loadPosts();});
@@ -154,6 +168,7 @@ function regen(custom=''){
   fetch('generate_titles.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()).then(js=>{
     const t=js.titles && js.titles[0]?js.titles[0]:'';
     document.getElementById('contentText').value=t;
+    document.getElementById('postTitle').textContent=t;
     showToast('Generated');
   }).catch(()=>showToast('Generation failed'));
 }
@@ -164,6 +179,9 @@ document.getElementById('promptSubmit').addEventListener('click',()=>{
   promptModal.hide();
   document.getElementById('promptText').value='';
   if(txt) regen(txt);
+});
+document.getElementById('contentText').addEventListener('input',e=>{
+  document.getElementById('postTitle').textContent=e.target.value;
 });
 document.getElementById('imgSize').addEventListener('change',e=>{
   const [w,h]=e.target.value.split('x');

@@ -17,7 +17,7 @@ $url = $stmt->fetchColumn();
 if(!$url){
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $baseUrl = $scheme.'://'.$_SERVER['HTTP_HOST'].dirname($_SERVER['REQUEST_URI']);
-    $full = $baseUrl.'/posts.php?client_id='.$client_id.'&year='.$year.'&month='.$month;
+    $full = $baseUrl.'/calendar.php?client_id='.$client_id.'&year='.$year.'&month='.$month;
     $short = @file_get_contents('https://tinyurl.com/api-create.php?url='.urlencode($full));
     if($short){
         $ins = $pdo->prepare('INSERT INTO calendar_links (client_id,year,month,short_url) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE short_url=VALUES(short_url)');

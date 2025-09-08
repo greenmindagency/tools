@@ -48,12 +48,15 @@ $base = "client_id=$client_id&slug=$slug";
     <select id="month" class="form-select">
       <?php
       $current = new DateTime('first day of this month');
+      $selectedMonth = (isset($_GET['year'], $_GET['month']))
+        ? sprintf('%04d-%02d', $_GET['year'], $_GET['month'])
+        : $current->format('Y-m');
       for ($i=-3; $i<=9; $i++) {
           $dt = (clone $current)->modify("$i month");
           $val = $dt->format('Y-m');
           $label = $dt->format('F Y');
-          $sel = $i===0 ? 'selected' : '';
-          $style = $i===0 ? "style=\"background-color:#eee;\"" : '';
+          $sel = ($val === $selectedMonth) ? 'selected' : '';
+          $style = $sel ? "style=\"background-color:#eee;\"" : '';
           echo "<option value='$val' $sel $style>$label</option>";
       }
       ?>
@@ -68,9 +71,9 @@ $base = "client_id=$client_id&slug=$slug";
     <input type="number" id="ppm" class="form-control" value="8" min="0">
   </div>
   <div class="col-md-3 d-flex justify-content-end">
-    <button type="button" id="generate" class="btn btn-primary me-2">Generate</button>
-    <button type="button" id="saveCal" class="btn btn-outline-secondary me-2">Save</button>
-    <button type="button" id="shareCal" class="btn btn-outline-secondary">Share</button>
+    <button type="button" id="generate" class="btn btn-sm btn-primary me-2">Generate</button>
+    <button type="button" id="saveCal" class="btn btn-sm btn-outline-secondary me-2">Save</button>
+    <button type="button" id="shareCal" class="btn btn-sm btn-outline-secondary" title="Share calendar"><i class="bi bi-share"></i></button>
   </div>
 </form>
 <div id="progress" class="progress mt-4 d-none"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%">0%</div></div>
@@ -318,7 +321,17 @@ function setProgress(p){
 }
 
 document.getElementById('month').addEventListener('change',loadSaved);
-window.addEventListener('load',loadSaved);
+window.addEventListener('load',()=>{
+  const params=new URLSearchParams(location.search);
+  const y=params.get('year');
+  const m=params.get('month');
+  if(y&&m){
+    const val=`${y}-${String(m).padStart(2,'0')}`;
+    const sel=document.getElementById('month');
+    if([...sel.options].some(o=>o.value===val)) sel.value=val;
+  }
+  loadSaved();
+});
 
 document.getElementById('promptSubmit').addEventListener('click',()=>{
   const txt=document.getElementById('promptText').value.trim();
