@@ -81,21 +81,25 @@ $base = "client_id=$client_id&slug=$slug";
       <button class="btn btn-outline-secondary" type="button" id="importImgBtn">Import Image</button>
       <button class="btn btn-outline-secondary" type="button" id="importVidBtn">Import Video</button>
     </div>
-    <label class="form-label">Image Size</label>
-    <select id="imgSize" class="form-select mb-2">
-      <option value="1080x1080">1080x1080</option>
-      <option value="1080x1350">1080x1350</option>
-      <option value="1920x1080">1920x1080</option>
-      <option value="1080x1920">1080x1920</option>
-    </select>
-    <div id="imgContainer" class="mb-4"></div>
-    <label class="form-label">Video Size</label>
-    <select id="vidSize" class="form-select mb-2">
-      <option value="1920x1080">1920x1080</option>
-      <option value="1080x1920">1080x1920</option>
-      <option value="1280x720">1280x720</option>
-    </select>
-    <div id="vidContainer"></div>
+    <div id="imageSection" style="display:none;">
+      <label class="form-label">Image Size</label>
+      <select id="imgSize" class="form-select mb-2">
+        <option value="1080x1080">1080x1080</option>
+        <option value="1080x1350">1080x1350</option>
+        <option value="1920x1080">1920x1080</option>
+        <option value="1080x1920">1080x1920</option>
+      </select>
+      <div id="imgContainer" class="mb-4"></div>
+    </div>
+    <div id="videoSection" style="display:none;">
+      <label class="form-label">Video Size</label>
+      <select id="vidSize" class="form-select mb-2">
+        <option value="1920x1080">1920x1080</option>
+        <option value="1080x1920">1080x1920</option>
+        <option value="1280x720">1280x720</option>
+      </select>
+      <div id="vidContainer"></div>
+    </div>
   </div>
 </div>
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
@@ -216,39 +220,49 @@ document.getElementById('addCommentBtn').addEventListener('click',()=>{
   }
 });
 function renderImages(){
+  const section=document.getElementById('imageSection');
   const [w,h]=document.getElementById('imgSize').value.split('x');
   const container=document.getElementById('imgContainer');
   container.innerHTML='';
+  if(!imgLinks.length){section.style.display='none';return;}
+  section.style.display='';
   if(imgLinks.length>1){
     const slides=imgLinks.map((src,i)=>`
       <div class="carousel-item${i===0?' active':''}">
-        <iframe src="${src}" style="border:0;width:${w}px;height:${h}px;" allowfullscreen></iframe>
+        <iframe src="${src}" style="border:0;width:100%;aspect-ratio:${w}/${h};" allowfullscreen></iframe>
       </div>`).join('');
+    const indicators=imgLinks.map((_,i)=>`<button type="button" data-bs-target="#imgCarousel" data-bs-slide-to="${i}" class="${i===0?'active':''}" aria-current="${i===0?'true':'false'}" aria-label="Slide ${i+1}" style="width:auto;height:auto;text-indent:0;">${i+1}</button>`).join('');
     container.innerHTML=`
       <div id="imgCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
+        <div class="carousel-indicators position-static mb-2">${indicators}</div>
         <div class="carousel-inner">${slides}</div>
       </div>`;
     new bootstrap.Carousel(document.getElementById('imgCarousel'));
-  } else if(imgLinks.length===1){
-    container.innerHTML=`<iframe src="${imgLinks[0]}" style="border:0;width:${w}px;height:${h}px;" allowfullscreen></iframe>`;
+  } else {
+    container.innerHTML=`<iframe src="${imgLinks[0]}" style="border:0;width:100%;aspect-ratio:${w}/${h};" allowfullscreen></iframe>`;
   }
 }
 function renderVideos(){
+  const section=document.getElementById('videoSection');
   const [w,h]=document.getElementById('vidSize').value.split('x');
   const container=document.getElementById('vidContainer');
   container.innerHTML='';
+  if(!vidLinks.length){section.style.display='none';return;}
+  section.style.display='';
   if(vidLinks.length>1){
     const slides=vidLinks.map((src,i)=>`
       <div class="carousel-item${i===0?' active':''}">
-        <iframe src="${src}" style="border:0;width:${w}px;height:${h}px;" allowfullscreen></iframe>
+        <iframe src="${src}" style="border:0;width:100%;aspect-ratio:${w}/${h};" allowfullscreen></iframe>
       </div>`).join('');
+    const indicators=vidLinks.map((_,i)=>`<button type="button" data-bs-target="#vidCarousel" data-bs-slide-to="${i}" class="${i===0?'active':''}" aria-current="${i===0?'true':'false'}" aria-label="Slide ${i+1}" style="width:auto;height:auto;text-indent:0;">${i+1}</button>`).join('');
     container.innerHTML=`
       <div id="vidCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
+        <div class="carousel-indicators position-static mb-2">${indicators}</div>
         <div class="carousel-inner">${slides}</div>
       </div>`;
     new bootstrap.Carousel(document.getElementById('vidCarousel'));
-  } else if(vidLinks.length===1){
-    container.innerHTML=`<iframe src="${vidLinks[0]}" style="border:0;width:${w}px;height:${h}px;" allowfullscreen></iframe>`;
+  } else {
+    container.innerHTML=`<iframe src="${vidLinks[0]}" style="border:0;width:100%;aspect-ratio:${w}/${h};" allowfullscreen></iframe>`;
   }
 }
 document.getElementById('imgSize').addEventListener('change',renderImages);
