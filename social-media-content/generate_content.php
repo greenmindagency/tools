@@ -6,12 +6,12 @@ $source = $input['source'] ?? '';
 $title = $input['title'] ?? '';
 $custom = trim($input['prompt'] ?? '');
 $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
-$base = "You are an expert social media copywriter. Using the following source material:\n" .
+$base = "You are an expert social media copywriter. The content is for social media platforms and should include relevant hashtags. Using the following source material:\n" .
         $source . "\nTitle: " . $title . "\n";
 if ($custom !== '') {
     $prompt = $base . $custom;
 } else {
-    $prompt = $base . "Write a compelling social media post for the above title.";
+    $prompt = $base . "Write a compelling social media post for the above title. Include 3-5 relevant hashtags.";
 }
 $prompt .= "\nReturn the post text only.";
 $payload = json_encode([

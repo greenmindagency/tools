@@ -203,15 +203,17 @@ document.getElementById('saveBtn').addEventListener('click',()=>{
 });
 function regen(custom=''){
   if(!currentDate) return;
-  const title=document.getElementById('postTitle').textContent;
+  const entry=currentEntries.find(e=>e.post_date===currentDate);
+  const title=entry?entry.title:'';
   showToast('Generating...');
   const body={source:sourceText,title};
   if(custom) body.prompt=custom;
-  fetch('generate_content.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()).then(js=>{
-    const t=js.content||'';
-    document.getElementById('contentText').value=t;
-    showToast('Generated');
-  }).catch(()=>showToast('Generation failed'));
+  fetch('generate_content.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(r=>r.json()).then(js=>{
+      const t=js.content||'';
+      document.getElementById('contentText').value=t;
+      showToast('Generated');
+    }).catch(()=>showToast('Generation failed'));
 }
 document.getElementById('genBtn').addEventListener('click',()=>regen());
 document.getElementById('regenBtn').addEventListener('click',()=>regen());
