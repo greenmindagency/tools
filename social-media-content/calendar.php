@@ -108,8 +108,11 @@ $base = "client_id=$client_id&slug=$slug";
 <script>
 const clientId = <?=$client_id?>;
 const sourceText = <?= json_encode($sourceText) ?>;
-const promptModal = new bootstrap.Modal(document.getElementById('promptModal'));
+let promptModal;
 let promptIdx = null;
+window.addEventListener('load', () => {
+  promptModal = new bootstrap.Modal(document.getElementById('promptModal'));
+});
 function addCountry(btn){
   const div=document.createElement('div');
   div.className='input-group mt-2';
