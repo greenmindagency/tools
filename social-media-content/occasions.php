@@ -168,7 +168,7 @@ function copyPrompt(btn){
   const country = btn.closest('.input-group').querySelector('.country-name').value.trim();
   if(!country) return;
   const year = new Date().getFullYear();
-  const text = `please make a table for occassions days for ${clientName} in ${country} for the ${year} and make the table start with the date and the next column in the occassion name Please use the format for the date like this ${year}-01-01\n\nplease also include relgions muslimes occassions and of course the bank holidays occassions and days related to the country for festival`;
+  const text = `please make a table for occassions days for ${clientName} in ${country} for the ${year} and make the table start with the date and the next column in the occassion name Please use the format for the date like this ${year}-01-01\n\nplease also include relgions muslimes occassions and of course the bank holidays occassions and days related to the country for festival, please follow the below alwayes: date | occasion`;
   navigator.clipboard.writeText(text).then(()=>{
     showToast('Prompt copied to clipboard');
   });
