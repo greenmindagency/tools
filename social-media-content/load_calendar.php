@@ -12,6 +12,6 @@ if (!$client_id || !$year || !$month) {
 }
 $start = sprintf('%04d-%02d-01', $year, $month);
 $end = date('Y-m-t', strtotime($start));
-$stmt = $pdo->prepare('SELECT post_date, title FROM client_calendar WHERE client_id = ? AND post_date BETWEEN ? AND ? AND TRIM(title) <> "" ORDER BY post_date');
+$stmt = $pdo->prepare('SELECT post_date, title, content FROM client_calendar WHERE client_id = ? AND post_date BETWEEN ? AND ? AND TRIM(title) <> "" ORDER BY post_date');
 $stmt->execute([$client_id, $start, $end]);
 echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));

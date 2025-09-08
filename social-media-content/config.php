@@ -31,8 +31,13 @@ try {
         client_id INT NOT NULL,
         post_date DATE NOT NULL,
         title VARCHAR(255),
+        content TEXT,
         UNIQUE KEY uniq_client_date (client_id, post_date)
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+    if (!$pdo->query("SHOW COLUMNS FROM client_calendar LIKE 'content'")->fetch()) {
+        $pdo->exec("ALTER TABLE client_calendar ADD COLUMN content TEXT AFTER title");
+    }
 
     // Short links for shared calendars
     $pdo->exec("CREATE TABLE IF NOT EXISTS calendar_links (

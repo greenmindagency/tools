@@ -60,7 +60,6 @@ $base = "client_id=$client_id&slug=$slug";
     <div class="d-flex justify-content-end mb-2">
       <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="genBtn">&#9889;</button>
       <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="regenBtn">&#x21bb;</button>
-      <button type="button" class="btn btn-sm btn-outline-success me-1" id="saveBtn">&#x1F4BE;</button>
       <button type="button" class="btn btn-sm btn-outline-primary" id="promptBtn">&#x2728;</button>
     </div>
     <div class="mb-2">
@@ -68,6 +67,17 @@ $base = "client_id=$client_id&slug=$slug";
       <div><strong>Title:</strong> <span id="postTitle"></span></div>
     </div>
     <textarea id="contentText" class="form-control" rows="12"></textarea>
+    <button type="button" class="btn btn-success mt-2" id="saveBtn">Save</button>
+    <div class="mt-3">
+      <h6>Comments</h6>
+      <div id="commentList" class="mb-2"></div>
+      <div class="input-group mb-2">
+        <span class="input-group-text">Username</span>
+        <input type="text" class="form-control" id="commentUser">
+      </div>
+      <textarea id="commentText" class="form-control mb-2" rows="2" placeholder="Comment"></textarea>
+      <button type="button" class="btn btn-outline-secondary" id="addCommentBtn">Add Comment</button>
+    </div>
   </div>
   <div class="col-md-4">
     <div class="input-group mb-3">
@@ -145,7 +155,7 @@ function loadPosts(){
       btn.innerHTML=`<span class="me-2 px-1 bg-secondary text-white rounded">${e.post_date}</span>${e.title}`;
       btn.addEventListener('click',()=>{
         currentDate=e.post_date;
-        document.getElementById('contentText').value=e.title;
+        document.getElementById('contentText').value=e.content||'';
         document.getElementById('postDate').textContent=e.post_date;
         document.getElementById('postTitle').textContent=e.title;
       });
@@ -153,7 +163,7 @@ function loadPosts(){
     });
     if(js[0]){
       currentDate=js[0].post_date;
-      document.getElementById('contentText').value=js[0].title;
+      document.getElementById('contentText').value=js[0].content||'';
       document.getElementById('postDate').textContent=js[0].post_date;
       document.getElementById('postTitle').textContent=js[0].title;
     }
@@ -163,20 +173,18 @@ window.addEventListener('load',()=>{promptModal=new bootstrap.Modal(document.get
 document.getElementById('month').addEventListener('change',loadPosts);
 document.getElementById('saveBtn').addEventListener('click',()=>{
   if(!currentDate) return;
-  const title=document.getElementById('contentText').value;
-  fetch('save_calendar.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,year:currentDate.slice(0,4),month:currentDate.slice(5,7),entries:[{date:currentDate,title}]})}).then(()=>{showToast('Saved');loadPosts();});
+  const content=document.getElementById('contentText').value;
+  fetch('save_content.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,date:currentDate,content})}).then(()=>{showToast('Saved');loadPosts();});
 });
 function regen(custom=''){
   if(!currentDate) return;
-  const used=currentEntries.filter(e=>e.post_date!==currentDate).map(e=>e.title.trim().toLowerCase()).filter(Boolean);
+  const title=document.getElementById('postTitle').textContent;
   showToast('Generating...');
-  const [year,month]=currentDate.split('-').slice(0,2).map(Number);
-  const body={source:sourceText,count:1,month:new Date(year,month-1).toLocaleString('default',{month:'long'}),year,existing:used};
+  const body={source:sourceText,title};
   if(custom) body.prompt=custom;
-  fetch('generate_titles.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()).then(js=>{
-    const t=js.titles && js.titles[0]?js.titles[0]:'';
+  fetch('generate_content.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()).then(js=>{
+    const t=js.content||'';
     document.getElementById('contentText').value=t;
-    document.getElementById('postTitle').textContent=t;
     showToast('Generated');
   }).catch(()=>showToast('Generation failed'));
 }
@@ -189,8 +197,16 @@ document.getElementById('promptSubmit').addEventListener('click',()=>{
   document.getElementById('promptText').value='';
   if(txt) regen(txt);
 });
-document.getElementById('contentText').addEventListener('input',e=>{
-  document.getElementById('postTitle').textContent=e.target.value;
+document.getElementById('addCommentBtn').addEventListener('click',()=>{
+  const user=document.getElementById('commentUser').value.trim();
+  const text=document.getElementById('commentText').value.trim();
+  if(user&&text){
+    const div=document.createElement('div');
+    div.innerHTML=`<strong>${user}:</strong> ${text}`;
+    document.getElementById('commentList').appendChild(div);
+    document.getElementById('commentUser').value='';
+    document.getElementById('commentText').value='';
+  }
 });
 function renderImages(){
   const [w,h]=document.getElementById('imgSize').value.split('x');

@@ -19,9 +19,9 @@ try {
         $del = $pdo->prepare('DELETE FROM client_calendar WHERE client_id = ?');
         $del->execute([$client_id]);
     }
-    $ins = $pdo->prepare('INSERT INTO client_calendar (client_id, post_date, title) VALUES (?,?,?)');
+    $ins = $pdo->prepare('INSERT INTO client_calendar (client_id, post_date, title, content) VALUES (?,?,?,?)');
     foreach ($input['entries'] ?? [] as $row) {
-        $ins->execute([$client_id, $row['date'] ?? '', $row['title'] ?? '']);
+        $ins->execute([$client_id, $row['date'] ?? '', $row['title'] ?? '', $row['content'] ?? '']);
     }
     $pdo->commit();
     echo json_encode(['status' => 'ok']);
