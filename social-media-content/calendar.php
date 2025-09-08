@@ -315,16 +315,27 @@ async function regenCell(idx, custom=''){
   const [year,month]=monthVal.split('-').map(Number);
   const langs=getLangs();
   const lang=langs.length?langs[Math.floor(Math.random()*langs.length)]:'';
+  const used=window.currentEntries.map((e,i)=>i!==idx?e.title.trim().toLowerCase():'').filter(Boolean);
+  showToast('Generating content...');
   setProgress(10);
-  const body={source:sourceText,count:1,month:new Date(year,month-1).toLocaleString('default',{month:'long'}),year};
+  const body={source:sourceText,count:1,month:new Date(year,month-1).toLocaleString('default',{month:'long'}),year,existing:used};
   if(lang) body.languages=[lang];
   if(custom) body.prompt=custom;
-  const res=await fetch('generate_titles.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const js=await res.json();
-  const t=js.titles && js.titles[0] ? stripEmojis(js.titles[0]) : '';
-  window.currentEntries[idx].title=t;
+  try{
+    const res=await fetch('generate_titles.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const js=await res.json();
+    const t=js.titles && js.titles[0] ? stripEmojis(js.titles[0]) : '';
+    if(used.includes(t.toLowerCase())){
+      showToast('Duplicate title generated');
+    }else{
+      window.currentEntries[idx].title=t;
+      render(window.currentEntries,year,month);
+      showToast('Post idea generated');
+    }
+  }catch(e){
+    showToast('Generation failed');
+  }
   setProgress(100);
-  render(window.currentEntries,year,month);
 }
 
 function saveMonth(){

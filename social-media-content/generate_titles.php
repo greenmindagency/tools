@@ -9,6 +9,8 @@ $year = $input['year'] ?? '';
 $languages = $input['languages'] ?? [];
 $languageList = is_array($languages) ? implode(', ', $languages) : '';
 $custom = trim($input['prompt'] ?? '');
+$existing = $input['existing'] ?? [];
+$existingList = is_array($existing) ? implode('; ', array_filter($existing)) : '';
 $apiKey = 'AIzaSyD4GbyZjZjMAvqLJKFruC1_iX07n8u18x0';
 $base = "You are an expert social media planner. Using the following source material:\n".
         $source . "\n";
@@ -17,10 +19,17 @@ if ($custom !== '') {
     if ($languageList) {
         $prompt .= "\nRespond in $languageList.";
     }
+    if ($existingList) {
+        $prompt .= "\nAvoid these titles: $existingList.";
+    }
+    $prompt .= "\nReturn the title as a JSON array with a single element and no additional text.";
 } else {
     $prompt = $base . "Generate $count engaging social media post titles for $month $year.";
     if ($languageList) {
         $prompt .= " Write the titles in $languageList.";
+    }
+    if ($existingList) {
+        $prompt .= " Avoid these titles: $existingList.";
     }
     $prompt .= " Return the titles as a JSON array.";
 }
