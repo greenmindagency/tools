@@ -217,13 +217,13 @@ function showGrid(){
     if(e.images){
       try{
         const arr=JSON.parse(e.images||'[]');
-        if(arr.length){src=arr[0];}
+        if(arr.length) src=arr[0];
       }catch{}
     }
     if(!src && e.videos){
       try{
         const arr=JSON.parse(e.videos||'[]');
-        if(arr.length){src=arr[0];}
+        if(arr.length) src=arr[0];
       }catch{}
     }
     const col=document.createElement('div');
@@ -231,7 +231,7 @@ function showGrid(){
     if(src){
       col.innerHTML=gridFrameHtml(src);
     }else{
-      col.innerHTML='<div class="position-relative overflow-hidden border border-secondary bg-secondary" style="width:100%;padding-top:100%"></div>';
+      col.innerHTML='<div class="position-relative overflow-hidden border border-secondary bg-secondary" style="width:100%;aspect-ratio:25/33"></div>';
     }
     container.appendChild(col);
   });
@@ -416,10 +416,8 @@ function frameHtml(src,size){
   const ratio=(h/w*100).toFixed(2);
   return `<div class="border border-secondary"><div class="position-relative overflow-hidden" style="width:100%;padding-top:${ratio}%"><iframe src="${src}" class="position-absolute top-0 start-0 w-100 h-100" style="border:0;" allowfullscreen></iframe></div></div>`;
 }
-function gridFrameHtml(src,size){
-  const ratio=(33/25*100).toFixed(2);
-  const [w,h]=(size||'1080x1080').split('x').map(Number);
-  return `<div class="position-relative border border-secondary overflow-hidden" style="width:100%;padding-top:${ratio}%"><iframe src="${src}" class="position-absolute top-50 start-50 translate-middle" style="border:0;width:${w}px;height:${h}px;" allowfullscreen></iframe></div>`;
+function gridFrameHtml(src){
+  return `<div class="position-relative border border-secondary overflow-hidden" style="width:100%;aspect-ratio:25/33"><iframe src="${src}" class="position-absolute top-50 start-50 translate-middle" style="border:0;min-width:100%;min-height:100%;" allowfullscreen></iframe></div>`;
 }
 function renderImages(){
   const section=document.getElementById('imageSection');
