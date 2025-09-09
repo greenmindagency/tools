@@ -10,7 +10,32 @@ if(!$client_id || !$from || !$to){
     echo json_encode(['status'=>'error']);
     exit;
 }
-$stmt = $pdo->prepare('UPDATE client_calendar SET post_date = CASE WHEN post_date = ? THEN ? WHEN post_date = ? THEN ? END WHERE client_id = ? AND post_date IN (?, ?)');
-$stmt->execute([$from, $to, $to, $from, $client_id, $from, $to]);
-echo json_encode(['status'=>'ok']);
+$tmpDate = '9999-12-31';
+try {
+    $pdo->beginTransaction();
+
+    // Check if target date already has a post
+    $check = $pdo->prepare('SELECT id FROM client_calendar WHERE client_id = ? AND post_date = ?');
+    $check->execute([$client_id, $to]);
+    $toId = $check->fetchColumn();
+
+    if ($toId) {
+        // Move target date to a temporary placeholder to avoid unique constraint issues
+        $upd = $pdo->prepare('UPDATE client_calendar SET post_date = ? WHERE client_id = ? AND post_date = ?');
+        $upd->execute([$tmpDate, $client_id, $to]);
+        $upd->execute([$to, $client_id, $from]);
+        $upd->execute([$from, $client_id, $tmpDate]);
+    } else {
+        // Simply move the source post to the target date
+        $upd = $pdo->prepare('UPDATE client_calendar SET post_date = ? WHERE client_id = ? AND post_date = ?');
+        $upd->execute([$to, $client_id, $from]);
+    }
+
+    $pdo->commit();
+    echo json_encode(['status' => 'ok']);
+} catch (Exception $e) {
+    $pdo->rollBack();
+    http_response_code(500);
+    echo json_encode(['status' => 'error']);
+}
 ?>

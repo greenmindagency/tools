@@ -148,7 +148,17 @@ function render(entries,year,month){
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({client_id:clientId,from,to})
-        }).then(()=>{loadSaved();showToast('Post moved');});
+        })
+        .then(r=>r.json())
+        .then(js=>{
+          if(js.status==='ok'){
+            loadSaved();
+            showToast('Post moved');
+          }else{
+            showToast('Move failed');
+          }
+        })
+        .catch(()=>showToast('Move failed'));
       }
     });
     const [yr,mn,dd]=e.date.split('-').map(Number);
