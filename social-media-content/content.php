@@ -70,7 +70,7 @@ $base = "client_id=$client_id&slug=$slug";
       <div id="creativeSection" class="mb-2 d-flex align-items-center flex-wrap">
         <strong class="me-2">Creatives:</strong>
         <div id="creativeList" class="d-flex flex-wrap"></div>
-        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="refreshCreatives" data-bs-toggle="tooltip" title="Refresh creative keywords">&#x21bb;</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="refreshCreatives" data-bs-toggle="tooltip" title="Refresh creative keywords"><i class="bi bi-arrow-repeat"></i></button>
       </div>
     </div>
     <textarea id="contentText" class="form-control" rows="12"></textarea>

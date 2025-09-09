@@ -11,15 +11,20 @@ $month = (int)($input['month'] ?? 0);
 try {
     $pdo->beginTransaction();
     $check = $pdo->prepare('SELECT id FROM client_calendar WHERE client_id = ? AND post_date = ?');
-    $upd = $pdo->prepare('UPDATE client_calendar SET title = ?, content = ? WHERE client_id = ? AND post_date = ?');
+    $updBoth  = $pdo->prepare('UPDATE client_calendar SET title = ?, content = ? WHERE client_id = ? AND post_date = ?');
+    $updTitle = $pdo->prepare('UPDATE client_calendar SET title = ? WHERE client_id = ? AND post_date = ?');
     $ins = $pdo->prepare('INSERT INTO client_calendar (client_id, post_date, title, content) VALUES (?,?,?,?)');
     foreach ($input['entries'] ?? [] as $row) {
         $date = $row['date'] ?? '';
         $title = $row['title'] ?? '';
-        $content = $row['content'] ?? '';
+        $content = array_key_exists('content', $row) ? $row['content'] : null;
         $check->execute([$client_id, $date]);
         if ($check->fetch()) {
-            $upd->execute([$title, $content, $client_id, $date]);
+            if ($content !== null) {
+                $updBoth->execute([$title, $content, $client_id, $date]);
+            } else {
+                $updTitle->execute([$title, $client_id, $date]);
+            }
         } else {
             $ins->execute([$client_id, $date, $title, $content]);
         }
