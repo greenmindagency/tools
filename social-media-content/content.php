@@ -70,6 +70,7 @@ $base = "client_id=$client_id&slug=$slug";
       <div id="creativeSection" class="mb-2 d-flex align-items-center flex-wrap">
         <strong class="me-2">Creatives:</strong>
         <div id="creativeList" class="d-flex flex-wrap"></div>
+        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="refreshCreatives" data-bs-toggle="tooltip" title="Refresh creative keywords">&#x21bb;</button>
       </div>
     </div>
     <textarea id="contentText" class="form-control" rows="12"></textarea>
@@ -159,12 +160,12 @@ let vidSize = '1080x1920';
 const imgSizes = sizeOptions;
 const vidSizes = sizeOptions;
 let promptModal;
-function loadCreatives(){
+function loadCreatives(force=false){
   const list=document.getElementById('creativeList');
   list.innerHTML='';
   if(!currentDate) return;
   const entry=currentEntries.find(e=>e.post_date===currentDate);
-  if(entry){
+  if(entry && !force){
     let stored=[];
     if(entry.creative_keywords){
       try{stored=JSON.parse(entry.creative_keywords)||[];}catch{}
@@ -206,6 +207,8 @@ function loadCreatives(){
     }
   }).catch(()=>{list.innerHTML='<span class="text-danger">Failed</span>';});
 }
+
+document.getElementById('refreshCreatives').addEventListener('click',()=>loadCreatives(true));
 function showGrid(){
   const container=document.getElementById('gridContainer');
   container.innerHTML='';

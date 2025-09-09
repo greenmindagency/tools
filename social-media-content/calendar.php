@@ -141,10 +141,14 @@ function render(entries,year,month){
     td.addEventListener('dragover',ev=>ev.preventDefault());
     td.addEventListener('drop',()=>{
       if(dragSrc!==null && dragSrc!==i){
-        const tmp=entries[i].title;
-        entries[i].title=entries[dragSrc].title;
-        entries[dragSrc].title=tmp;
-        render(entries,year,month);
+        const from=entries[dragSrc].date;
+        const to=entries[i].date;
+        dragSrc=null;
+        fetch('move_post.php',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({client_id:clientId,from,to})
+        }).then(()=>{loadSaved();showToast('Post moved');});
       }
     });
     const [yr,mn,dd]=e.date.split('-').map(Number);
