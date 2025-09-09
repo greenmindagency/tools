@@ -19,6 +19,8 @@ $title = $title ?? 'Social Media Content';
       background-color: #fff;
       padding: 8px 0;
     }
+    .ratio-9x16 { --bs-aspect-ratio: calc(16 / 9 * 100%); }
+    .ratio-4x5 { --bs-aspect-ratio: 125%; }
   </style>
 </head>
 <body>

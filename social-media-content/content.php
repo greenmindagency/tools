@@ -139,7 +139,7 @@ $base = "client_id=$client_id&slug=$slug";
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <div class="row row-cols-3 g-2" id="gridContainer"></div>
+        <div class="row" id="gridContainer" data-masonry='{"percentPosition": true }'></div>
       </div>
     </div>
   </div>
@@ -154,7 +154,7 @@ let currentEntries = [];
 let imgLinks = [];
 let vidLinks = [];
 let comments = [];
-const sizeOptions = ['1080x1350','1080x1920','1080x1080'];
+const sizeOptions = ['1080x1350','1080x1920'];
 let imgSize = '1080x1350';
 let vidSize = '1080x1920';
 const imgSizes = sizeOptions;
@@ -213,28 +213,29 @@ function showGrid(){
   const container=document.getElementById('gridContainer');
   container.innerHTML='';
   currentEntries.forEach(e=>{
-    let src=null;
+    let src=null,size=null;
     if(e.images){
       try{
         const arr=JSON.parse(e.images||'[]');
-        if(arr.length) src=arr[0];
+        if(arr.length){ src=arr[0]; size=e.image_size; }
       }catch{}
     }
     if(!src && e.videos){
       try{
         const arr=JSON.parse(e.videos||'[]');
-        if(arr.length) src=arr[0];
+        if(arr.length){ src=arr[0]; size=e.video_size; }
       }catch{}
     }
     const col=document.createElement('div');
-    col.className='col';
+    col.className='col-sm-6 col-lg-4 mb-4';
     if(src){
       col.innerHTML=gridFrameHtml(src);
     }else{
-      col.innerHTML='<div class="position-relative overflow-hidden border border-secondary bg-secondary" style="width:100%;aspect-ratio:25/33"></div>';
+      col.innerHTML='<div class="ratio ratio-4x5"><div class="border border-secondary bg-secondary w-100 h-100"></div></div>';
     }
     container.appendChild(col);
   });
+  new Masonry(container,{percentPosition:true});
   bootstrap.Modal.getOrCreateInstance(document.getElementById('gridModal')).show();
 }
 function showToast(msg){
@@ -416,8 +417,9 @@ function frameHtml(src,size){
   const ratio=(h/w*100).toFixed(2);
   return `<div class="border border-secondary"><div class="position-relative overflow-hidden" style="width:100%;padding-top:${ratio}%"><iframe src="${src}" class="position-absolute top-0 start-0 w-100 h-100" style="border:0;" allowfullscreen></iframe></div></div>`;
 }
-function gridFrameHtml(src){
-  return `<div class="position-relative border border-secondary overflow-hidden" style="width:100%;aspect-ratio:25/33"><iframe src="${src}" class="position-absolute top-50 start-50 translate-middle" style="border:0;min-width:100%;min-height:100%;" allowfullscreen></iframe></div>`;
+function gridFrameHtml(src,size){
+  const ratioClass = size==='1080x1920' ? 'ratio-9x16' : 'ratio-4x5';
+  return `<div class="ratio ${ratioClass}"><iframe src="${src}" allowfullscreen></iframe></div>`;
 }
 function renderImages(){
   const section=document.getElementById('imageSection');
