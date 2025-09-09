@@ -139,7 +139,7 @@ $base = "client_id=$client_id&slug=$slug";
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <div class="row" id="gridContainer" data-masonry='{"percentPosition": true }'></div>
+        <div class="row g-2" id="gridContainer" data-masonry='{"percentPosition": true }'></div>
       </div>
     </div>
   </div>
@@ -227,7 +227,7 @@ function showGrid(){
       }catch{}
     }
     const col=document.createElement('div');
-    col.className='col-sm-6 col-lg-4 mb-4';
+    col.className='col-sm-6 col-lg-4 mb-2';
     if(src){
       col.innerHTML=gridFrameHtml(src,size);
     }else{
@@ -235,8 +235,11 @@ function showGrid(){
     }
     container.appendChild(col);
   });
-  new Masonry(container,{percentPosition:true});
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('gridModal')).show();
+  const modalEl=document.getElementById('gridModal');
+  modalEl.addEventListener('shown.bs.modal',()=>{
+    new Masonry(container,{percentPosition:true});
+  },{once:true});
+  bootstrap.Modal.getOrCreateInstance(modalEl).show();
 }
 function showToast(msg){
   const t=document.getElementById('contentToast');
