@@ -227,7 +227,7 @@ function showGrid(){
       }catch{}
     }
     const col=document.createElement('div');
-    col.className='col-sm-6 col-lg-4 mb-2';
+    col.className='col-sm-6 col-lg-4 mb-1';
     if(src){
       col.innerHTML=gridFrameHtml(src,size);
     }else{
