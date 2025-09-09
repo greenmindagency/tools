@@ -64,9 +64,14 @@ $base = "client_id=$client_id&slug=$slug";
       <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="genBtn" data-bs-toggle="tooltip" title="Generate content">&#9889;</button>
       <button type="button" class="btn btn-sm btn-outline-primary" id="promptBtn" data-bs-toggle="tooltip" title="Generate with prompt">&#x2728;</button>
     </div>
-    <div class="mb-2">
-      <div><strong>Date:</strong> <span id="postDate"></span></div>
-      <div><strong>Title:</strong> <span id="postTitle"></span></div>
+    <div id="metaInfo" class="mb-4">
+      <div class="mb-2"><strong>Date:</strong> <span id="postDate"></span></div>
+      <div class="mb-2"><strong>Title:</strong> <span id="postTitle"></span></div>
+      <div id="creativeSection" class="mb-2 d-flex align-items-center flex-wrap">
+        <strong class="me-2">Creatives:</strong>
+        <div id="creativeList" class="d-flex flex-wrap"></div>
+        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="creativeRefresh" data-bs-toggle="tooltip" title="Refresh keyword ideas"><i class="bi bi-arrow-repeat"></i></button>
+      </div>
     </div>
     <div id="creativeSection" class="mb-2">
       <div class="d-flex align-items-center">
@@ -189,24 +194,25 @@ function showGrid(){
   container.innerHTML='';
   currentEntries.forEach(e=>{
     let src=null;
+    let size='1080x1080';
     if(e.images){
       try{
         const arr=JSON.parse(e.images||'[]');
-        if(arr.length) src=arr[0];
+        if(arr.length){src=arr[0];size=e.image_size||size;}
       }catch{}
     }
     if(!src && e.videos){
       try{
         const arr=JSON.parse(e.videos||'[]');
-        if(arr.length) src=arr[0];
+        if(arr.length){src=arr[0];size=e.video_size||size;}
       }catch{}
     }
     const col=document.createElement('div');
     col.className='col';
     if(src){
-      col.innerHTML=frameHtml(src,'1080x1080');
+      col.innerHTML=gridFrameHtml(src,size);
     }else{
-      col.innerHTML='<div class="ratio ratio-1x1 bg-secondary border border-secondary"></div>';
+      col.innerHTML='<div class="position-relative overflow-hidden border border-secondary bg-secondary" style="width:100%;padding-top:100%"></div>';
     }
     container.appendChild(col);
   });
@@ -390,7 +396,11 @@ function saveComments(){
 function frameHtml(src,size){
   const [w,h]=size.split('x').map(Number);
   const ratio=(h/w*100).toFixed(2);
-  return `<div class="position-relative border border-secondary overflow-hidden" style="width:100%;padding-top:${ratio}%"><iframe src="${src}" class="position-absolute top-0 start-0 w-100 h-100" style="border:0;object-fit:cover;" allowfullscreen></iframe></div>`;
+  return `<div class="border border-secondary"><div class="position-relative overflow-hidden" style="width:100%;padding-top:${ratio}%"><iframe src="${src}" class="position-absolute top-0 start-0 w-100 h-100" style="border:0;" allowfullscreen></iframe></div></div>`;
+}
+function gridFrameHtml(src,size){
+  const [w,h]=size.split('x').map(Number);
+  return `<div class="position-relative border border-secondary overflow-hidden" style="width:100%;padding-top:100%"><iframe src="${src}" class="position-absolute top-50 start-50 translate-middle" style="width:${w}px;height:${h}px;border:0;" allowfullscreen></iframe></div>`;
 }
 function renderImages(){
   const section=document.getElementById('imageSection');
