@@ -412,13 +412,13 @@ function saveComments(){
   });
 }
 function frameHtml(src,size){
-  const [w,h]=size.split('x').map(Number);
+  const [w,h]=(size||'1080x1080').split('x').map(Number);
   const ratio=(h/w*100).toFixed(2);
   return `<div class="border border-secondary"><div class="position-relative overflow-hidden" style="width:100%;padding-top:${ratio}%"><iframe src="${src}" class="position-absolute top-0 start-0 w-100 h-100" style="border:0;" allowfullscreen></iframe></div></div>`;
 }
 function gridFrameHtml(src,size){
   const ratio=(33/25*100).toFixed(2);
-  const [w,h]=size.split('x').map(Number);
+  const [w,h]=(size||'1080x1080').split('x').map(Number);
   return `<div class="position-relative border border-secondary overflow-hidden" style="width:100%;padding-top:${ratio}%"><iframe src="${src}" class="position-absolute top-50 start-50 translate-middle" style="border:0;width:${w}px;height:${h}px;" allowfullscreen></iframe></div>`;
 }
 function renderImages(){
