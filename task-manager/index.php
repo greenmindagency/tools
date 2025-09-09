@@ -171,7 +171,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
     $toggleAttr = ' data-bs-toggle="collapse" data-bs-target="#task-'.$t['id'].'"';
     ob_start();
     ?>
-    <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>" data-due-date="<?= htmlspecialchars($t['due_date']) ?>" data-recurrence="<?= htmlspecialchars($t['recurrence']) ?>"<?= $isSub ? ' data-parent-id="'.$t['parent_id'].'" data-parent-title="'.htmlspecialchars($t['parent_title']).'" data-sub-title="'.htmlspecialchars($t['title']).'"' : '' ?>>
+    <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>" data-due-date="<?= htmlspecialchars($t['due_date']) ?>" data-order-index="<?= $t['order_index'] ?>" data-recurrence="<?= htmlspecialchars($t['recurrence']) ?>"<?= $isSub ? ' data-parent-id="'.$t['parent_id'].'" data-parent-title="'.htmlspecialchars($t['parent_title']).'" data-sub-title="'.htmlspecialchars($t['title']).'"' : '' ?>>
       <?php if(!$archivedView): ?>
       <form method="post" class="me-2 complete-form" data-bs-toggle="tooltip" title="Complete">
         <input type="hidden" name="toggle_complete" value="<?= $t['id'] ?>">
@@ -1332,7 +1332,7 @@ document.querySelectorAll('form.ajax').forEach(f=>{
 function insertSorted(li, list){
   if(!list) return;
   const items = Array.from(list.children);
-  const before = items.find(el => el.dataset.dueDate > li.dataset.dueDate);
+  const before = items.find(el => parseInt(el.dataset.orderIndex) > parseInt(li.dataset.orderIndex));
   list.insertBefore(li, before || null);
 }
 
