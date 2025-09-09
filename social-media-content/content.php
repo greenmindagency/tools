@@ -229,7 +229,7 @@ function showGrid(){
     const col=document.createElement('div');
     col.className='col-sm-6 col-lg-4 mb-4';
     if(src){
-      col.innerHTML=gridFrameHtml(src);
+      col.innerHTML=gridFrameHtml(src,size);
     }else{
       col.innerHTML='<div class="ratio ratio-4x5"><div class="border border-secondary bg-secondary w-100 h-100"></div></div>';
     }
@@ -419,7 +419,7 @@ function frameHtml(src,size){
 }
 function gridFrameHtml(src,size){
   const ratioClass = size==='1080x1920' ? 'ratio-9x16' : 'ratio-4x5';
-  return `<div class="ratio ${ratioClass}"><iframe src="${src}" allowfullscreen style="width:100%;height:100%;object-fit:cover;"></iframe></div>`;
+  return `<div class="ratio ${ratioClass}"><iframe src="${src}" allowfullscreen></iframe></div>`;
 }
 function renderImages(){
   const section=document.getElementById('imageSection');
