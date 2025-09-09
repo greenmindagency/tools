@@ -456,7 +456,8 @@ function renderImages(){
     const dl=document.createElement('a');
     dl.className='btn btn-sm btn-outline-secondary';
     dl.innerHTML='<i class="bi bi-download"></i>';
-    dl.href=src;
+    const viewSrc = src.replace('/preview','/view');
+    dl.href=viewSrc;
     dl.target='_blank';
     dl.rel='noopener';
     actions.appendChild(dl);
@@ -501,7 +502,8 @@ function renderVideos(){
     const dl=document.createElement('a');
     dl.className='btn btn-sm btn-outline-secondary';
     dl.innerHTML='<i class="bi bi-download"></i>';
-    dl.href=src;
+    const viewSrc = src.replace('/preview','/view');
+    dl.href=viewSrc;
     dl.target='_blank';
     dl.rel='noopener';
     actions.appendChild(dl);
