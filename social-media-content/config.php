@@ -36,6 +36,7 @@ try {
         video_size VARCHAR(20),
         images TEXT,
         videos TEXT,
+        comments TEXT,
         UNIQUE KEY uniq_client_date (client_id, post_date)
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
@@ -53,6 +54,9 @@ try {
     }
     if (!$pdo->query("SHOW COLUMNS FROM client_calendar LIKE 'videos'")->fetch()) {
         $pdo->exec("ALTER TABLE client_calendar ADD COLUMN videos TEXT AFTER images");
+    }
+    if (!$pdo->query("SHOW COLUMNS FROM client_calendar LIKE 'comments'")->fetch()) {
+        $pdo->exec("ALTER TABLE client_calendar ADD COLUMN comments TEXT AFTER videos");
     }
 
     // Short links for shared calendars

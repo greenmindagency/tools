@@ -178,10 +178,10 @@ function loadPosts(){
         vidLinks = e.videos ? JSON.parse(e.videos || '[]') || [] : [];
         imgSize = e.image_size || sizeOptions[0];
         vidSize = e.video_size || sizeOptions[1];
+        comments = e.comments ? JSON.parse(e.comments || '[]') || [] : [];
         updateSizeOptions();
         renderImages();
         renderVideos();
-        comments=[];
         renderComments();
       });
       list.appendChild(btn);
@@ -195,10 +195,10 @@ function loadPosts(){
     vidLinks = first.videos ? JSON.parse(first.videos || '[]') || [] : [];
     imgSize = first.image_size || sizeOptions[0];
     vidSize = first.video_size || sizeOptions[1];
+    comments = first.comments ? JSON.parse(first.comments || '[]') || [] : [];
     updateSizeOptions();
     renderImages();
     renderVideos();
-    comments=[];
     renderComments();
   });
 }
@@ -279,13 +279,13 @@ function renderComments(){
       edit.textContent='Edit';
       edit.addEventListener('click',()=>{
         const t=prompt('Edit comment',c.text);
-        if(t!==null){c.text=t.trim();renderComments();}
+        if(t!==null){c.text=t.trim();renderComments();saveComments();}
       });
       const del=document.createElement('button');
       del.type='button';
       del.className='btn btn-sm btn-outline-danger';
       del.textContent='Remove';
-      del.addEventListener('click',()=>{comments.splice(i,1);renderComments();});
+      del.addEventListener('click',()=>{comments.splice(i,1);renderComments();saveComments();});
       actions.appendChild(edit);
       actions.appendChild(del);
       div.appendChild(actions);
@@ -299,8 +299,17 @@ document.getElementById('addCommentBtn').addEventListener('click',()=>{
     comments.push({user:currentUser,text});
     document.getElementById('commentText').value='';
     renderComments();
+    saveComments();
   }
 });
+function saveComments(){
+  if(!currentDate) return;
+  fetch('save_comments.php',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({client_id:clientId,date:currentDate,comments})
+  });
+}
 function frameHtml(src,size){
   const [w,h]=size.split('x').map(Number);
   const ratio=(h/w*100).toFixed(2);
@@ -319,7 +328,7 @@ function renderImages(){
       <div class="carousel-item${i===0?' active':''}">
         ${frameHtml(src,imgSize)}
       </div>`).join('');
-    const indicators=imgLinks.map((_,i)=>`<button type="button" data-bs-target="#imgCarousel" data-bs-slide-to="${i}" class="${i===0?'active':''}" aria-current="${i===0?'true':'false'}" aria-label="Slide ${i+1}" style="width:auto;height:auto;text-indent:0;">${i+1}</button>`).join('');
+    const indicators=imgLinks.map((_,i)=>`<button type="button" data-bs-target="#imgCarousel" data-bs-slide-to="${i}" class="${i===0?'active':''}" aria-current="${i===0?'true':'false'}" aria-label="Slide ${i+1}" style="width:auto;height:auto;text-indent:0;"><span class=\"badge bg-secondary\">${i+1}</span></button>`).join('');
     container.innerHTML=`
       <div id="imgCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
         <div class="carousel-indicators position-static mb-2">${indicators}</div>
@@ -332,7 +341,7 @@ function renderImages(){
   imgLinks.forEach((_,i)=>{
     const li=document.createElement('li');
     li.className='list-group-item d-flex justify-content-between align-items-center';
-    li.innerHTML=`Slide <span class="badge bg-secondary">${i+1}</span>`;
+    li.textContent=`Slide ${i+1}`;
     const btn=document.createElement('button');
     btn.className='btn btn-sm btn-outline-danger';
     btn.textContent='Remove';
@@ -354,7 +363,7 @@ function renderVideos(){
       <div class="carousel-item${i===0?' active':''}">
         ${frameHtml(src,vidSize)}
       </div>`).join('');
-    const indicators=vidLinks.map((_,i)=>`<button type="button" data-bs-target="#vidCarousel" data-bs-slide-to="${i}" class="${i===0?'active':''}" aria-current="${i===0?'true':'false'}" aria-label="Slide ${i+1}" style="width:auto;height:auto;text-indent:0;">${i+1}</button>`).join('');
+    const indicators=vidLinks.map((_,i)=>`<button type="button" data-bs-target="#vidCarousel" data-bs-slide-to="${i}" class="${i===0?'active':''}" aria-current="${i===0?'true':'false'}" aria-label="Slide ${i+1}" style="width:auto;height:auto;text-indent:0;"><span class=\"badge bg-secondary\">${i+1}</span></button>`).join('');
     container.innerHTML=`
       <div id="vidCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
         <div class="carousel-indicators position-static mb-2">${indicators}</div>
@@ -367,7 +376,7 @@ function renderVideos(){
   vidLinks.forEach((_,i)=>{
     const li=document.createElement('li');
     li.className='list-group-item d-flex justify-content-between align-items-center';
-    li.innerHTML=`Slide <span class="badge bg-secondary">${i+1}</span>`;
+    li.textContent=`Slide ${i+1}`;
     const btn=document.createElement('button');
     btn.className='btn btn-sm btn-outline-danger';
     btn.textContent='Remove';
