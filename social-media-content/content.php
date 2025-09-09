@@ -68,6 +68,13 @@ $base = "client_id=$client_id&slug=$slug";
       <div><strong>Date:</strong> <span id="postDate"></span></div>
       <div><strong>Title:</strong> <span id="postTitle"></span></div>
     </div>
+    <div id="creativeSection" class="mb-2">
+      <div class="d-flex align-items-center">
+        <strong class="me-2">Recommended Creatives:</strong>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="creativeRefresh" data-bs-toggle="tooltip" title="Refresh keyword ideas"><i class="bi bi-arrow-repeat"></i></button>
+      </div>
+      <div id="creativeList" class="mt-1"></div>
+    </div>
     <textarea id="contentText" class="form-control" rows="12"></textarea>
     <button type="button" class="btn btn-success mt-2" id="saveBtn">Save</button>
     <div class="mt-3">
@@ -155,6 +162,28 @@ let vidSize = '1080x1920';
 const imgSizes = sizeOptions;
 const vidSizes = sizeOptions;
 let promptModal;
+function loadCreatives(){
+  const list=document.getElementById('creativeList');
+  list.innerHTML='';
+  if(!currentDate) return;
+  const entry=currentEntries.find(e=>e.post_date===currentDate);
+  const title=entry?entry.title:'';
+  fetch('generate_creatives.php',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({source:sourceText,title})
+  }).then(r=>r.json()).then(js=>{
+    list.innerHTML='';
+    (js.keywords||[]).forEach(k=>{
+      const a=document.createElement('a');
+      a.href=`https://www.pinterest.com/search/pins/?q=${encodeURIComponent(k)}`;
+      a.target='_blank';
+      a.className='me-2';
+      a.textContent=k;
+      list.appendChild(a);
+    });
+  }).catch(()=>{list.innerHTML='<span class="text-danger">Failed</span>';});
+}
 function showGrid(){
   const container=document.getElementById('gridContainer');
   container.innerHTML='';
@@ -177,7 +206,7 @@ function showGrid(){
     if(src){
       col.innerHTML=frameHtml(src,'1080x1080');
     }else{
-      col.innerHTML='<div class="ratio ratio-1x1 bg-secondary"></div>';
+      col.innerHTML='<div class="ratio ratio-1x1 bg-secondary border border-secondary"></div>';
     }
     container.appendChild(col);
   });
@@ -210,6 +239,7 @@ function loadPosts(){
       renderVideos();
       comments=[];
       renderComments();
+      document.getElementById('creativeList').innerHTML='';
       return;
     }
     js.forEach(e=>{
@@ -231,6 +261,7 @@ function loadPosts(){
         renderImages();
         renderVideos();
         renderComments();
+        loadCreatives();
       });
       list.appendChild(btn);
     });
@@ -248,6 +279,7 @@ function loadPosts(){
     renderImages();
     renderVideos();
     renderComments();
+    loadCreatives();
   });
 }
 function updateSizeOptions(){
@@ -307,6 +339,7 @@ document.getElementById('promptSubmit').addEventListener('click',()=>{
   document.getElementById('promptText').value='';
   if(txt) regen(txt);
 });
+document.getElementById('creativeRefresh').addEventListener('click',loadCreatives);
 function renderComments(){
   const list=document.getElementById('commentList');
   list.innerHTML='';
@@ -320,6 +353,12 @@ function renderComments(){
     if(isAdmin || c.user===currentUser){
       const actions=document.createElement('span');
       actions.className='float-end ms-2';
+      const edit=document.createElement('a');
+      edit.href='#';
+      edit.className='text-decoration-none me-2';
+      edit.innerHTML='<i class="bi bi-pencil"></i>';
+      edit.addEventListener('click',e=>{e.preventDefault();const t=prompt("Edit comment",c.text);if(t!==null){c.text=t;renderComments();saveComments();}});
+      actions.appendChild(edit);
       const del=document.createElement('a');
       del.href='#';
       del.className='text-decoration-none text-danger';
@@ -351,7 +390,7 @@ function saveComments(){
 function frameHtml(src,size){
   const [w,h]=size.split('x').map(Number);
   const ratio=(h/w*100).toFixed(2);
-  return `<div style="position:relative;width:100%;padding-top:${ratio}%"><iframe src="${src}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;" allowfullscreen></iframe></div>`;
+  return `<div class="position-relative border border-secondary overflow-hidden" style="width:100%;padding-top:${ratio}%"><iframe src="${src}" class="position-absolute top-0 start-0 w-100 h-100" style="border:0;object-fit:cover;" allowfullscreen></iframe></div>`;
 }
 function renderImages(){
   const section=document.getElementById('imageSection');
