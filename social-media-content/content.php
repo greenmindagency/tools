@@ -41,19 +41,22 @@ $base = "client_id=$client_id&slug=$slug";
 <div class="row">
   <div class="col-md-3">
     <label class="form-label">Month</label>
-    <select id="month" class="form-select mb-3">
-      <?php
-      $current = new DateTime('first day of this month');
-      for ($i=-3; $i<=9; $i++) {
-          $dt = (clone $current)->modify("$i month");
-          $val = $dt->format('Y-m');
-          $label = $dt->format('F Y');
-          $sel = $i===0 ? 'selected' : '';
-          $style = $i===0 ? "style=\"background-color:#eee;\"" : '';
-          echo "<option value='$val' $sel $style>$label</option>";
-      }
-      ?>
-    </select>
+    <div class="d-flex mb-3">
+      <select id="month" class="form-select me-2">
+        <?php
+        $current = new DateTime('first day of this month');
+        for ($i=-3; $i<=9; $i++) {
+            $dt = (clone $current)->modify("$i month");
+            $val = $dt->format('Y-m');
+            $label = $dt->format('F Y');
+            $sel = $i===0 ? 'selected' : '';
+            $style = $i===0 ? "style=\"background-color:#eee;\"" : '';
+            echo "<option value='$val' $sel $style>$label</option>";
+        }
+        ?>
+      </select>
+      <button type="button" class="btn btn-outline-secondary" id="gridBtn" data-bs-toggle="tooltip" title="Show media grid"><i class="bi bi-grid-3x3-gap"></i></button>
+    </div>
     <div id="postList" class="list-group small"></div>
   </div>
   <div class="col-md-5">
@@ -69,9 +72,13 @@ $base = "client_id=$client_id&slug=$slug";
     <button type="button" class="btn btn-success mt-2" id="saveBtn">Save</button>
     <div class="mt-3">
       <h6>Comments</h6>
-      <div id="commentList" class="mb-2"></div>
-      <textarea id="commentText" class="form-control mb-2" rows="2" placeholder="Comment"></textarea>
-      <button type="button" class="btn btn-outline-secondary" id="addCommentBtn">Add Comment</button>
+      <div class="comments-wrapper">
+        <div id="commentList" class="mb-2"></div>
+        <div class="mb-2 position-relative">
+          <textarea id="commentText" class="form-control form-control-sm" style="padding-right:5rem;" placeholder="Comment now"></textarea>
+          <button type="button" class="btn btn-sm btn-primary position-absolute bottom-0 end-0 m-1" id="addCommentBtn">Comment</button>
+        </div>
+      </div>
     </div>
   </div>
   <div class="col-md-4">
@@ -82,7 +89,7 @@ $base = "client_id=$client_id&slug=$slug";
         <option value="video">Video</option>
       </select>
       <select class="form-select" id="mediaSize"></select>
-      <button class="btn btn-outline-secondary" type="button" id="importMediaBtn" data-bs-toggle="tooltip" title="Import media">&#x1F4E5;</button>
+      <button class="btn btn-outline-secondary" type="button" id="importMediaBtn" data-bs-toggle="tooltip" title="Import media"><i class="bi bi-upload"></i></button>
     </div>
     <div id="imageSection" style="display:none;" class="mb-3">
       <div id="imgContainer" class="mb-2"></div>
@@ -119,6 +126,19 @@ $base = "client_id=$client_id&slug=$slug";
     </div>
   </div>
 </div>
+<div class="modal fade" id="gridModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Media Grid</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row row-cols-3 g-2" id="gridContainer"></div>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
 const clientId = <?=$client_id?>;
 const sourceText = <?= json_encode($sourceText) ?>;
@@ -135,6 +155,34 @@ let vidSize = '1080x1920';
 const imgSizes = sizeOptions;
 const vidSizes = sizeOptions;
 let promptModal;
+function showGrid(){
+  const container=document.getElementById('gridContainer');
+  container.innerHTML='';
+  currentEntries.forEach(e=>{
+    let src=null;
+    if(e.images){
+      try{
+        const arr=JSON.parse(e.images||'[]');
+        if(arr.length) src=arr[0];
+      }catch{}
+    }
+    if(!src && e.videos){
+      try{
+        const arr=JSON.parse(e.videos||'[]');
+        if(arr.length) src=arr[0];
+      }catch{}
+    }
+    const col=document.createElement('div');
+    col.className='col';
+    if(src){
+      col.innerHTML=frameHtml(src,'1080x1080');
+    }else{
+      col.innerHTML='<div class="ratio ratio-1x1 bg-secondary"></div>';
+    }
+    container.appendChild(col);
+  });
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('gridModal')).show();
+}
 function showToast(msg){
   const t=document.getElementById('contentToast');
   t.querySelector('.toast-body').textContent=msg;
@@ -223,6 +271,7 @@ window.addEventListener('load',()=>{
   loadPosts();
 });
 document.getElementById('month').addEventListener('change',loadPosts);
+document.getElementById('gridBtn').addEventListener('click',showGrid);
 document.getElementById('saveBtn').addEventListener('click',()=>{
   if(!currentDate) return;
   const content=document.getElementById('contentText').value;
@@ -263,30 +312,19 @@ function renderComments(){
   list.innerHTML='';
   comments.forEach((c,i)=>{
     const div=document.createElement('div');
-    div.className='mb-1';
-    const strong=document.createElement('strong');
-    strong.textContent=c.user+': ';
-    const span=document.createElement('span');
-    span.textContent=c.text;
-    div.appendChild(strong);
-    div.appendChild(span);
+    div.className='mb-2 comment-item';
+    const text=document.createElement('span');
+    text.className='comment-text';
+    text.innerHTML=`<strong>${c.user}:</strong> ${c.text}`;
+    div.appendChild(text);
     if(isAdmin || c.user===currentUser){
       const actions=document.createElement('span');
-      actions.className='ms-2';
-      const edit=document.createElement('button');
-      edit.type='button';
-      edit.className='btn btn-sm btn-outline-primary me-1';
-      edit.textContent='Edit';
-      edit.addEventListener('click',()=>{
-        const t=prompt('Edit comment',c.text);
-        if(t!==null){c.text=t.trim();renderComments();saveComments();}
-      });
-      const del=document.createElement('button');
-      del.type='button';
-      del.className='btn btn-sm btn-outline-danger';
-      del.textContent='Remove';
-      del.addEventListener('click',()=>{comments.splice(i,1);renderComments();saveComments();});
-      actions.appendChild(edit);
+      actions.className='float-end ms-2';
+      const del=document.createElement('a');
+      del.href='#';
+      del.className='text-decoration-none text-danger';
+      del.innerHTML='<i class="bi bi-trash"></i>';
+      del.addEventListener('click',e=>{e.preventDefault();comments.splice(i,1);renderComments();saveComments();});
       actions.appendChild(del);
       div.appendChild(actions);
     }
