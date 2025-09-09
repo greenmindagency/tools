@@ -419,7 +419,7 @@ function frameHtml(src,size){
 }
 function gridFrameHtml(src,size){
   const ratioClass = size==='1080x1920' ? 'ratio-9x16' : 'ratio-4x5';
-  return `<div class="ratio ${ratioClass}"><iframe src="${src}" allowfullscreen></iframe></div>`;
+  return `<div class="ratio ${ratioClass}"><iframe src="${src}" allowfullscreen style="width:100%;height:100%;object-fit:cover;"></iframe></div>`;
 }
 function renderImages(){
   const section=document.getElementById('imageSection');
