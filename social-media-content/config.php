@@ -37,6 +37,7 @@ try {
         images TEXT,
         videos TEXT,
         comments TEXT,
+        creative_keywords TEXT,
         UNIQUE KEY uniq_client_date (client_id, post_date)
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
@@ -57,6 +58,9 @@ try {
     }
     if (!$pdo->query("SHOW COLUMNS FROM client_calendar LIKE 'comments'")->fetch()) {
         $pdo->exec("ALTER TABLE client_calendar ADD COLUMN comments TEXT AFTER videos");
+    }
+    if (!$pdo->query("SHOW COLUMNS FROM client_calendar LIKE 'creative_keywords'")->fetch()) {
+        $pdo->exec("ALTER TABLE client_calendar ADD COLUMN creative_keywords TEXT AFTER comments");
     }
 
     // Short links for shared calendars

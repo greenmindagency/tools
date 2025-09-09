@@ -10,18 +10,19 @@ $month = (int)($input['month'] ?? 0);
 
 try {
     $pdo->beginTransaction();
-    if ($year && $month) {
-        $start = sprintf('%04d-%02d-01', $year, $month);
-        $end = date('Y-m-t', strtotime($start));
-        $del = $pdo->prepare('DELETE FROM client_calendar WHERE client_id = ? AND post_date BETWEEN ? AND ?');
-        $del->execute([$client_id, $start, $end]);
-    } else {
-        $del = $pdo->prepare('DELETE FROM client_calendar WHERE client_id = ?');
-        $del->execute([$client_id]);
-    }
+    $check = $pdo->prepare('SELECT id FROM client_calendar WHERE client_id = ? AND post_date = ?');
+    $upd = $pdo->prepare('UPDATE client_calendar SET title = ?, content = ? WHERE client_id = ? AND post_date = ?');
     $ins = $pdo->prepare('INSERT INTO client_calendar (client_id, post_date, title, content) VALUES (?,?,?,?)');
     foreach ($input['entries'] ?? [] as $row) {
-        $ins->execute([$client_id, $row['date'] ?? '', $row['title'] ?? '', $row['content'] ?? '']);
+        $date = $row['date'] ?? '';
+        $title = $row['title'] ?? '';
+        $content = $row['content'] ?? '';
+        $check->execute([$client_id, $date]);
+        if ($check->fetch()) {
+            $upd->execute([$title, $content, $client_id, $date]);
+        } else {
+            $ins->execute([$client_id, $date, $title, $content]);
+        }
     }
     $pdo->commit();
     echo json_encode(['status' => 'ok']);

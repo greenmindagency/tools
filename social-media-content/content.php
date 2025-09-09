@@ -70,15 +70,7 @@ $base = "client_id=$client_id&slug=$slug";
       <div id="creativeSection" class="mb-2 d-flex align-items-center flex-wrap">
         <strong class="me-2">Creatives:</strong>
         <div id="creativeList" class="d-flex flex-wrap"></div>
-        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="creativeRefresh" data-bs-toggle="tooltip" title="Refresh keyword ideas"><i class="bi bi-arrow-repeat"></i></button>
       </div>
-    </div>
-    <div id="creativeSection" class="mb-2">
-      <div class="d-flex align-items-center">
-        <strong class="me-2">Recommended Creatives:</strong>
-        <button type="button" class="btn btn-sm btn-outline-secondary" id="creativeRefresh" data-bs-toggle="tooltip" title="Refresh keyword ideas"><i class="bi bi-arrow-repeat"></i></button>
-      </div>
-      <div id="creativeList" class="mt-1"></div>
     </div>
     <textarea id="contentText" class="form-control" rows="12"></textarea>
     <button type="button" class="btn btn-success mt-2" id="saveBtn">Save</button>
@@ -172,14 +164,31 @@ function loadCreatives(){
   list.innerHTML='';
   if(!currentDate) return;
   const entry=currentEntries.find(e=>e.post_date===currentDate);
+  if(entry){
+    let stored=[];
+    if(entry.creative_keywords){
+      try{stored=JSON.parse(entry.creative_keywords)||[];}catch{}
+    }
+    if(stored.length){
+      stored.forEach(k=>{
+        const a=document.createElement('a');
+        a.href=`https://www.pinterest.com/search/pins/?q=${encodeURIComponent(k)}`;
+        a.target='_blank';
+        a.className='me-2';
+        a.textContent=k;
+        list.appendChild(a);
+      });
+      return;
+    }
+  }
   const title=entry?entry.title:'';
   fetch('generate_creatives.php',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({source:sourceText,title})
   }).then(r=>r.json()).then(js=>{
-    list.innerHTML='';
-    (js.keywords||[]).forEach(k=>{
+    const keys=js.keywords||[];
+    keys.forEach(k=>{
       const a=document.createElement('a');
       a.href=`https://www.pinterest.com/search/pins/?q=${encodeURIComponent(k)}`;
       a.target='_blank';
@@ -187,6 +196,14 @@ function loadCreatives(){
       a.textContent=k;
       list.appendChild(a);
     });
+    if(entry){
+      entry.creative_keywords=JSON.stringify(keys);
+      fetch('save_creatives.php',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({client_id:clientId,date:currentDate,keywords:keys})
+      });
+    }
   }).catch(()=>{list.innerHTML='<span class="text-danger">Failed</span>';});
 }
 function showGrid(){
@@ -345,7 +362,6 @@ document.getElementById('promptSubmit').addEventListener('click',()=>{
   document.getElementById('promptText').value='';
   if(txt) regen(txt);
 });
-document.getElementById('creativeRefresh').addEventListener('click',loadCreatives);
 function renderComments(){
   const list=document.getElementById('commentList');
   list.innerHTML='';
