@@ -746,9 +746,9 @@ try {
     if ($filterArchived) { $cond[] = 't.status="archived"'; } else { $cond[] = 't.status!="archived"'; }
     $where = $cond ? ' AND '.implode(' AND ',$cond) : '';
     if ($filterUser && !$filterArchived) {
-        $order = 'ORDER BY (c.progress_percent IS NULL), t.due_date, c.progress_percent DESC';
+        $order = 'ORDER BY (c.progress_percent IS NULL), t.order_index, c.progress_percent DESC, t.due_date';
     } else {
-        $order = 'ORDER BY (c.progress_percent IS NULL), c.progress_percent DESC, t.due_date';
+        $order = 'ORDER BY (c.progress_percent IS NULL), c.progress_percent DESC, t.order_index, t.due_date';
     }
     if (!$filterUser && !$filterClient && !$filterArchived) {
         $allStmt = $pdo->prepare('SELECT t.*,u.username,c.name AS client_name,c.priority AS client_priority,c.progress_percent AS client_percent,p.title AS parent_title FROM tasks t JOIN users u ON t.assigned_to=u.id LEFT JOIN clients c ON t.client_id=c.id LEFT JOIN tasks p ON t.parent_id=p.id WHERE t.parent_id IS NULL'.$where.' '.$order);
