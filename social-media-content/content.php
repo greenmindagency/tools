@@ -419,7 +419,8 @@ function frameHtml(src,size){
 }
 function gridFrameHtml(src,size){
   const [w,h]=size.split('x').map(Number);
-  return `<div class="position-relative border border-secondary overflow-hidden" style="width:100%;padding-top:100%"><iframe src="${src}" class="position-absolute top-50 start-50 translate-middle" style="width:${w}px;height:${h}px;border:0;" allowfullscreen></iframe></div>`;
+  const ratio=(h/w*100).toFixed(2);
+  return `<div class="position-relative border border-secondary overflow-hidden" style="width:100%;padding-top:${ratio}%"><iframe src="${src}" class="position-absolute top-0 start-0 w-100 h-100" style="border:0;" allowfullscreen></iframe></div>`;
 }
 function renderImages(){
   const section=document.getElementById('imageSection');
