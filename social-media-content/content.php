@@ -227,7 +227,7 @@ function showGrid(){
       }catch{}
     }
     const col=document.createElement('div');
-    col.className='col-sm-6 col-lg-4';
+    col.className='col-sm-6 col-lg-4 mb-2';
     if(src){
       col.innerHTML=gridFrameHtml(src,size);
     }else{
@@ -447,15 +447,25 @@ function renderImages(){
   } else {
     container.innerHTML=frameHtml(imgLinks[0],imgSize);
   }
-  imgLinks.forEach((_,i)=>{
+  imgLinks.forEach((src,i)=>{
     const li=document.createElement('li');
     li.className='list-group-item d-flex justify-content-between align-items-center';
     li.textContent=`Slide ${i+1}`;
+    const actions=document.createElement('div');
+    actions.className='d-flex gap-1';
+    const dl=document.createElement('a');
+    dl.className='btn btn-sm btn-outline-secondary';
+    dl.innerHTML='<i class="bi bi-download"></i>';
+    dl.href=src;
+    dl.target='_blank';
+    dl.rel='noopener';
+    actions.appendChild(dl);
     const btn=document.createElement('button');
     btn.className='btn btn-sm btn-outline-danger';
-    btn.textContent='Remove';
+    btn.innerHTML='<i class="bi bi-x"></i>';
     btn.addEventListener('click',()=>{imgLinks.splice(i,1);renderImages();});
-    li.appendChild(btn);
+    actions.appendChild(btn);
+    li.appendChild(actions);
     list.appendChild(li);
   });
 }
@@ -482,15 +492,25 @@ function renderVideos(){
   } else {
     container.innerHTML=frameHtml(vidLinks[0],vidSize);
   }
-  vidLinks.forEach((_,i)=>{
+  vidLinks.forEach((src,i)=>{
     const li=document.createElement('li');
     li.className='list-group-item d-flex justify-content-between align-items-center';
     li.textContent=`Slide ${i+1}`;
+    const actions=document.createElement('div');
+    actions.className='d-flex gap-1';
+    const dl=document.createElement('a');
+    dl.className='btn btn-sm btn-outline-secondary';
+    dl.innerHTML='<i class="bi bi-download"></i>';
+    dl.href=src;
+    dl.target='_blank';
+    dl.rel='noopener';
+    actions.appendChild(dl);
     const btn=document.createElement('button');
     btn.className='btn btn-sm btn-outline-danger';
-    btn.textContent='Remove';
+    btn.innerHTML='<i class="bi bi-x"></i>';
     btn.addEventListener('click',()=>{vidLinks.splice(i,1);renderVideos();});
-    li.appendChild(btn);
+    actions.appendChild(btn);
+    li.appendChild(actions);
     list.appendChild(li);
   });
 }
