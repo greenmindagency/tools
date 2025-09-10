@@ -92,20 +92,12 @@ $base = "client_id=$client_id&slug=$slug";
   <div class="col-md-4">
     <div class="input-group mb-3">
       <input type="text" class="form-control" id="mediaUrl" placeholder="Enter media URL">
-      <select class="form-select" id="mediaType">
-        <option value="image">Image</option>
-        <option value="video">Video</option>
-      </select>
       <select class="form-select" id="mediaSize"></select>
       <button class="btn btn-outline-secondary" type="button" id="importMediaBtn" data-bs-toggle="tooltip" title="Import media"><i class="bi bi-upload"></i></button>
     </div>
-    <div id="imageSection" style="display:none;" class="mb-3">
-      <div id="imgContainer" class="mb-2"></div>
-      <ul id="imgList" class="list-group"></ul>
-    </div>
-    <div id="videoSection" style="display:none;" class="mb-3">
-      <div id="vidContainer" class="mb-2"></div>
-      <ul id="vidList" class="list-group"></ul>
+    <div id="mediaSection" style="display:none;" class="mb-3">
+      <div id="mediaContainer" class="mb-2"></div>
+      <ul id="mediaList" class="list-group"></ul>
     </div>
   </div>
 </div>
@@ -154,14 +146,11 @@ const currentUser = <?= json_encode($_SESSION['username'] ?? '') ?>;
 const isAdmin = <?= json_encode($isAdmin) ?>;
 let currentDate = null;
 let currentEntries = [];
-let imgLinks = [];
-let vidLinks = [];
+let mediaItems = [];
 let comments = [];
 let approved = false;
-const imgSizes = ['1080x1080','1080x1350'];
-const vidSizes = ['1080x1080','1080x1350','1080x1920'];
-let imgSize = '1080x1350';
-let vidSize = '1080x1920';
+const mediaSizes = ['1080x1080','1080x1350','1080x1920'];
+let mediaSizeVal = '1080x1920';
 let promptModal;
 function loadCreatives(force=false){
   const list=document.getElementById('creativeList');
@@ -254,15 +243,17 @@ function selectPost(e){
   document.getElementById('contentText').value=e.content||'';
   document.getElementById('postDate').textContent=e.post_date;
   document.getElementById('postTitle').textContent=e.title;
-  imgLinks = e.images ? JSON.parse(e.images || '[]') || [] : [];
-  vidLinks = e.videos ? JSON.parse(e.videos || '[]') || [] : [];
-  imgSize = e.image_size || imgSizes[1];
-  vidSize = e.video_size || vidSizes[2];
+  const imgs = e.images ? JSON.parse(e.images || '[]') || [] : [];
+  const vids = e.videos ? JSON.parse(e.videos || '[]') || [] : [];
+  mediaItems = [
+    ...imgs.map(src=>({type:'image',src})),
+    ...vids.map(src=>({type:'video',src}))
+  ];
+  mediaSizeVal = e.image_size || e.video_size || mediaSizes[0];
   comments = e.comments ? JSON.parse(e.comments || '[]') || [] : [];
   approved = e.approved == 1;
   updateSizeOptions();
-  renderImages();
-  renderVideos();
+  renderMedia();
   renderComments();
   updateApproveBtn();
   loadCreatives();
@@ -282,11 +273,9 @@ function loadPosts(){
       document.getElementById('contentText').value='';
       document.getElementById('postDate').textContent='';
       document.getElementById('postTitle').textContent='';
-      imgLinks=[];
-      vidLinks=[];
+      mediaItems=[];
       updateSizeOptions();
-      renderImages();
-      renderVideos();
+      renderMedia();
       comments=[];
       renderComments();
       approved=false;
@@ -317,16 +306,13 @@ function loadPosts(){
   });
 }
 function updateSizeOptions(){
-  const type=document.getElementById('mediaType').value;
   const size=document.getElementById('mediaSize');
   size.innerHTML='';
-  const sizes=type==='image'?imgSizes:vidSizes;
-  const current=type==='image'?imgSize:vidSize;
-  sizes.forEach(s=>{
+  mediaSizes.forEach(s=>{
     const opt=document.createElement('option');
     opt.value=s;
     opt.textContent=s;
-    if(s===current) opt.selected=true;
+    if(s===mediaSizeVal) opt.selected=true;
     size.appendChild(opt);
   });
 }
@@ -348,10 +334,12 @@ document.getElementById('gridBtn').addEventListener('click',showGrid);
 document.getElementById('saveBtn').addEventListener('click',()=>{
   if(!currentDate) return;
   const content=document.getElementById('contentText').value;
+  const images=mediaItems.filter(m=>m.type==='image').map(m=>m.src);
+  const videos=mediaItems.filter(m=>m.type==='video').map(m=>m.src);
   fetch('save_content.php',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({client_id:clientId,date:currentDate,content,images:imgLinks,videos:vidLinks,image_size:imgSize,video_size:vidSize})
+    body:JSON.stringify({client_id:clientId,date:currentDate,content,images,videos,image_size:mediaSizeVal,video_size:mediaSizeVal})
   }).then(()=>{showToast('Saved');loadPosts();});
 });
 function regen(custom=''){
@@ -490,30 +478,30 @@ function gridFrameHtml(src,size){
   else if(size==='1080x1080') ratioClass = 'ratio-1x1';
   return `<div class="ratio ${ratioClass}"><iframe src="${src}" allowfullscreen></iframe></div>`;
 }
-function renderImages(){
-  const section=document.getElementById('imageSection');
-  const container=document.getElementById('imgContainer');
-  const list=document.getElementById('imgList');
+function renderMedia(){
+  const section=document.getElementById('mediaSection');
+  const container=document.getElementById('mediaContainer');
+  const list=document.getElementById('mediaList');
   container.innerHTML='';
   list.innerHTML='';
-  if(!imgLinks.length){section.style.display='none';return;}
+  if(!mediaItems.length){section.style.display='none';return;}
   section.style.display='';
-  if(imgLinks.length>1){
-    const slides=imgLinks.map((src,i)=>`
+  if(mediaItems.length>1){
+    const slides=mediaItems.map((m,i)=>`
       <div class="carousel-item${i===0?' active':''}">
-        ${frameHtml(src,imgSize)}
+        ${frameHtml(m.src,mediaSizeVal)}
       </div>`).join('');
-    const indicators=imgLinks.map((_,i)=>`<button type="button" data-bs-target="#imgCarousel" data-bs-slide-to="${i}" class="${i===0?'active':''}" aria-current="${i===0?'true':'false'}" aria-label="Slide ${i+1}" style="width:auto;height:auto;text-indent:0;"><span class=\"badge bg-secondary\">${i+1}</span></button>`).join('');
+    const indicators=mediaItems.map((_,i)=>`<button type="button" data-bs-target="#mediaCarousel" data-bs-slide-to="${i}" class="${i===0?'active':''}" aria-current="${i===0?'true':'false'}" aria-label="Slide ${i+1}" style="width:auto;height:auto;text-indent:0;"><span class=\"badge bg-secondary\">${i+1}</span></button>`).join('');
     container.innerHTML=`
-      <div id="imgCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
+      <div id="mediaCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
         <div class="carousel-indicators position-static mb-2">${indicators}</div>
         <div class="carousel-inner">${slides}</div>
       </div>`;
-    new bootstrap.Carousel(document.getElementById('imgCarousel'));
+    new bootstrap.Carousel(document.getElementById('mediaCarousel'));
   } else {
-    container.innerHTML=frameHtml(imgLinks[0],imgSize);
+    container.innerHTML=frameHtml(mediaItems[0].src,mediaSizeVal);
   }
-  imgLinks.forEach((src,i)=>{
+  mediaItems.forEach((m,i)=>{
     const li=document.createElement('li');
     li.className='list-group-item d-flex justify-content-between align-items-center';
     li.textContent=`Slide ${i+1}`;
@@ -522,7 +510,7 @@ function renderImages(){
     const dl=document.createElement('a');
     dl.className='btn btn-sm btn-outline-secondary';
     dl.innerHTML='<i class="bi bi-download"></i>';
-    const viewSrc = src.replace('/preview','/view');
+    const viewSrc=m.src.replace('/preview','/view');
     dl.href=viewSrc;
     dl.target='_blank';
     dl.rel='noopener';
@@ -530,76 +518,27 @@ function renderImages(){
     const btn=document.createElement('button');
     btn.className='btn btn-sm btn-outline-danger';
     btn.innerHTML='<i class="bi bi-x"></i>';
-    btn.addEventListener('click',()=>{imgLinks.splice(i,1);renderImages();});
+    btn.addEventListener('click',()=>{mediaItems.splice(i,1);renderMedia();});
     actions.appendChild(btn);
     li.appendChild(actions);
     list.appendChild(li);
   });
 }
-function renderVideos(){
-  const section=document.getElementById('videoSection');
-  const container=document.getElementById('vidContainer');
-  const list=document.getElementById('vidList');
-  container.innerHTML='';
-  list.innerHTML='';
-  if(!vidLinks.length){section.style.display='none';return;}
-  section.style.display='';
-  if(vidLinks.length>1){
-    const slides=vidLinks.map((src,i)=>`
-      <div class="carousel-item${i===0?' active':''}">
-        ${frameHtml(src,vidSize)}
-      </div>`).join('');
-    const indicators=vidLinks.map((_,i)=>`<button type="button" data-bs-target="#vidCarousel" data-bs-slide-to="${i}" class="${i===0?'active':''}" aria-current="${i===0?'true':'false'}" aria-label="Slide ${i+1}" style="width:auto;height:auto;text-indent:0;"><span class=\"badge bg-secondary\">${i+1}</span></button>`).join('');
-    container.innerHTML=`
-      <div id="vidCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
-        <div class="carousel-indicators position-static mb-2">${indicators}</div>
-        <div class="carousel-inner">${slides}</div>
-      </div>`;
-    new bootstrap.Carousel(document.getElementById('vidCarousel'));
-  } else {
-    container.innerHTML=frameHtml(vidLinks[0],vidSize);
-  }
-  vidLinks.forEach((src,i)=>{
-    const li=document.createElement('li');
-    li.className='list-group-item d-flex justify-content-between align-items-center';
-    li.textContent=`Slide ${i+1}`;
-    const actions=document.createElement('div');
-    actions.className='d-flex gap-1';
-    const dl=document.createElement('a');
-    dl.className='btn btn-sm btn-outline-secondary';
-    dl.innerHTML='<i class="bi bi-download"></i>';
-    const viewSrc = src.replace('/preview','/view');
-    dl.href=viewSrc;
-    dl.target='_blank';
-    dl.rel='noopener';
-    actions.appendChild(dl);
-    const btn=document.createElement('button');
-    btn.className='btn btn-sm btn-outline-danger';
-    btn.innerHTML='<i class="bi bi-x"></i>';
-    btn.addEventListener('click',()=>{vidLinks.splice(i,1);renderVideos();});
-    actions.appendChild(btn);
-    li.appendChild(actions);
-    list.appendChild(li);
-  });
-}
-document.getElementById('mediaType').addEventListener('change',()=>{updateSizeOptions();renderImages();renderVideos();});
-document.getElementById('mediaSize').addEventListener('change',e=>{
-  if(document.getElementById('mediaType').value==='image'){
-    imgSize=e.target.value;renderImages();
-  }else{
-    vidSize=e.target.value;renderVideos();
-  }
-});
+document.getElementById('mediaSize').addEventListener('change',e=>{mediaSizeVal=e.target.value;renderMedia();});
 function toPreview(url){
   const m=url.match(/\/d\/([^/]+)/)||url.match(/[?&]id=([^&]+)/);
   return m?`https://drive.google.com/file/d/${m[1]}/preview`:url;
 }
 document.getElementById('importMediaBtn').addEventListener('click',()=>{
   const url=document.getElementById('mediaUrl').value.trim();
-  const type=document.getElementById('mediaType').value;
-  if(url){(type==='image'?imgLinks:vidLinks).push(toPreview(url));}
+  const size=document.getElementById('mediaSize').value;
+  if(!url) return;
+  mediaSizeVal=size;
+  const src=toPreview(url);
+  const isVideo=/\.(mp4|mov|avi|webm|mkv)$/i.test(url) || size==='1080x1920';
+  mediaItems.push({src,type:isVideo?'video':'image'});
   document.getElementById('mediaUrl').value='';
-  if(type==='image') renderImages(); else renderVideos();
+  renderMedia();
 });
 </script>
 <?php include 'footer.php'; ?>
