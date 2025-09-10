@@ -16,12 +16,9 @@ $url = $stmt->fetchColumn();
 if(!$url){
     $dt = date_create($date);
     if($dt){
-        $year = $dt->format('Y');
-        $month = $dt->format('m');
-        $day = $dt->format('d');
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $baseUrl = $scheme.'://'.$_SERVER['HTTP_HOST'].dirname($_SERVER['REQUEST_URI']);
-        $full = $baseUrl.'/content.php?client_id='.$client_id.'&year='.$year.'&month='.$month.'&date='.$day;
+        $full = $baseUrl.'/content.php?client_id='.$client_id.'&date='.$dt->format('Y-m-d');
         $short = @file_get_contents('https://tinyurl.com/api-create.php?url='.urlencode($full));
         if($short){
             $ins = $pdo->prepare('INSERT INTO content_links (client_id, post_date, short_url) VALUES (?,?,?) ON DUPLICATE KEY UPDATE short_url=VALUES(short_url)');

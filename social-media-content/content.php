@@ -329,6 +329,13 @@ window.addEventListener('load',()=>{
   promptModal=new bootstrap.Modal(document.getElementById('promptModal'));
   document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
   updateSizeOptions();
+  const paramDate=new URLSearchParams(window.location.search).get('date');
+  if(paramDate){
+    const [y,m]=paramDate.split('-');
+    const sel=document.getElementById('month');
+    const val=`${y}-${m}`;
+    if(sel.querySelector(`option[value="${val}"]`)) sel.value=val;
+  }
   loadPosts();
 });
 document.getElementById('month').addEventListener('change',loadPosts);
