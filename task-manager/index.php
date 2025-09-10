@@ -1331,9 +1331,15 @@ document.querySelectorAll('form.ajax').forEach(f=>{
 
 function insertSorted(li, list){
   if(!list) return;
-  const items = Array.from(list.children);
-  const before = items.find(el => parseInt(el.dataset.orderIndex) > parseInt(li.dataset.orderIndex));
-  list.insertBefore(li, before || null);
+  const liOrder = parseInt(li.dataset.orderIndex);
+  if(isNaN(liOrder)) return;
+  const items = Array.from(list.children).filter(el => el !== li);
+  const before = items.find(el => {
+    const idx = parseInt(el.dataset.orderIndex);
+    return !isNaN(idx) && idx > liOrder;
+  });
+  if(before) list.insertBefore(li, before);
+  else list.appendChild(li);
 }
 
 document.querySelectorAll('.complete-checkbox').forEach(cb=>{
