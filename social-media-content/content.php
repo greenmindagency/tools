@@ -276,30 +276,11 @@ function loadPosts(){
       return;
     }
     js.forEach(e=>{
-      const item=document.createElement('div');
-      item.className='list-group-item list-group-item-action d-flex justify-content-between align-items-center';
-      const info=document.createElement('span');
-      info.innerHTML=`<span class="me-2 px-1 bg-secondary text-white rounded">${e.post_date}</span>${e.title}`;
-      const share=document.createElement('button');
-      share.type='button';
-      share.className='btn btn-sm btn-outline-secondary';
-      share.innerHTML='<i class="bi bi-share"></i>';
-      share.addEventListener('click',async ev=>{
-        ev.stopPropagation();
-        try{
-          const res=await fetch('share_post.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,date:e.post_date})});
-          const js=await res.json();
-          if(js.short_url){
-            await navigator.clipboard.writeText(js.short_url);
-            showToast('Share link copied');
-          }else{
-            showToast('Share failed');
-          }
-        }catch(err){
-          showToast('Share failed');
-        }
-      });
-      item.addEventListener('click',()=>{
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='list-group-item list-group-item-action';
+      btn.innerHTML=`<span class="me-2 px-1 bg-secondary text-white rounded">${e.post_date}</span>${e.title}`;
+      btn.addEventListener('click',()=>{
         currentDate=e.post_date;
         document.getElementById('contentText').value=e.content||'';
         document.getElementById('postDate').textContent=e.post_date;
@@ -315,9 +296,7 @@ function loadPosts(){
         renderComments();
         loadCreatives();
       });
-      item.appendChild(info);
-      item.appendChild(share);
-      list.appendChild(item);
+      list.appendChild(btn);
     });
     const first=js.find(e=>e.post_date===targetDate)||js.find(e=>e.post_date===prev)||js[0];
     targetDate=null;
@@ -335,9 +314,6 @@ function loadPosts(){
     renderVideos();
     renderComments();
     loadCreatives();
-  }).catch(()=>{
-    const list=document.getElementById('postList');
-    list.innerHTML='<div class="list-group-item text-danger">Failed to load posts</div>';
   });
 }
 function updateSizeOptions(){
