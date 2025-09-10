@@ -14,7 +14,7 @@ $start = sprintf('%04d-%02d-01', $year, $month);
 $end = date('Y-m-t', strtotime($start));
 $onlyContent = isset($_GET['with_content']);
 $onlyTitle   = isset($_GET['with_title']);
-$sql = 'SELECT post_date, title, content, image_size, video_size, images, videos, comments, creative_keywords FROM client_calendar WHERE client_id = ? AND post_date BETWEEN ? AND ?';
+$sql = 'SELECT post_date, title, content, image_size, video_size, images, videos, comments, creative_keywords, approved FROM client_calendar WHERE client_id = ? AND post_date BETWEEN ? AND ?';
 if ($onlyContent) {
     $sql .= " AND content IS NOT NULL AND TRIM(content) <> '' AND title IS NOT NULL AND TRIM(title) <> ''";
 } elseif ($onlyTitle) {

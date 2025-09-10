@@ -65,6 +65,7 @@ $base = "client_id=$client_id&slug=$slug";
       <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="genBtn" data-bs-toggle="tooltip" title="Generate content">&#9889;</button>
       <button type="button" class="btn btn-sm btn-outline-primary" id="promptBtn" data-bs-toggle="tooltip" title="Generate with prompt">&#x2728;</button>
       <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="shareBtn" data-bs-toggle="tooltip" title="Copy share link"><i class="bi bi-share"></i></button>
+      <button type="button" class="btn btn-sm btn-outline-success ms-1" id="approveBtn" data-bs-toggle="tooltip" title="Mark as approved"><i class="bi bi-check2"></i> Approve</button>
     </div>
     <div id="metaInfo" class="mb-4">
       <div class="mb-2"><strong>Date:</strong> <span id="postDate"></span></div>
@@ -156,6 +157,7 @@ let currentEntries = [];
 let imgLinks = [];
 let vidLinks = [];
 let comments = [];
+let approved = false;
 const sizeOptions = ['1080x1350','1080x1920'];
 let imgSize = '1080x1350';
 let vidSize = '1080x1920';
@@ -258,10 +260,12 @@ function selectPost(e){
   imgSize = e.image_size || sizeOptions[0];
   vidSize = e.video_size || sizeOptions[1];
   comments = e.comments ? JSON.parse(e.comments || '[]') || [] : [];
+  approved = e.approved == 1;
   updateSizeOptions();
   renderImages();
   renderVideos();
   renderComments();
+  updateApproveBtn();
   loadCreatives();
 }
 function loadPosts(){
@@ -286,6 +290,8 @@ function loadPosts(){
       renderVideos();
       comments=[];
       renderComments();
+      approved=false;
+      updateApproveBtn();
       document.getElementById('creativeList').innerHTML='';
       return;
     }
@@ -383,6 +389,37 @@ document.getElementById('shareBtn').addEventListener('click',()=>{
       showToast('Failed to get link');
     }
   }).catch(()=>showToast('Failed to get link'));
+});
+
+function updateApproveBtn(){
+  const btn=document.getElementById('approveBtn');
+  if(approved){
+    btn.className='btn btn-sm btn-success ms-1';
+    btn.innerHTML='<i class="bi bi-check2"></i> Approved';
+    btn.disabled=true;
+  }else{
+    btn.className='btn btn-sm btn-outline-success ms-1';
+    btn.innerHTML='<i class="bi bi-check2"></i> Approve';
+    btn.disabled=false;
+  }
+}
+document.getElementById('approveBtn').addEventListener('click',()=>{
+  if(!currentDate) return;
+  const btn=document.getElementById('approveBtn');
+  btn.disabled=true;
+  btn.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span> Approving...';
+  setTimeout(()=>{
+    fetch('approve_post.php',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({client_id:clientId,date:currentDate,approved:1})
+    }).then(()=>{
+      approved=true;
+      const entry=currentEntries.find(e=>e.post_date===currentDate);
+      if(entry) entry.approved=1;
+      updateApproveBtn();
+    }).catch(()=>{approved=false;updateApproveBtn();});
+  },1000);
 });
 document.getElementById('promptSubmit').addEventListener('click',()=>{
   const txt=document.getElementById('promptText').value.trim();

@@ -68,6 +68,9 @@ try {
     if (!$pdo->query("SHOW COLUMNS FROM client_calendar LIKE 'creative_keywords'")->fetch()) {
         $pdo->exec("ALTER TABLE client_calendar ADD COLUMN creative_keywords TEXT AFTER comments");
     }
+    if (!$pdo->query("SHOW COLUMNS FROM client_calendar LIKE 'approved'")->fetch()) {
+        $pdo->exec("ALTER TABLE client_calendar ADD COLUMN approved TINYINT(1) DEFAULT 0 AFTER creative_keywords");
+    }
 
     // Short links for shared calendars
     $pdo->exec("CREATE TABLE IF NOT EXISTS calendar_links (

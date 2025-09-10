@@ -70,8 +70,21 @@ $base = "client_id=$client_id&slug=$slug";
     </div>
   </div>
   <div class="col-md-8">
-    <h5 id="previewTitle"></h5>
-    <div id="previewContainer"></div>
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 id="previewTitle" class="mb-0"></h5>
+      <button type="button" class="btn btn-sm btn-outline-success" id="approveCoverBtn" data-bs-toggle="tooltip" title="Mark as approved"><i class="bi bi-check2"></i> Approve</button>
+    </div>
+    <div id="previewContainer" class="mb-3"></div>
+    <div>
+      <h6>Comments</h6>
+      <div class="comments-wrapper">
+        <div id="coverCommentList" class="mb-2"></div>
+        <div class="mb-2 position-relative">
+          <textarea id="coverCommentText" class="form-control form-control-sm" style="padding-right:5rem;" placeholder="Comment now"></textarea>
+          <button type="button" class="btn btn-sm btn-primary position-absolute bottom-0 end-0 m-1" id="addCoverCommentBtn">Comment</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
@@ -84,8 +97,11 @@ $base = "client_id=$client_id&slug=$slug";
 </div>
 <script>
 const clientId = <?=$client_id?>;
+const currentUser = <?= json_encode($_SESSION['username'] ?? '') ?>;
+const isAdmin = <?= json_encode($isAdmin) ?>;
 let coverLinks = <?= json_encode($covers) ?>;
 let activeIndex = 0;
+let coverComments = [];
 function frameHtml(src,size){
   const [w,h]=(size||'1080x1080').split('x').map(Number);
   const ratio=(h/w*100).toFixed(2);
@@ -108,7 +124,9 @@ function normalizeCovers(){
       type:c.type,
       size:c.size,
       label:c.label||getLabel(c.type),
-      option:c.option||counts[c.type]
+      option:c.option||counts[c.type],
+      comments:c.comments||[],
+      approved:c.approved||0
     };
   });
 }
@@ -118,6 +136,9 @@ function showPreview(i){
   const c=coverLinks[i];
   document.getElementById('previewTitle').textContent=`${c.label} Option ${c.option}`;
   document.getElementById('previewContainer').innerHTML=frameHtml(c.src,c.size);
+  coverComments = c.comments || [];
+  renderCoverComments();
+  updateCoverApproveBtn();
   document.querySelectorAll('#coverList .list-group-item').forEach((li,idx)=>{
     li.classList.toggle('active',idx===i);
   });
@@ -130,6 +151,9 @@ function renderCovers(){
     section.style.display='none';
     document.getElementById('previewTitle').textContent='';
     document.getElementById('previewContainer').innerHTML='';
+    coverComments=[];
+    renderCoverComments();
+    updateCoverApproveBtn();
     return;
   }
   section.style.display='';
@@ -172,6 +196,85 @@ function renderCovers(){
   list.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
   showPreview(activeIndex);
 }
+
+function renderCoverComments(){
+  const list=document.getElementById('coverCommentList');
+  list.innerHTML='';
+  coverComments.forEach((c,i)=>{
+    const div=document.createElement('div');
+    div.className='mb-2 comment-item';
+    const text=document.createElement('span');
+    text.className='comment-text';
+    text.innerHTML=`<strong>${c.user}:</strong> ${c.text}`;
+    div.appendChild(text);
+    if(isAdmin || c.user===currentUser){
+      const actions=document.createElement('span');
+      actions.className='float-end ms-2';
+      const edit=document.createElement('a');
+      edit.href='#';
+      edit.className='text-decoration-none me-2';
+      edit.innerHTML='<i class="bi bi-pencil"></i>';
+      edit.addEventListener('click',e=>{e.preventDefault();const t=prompt("Edit comment",c.text);if(t!==null){c.text=t;renderCoverComments();saveCoverComments();}});
+      actions.appendChild(edit);
+      const del=document.createElement('a');
+      del.href='#';
+      del.className='text-decoration-none text-danger';
+      del.innerHTML='<i class="bi bi-trash"></i>';
+      del.addEventListener('click',e=>{e.preventDefault();coverComments.splice(i,1);renderCoverComments();saveCoverComments();});
+      actions.appendChild(del);
+      div.appendChild(actions);
+    }
+    list.appendChild(div);
+  });
+}
+document.getElementById('addCoverCommentBtn').addEventListener('click',()=>{
+  const text=document.getElementById('coverCommentText').value.trim();
+  if(currentUser && text){
+    coverComments.push({user:currentUser,text});
+    document.getElementById('coverCommentText').value='';
+    renderCoverComments();
+    saveCoverComments();
+  }
+});
+function saveCoverComments(){
+  if(coverLinks[activeIndex]) coverLinks[activeIndex].comments=coverComments;
+  fetch('save_covers.php',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({client_id:clientId,covers:coverLinks})
+  });
+}
+function updateCoverApproveBtn(){
+  const btn=document.getElementById('approveCoverBtn');
+  const approved=coverLinks[activeIndex]?.approved;
+  if(approved){
+    btn.className='btn btn-sm btn-success';
+    btn.innerHTML='<i class="bi bi-check2"></i> Approved';
+    btn.disabled=true;
+  }else if(coverLinks.length){
+    btn.className='btn btn-sm btn-outline-success';
+    btn.innerHTML='<i class="bi bi-check2"></i> Approve';
+    btn.disabled=false;
+  }else{
+    btn.className='btn btn-sm btn-outline-secondary';
+    btn.innerHTML='<i class="bi bi-check2"></i> Approve';
+    btn.disabled=true;
+  }
+}
+document.getElementById('approveCoverBtn').addEventListener('click',()=>{
+  const btn=document.getElementById('approveCoverBtn');
+  btn.disabled=true;
+  btn.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span> Approving...';
+  setTimeout(()=>{
+    coverLinks[activeIndex].approved=1;
+    updateCoverApproveBtn();
+    fetch('save_covers.php',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({client_id:clientId,covers:coverLinks})
+    });
+  },1000);
+});
 window.addEventListener('load',()=>{
   document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
   normalizeCovers();
@@ -184,7 +287,7 @@ window.addEventListener('load',()=>{
     const label=sel.options[sel.selectedIndex].text;
     if(url){
       const option=coverLinks.filter(c=>c.type===type).length+1;
-      coverLinks.push({src:toPreview(url),type,size,label,option});
+      coverLinks.push({src:toPreview(url),type,size,label,option,comments:[],approved:0});
       activeIndex=coverLinks.length-1;
       showToast('Cover imported');
     }
