@@ -64,6 +64,7 @@ $base = "client_id=$client_id&slug=$slug";
     <div class="d-flex justify-content-end mb-2">
       <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="genBtn" data-bs-toggle="tooltip" title="Generate content">&#9889;</button>
       <button type="button" class="btn btn-sm btn-outline-primary" id="promptBtn" data-bs-toggle="tooltip" title="Generate with prompt">&#x2728;</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="shareBtn" data-bs-toggle="tooltip" title="Copy share link"><i class="bi bi-share"></i></button>
     </div>
     <div id="metaInfo" class="mb-4">
       <div class="mb-2"><strong>Date:</strong> <span id="postDate"></span></div>
@@ -361,6 +362,21 @@ function regen(custom=''){
 }
 document.getElementById('genBtn').addEventListener('click',()=>regen());
 document.getElementById('promptBtn').addEventListener('click',()=>{promptModal.show();});
+document.getElementById('shareBtn').addEventListener('click',()=>{
+  if(!currentDate) return;
+  fetch('share_post.php',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({client_id:clientId,date:currentDate})
+  }).then(r=>r.json()).then(js=>{
+    if(js.short_url){
+      navigator.clipboard.writeText(js.short_url).catch(()=>{});
+      showToast('Copied: '+js.short_url);
+    }else{
+      showToast('Failed to get link');
+    }
+  }).catch(()=>showToast('Failed to get link'));
+});
 document.getElementById('promptSubmit').addEventListener('click',()=>{
   const txt=document.getElementById('promptText').value.trim();
   promptModal.hide();
