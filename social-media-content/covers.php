@@ -41,43 +41,86 @@ $base = "client_id=$client_id&slug=$slug";
 <div class="row">
   <div class="col-md-4">
     <div class="input-group mb-3">
+      <input type="text" class="form-control" id="coverUrl" placeholder="Enter media URL">
       <select id="coverType" class="form-select">
         <option value="facebook" data-size="1230x468">Facebook Cover</option>
         <option value="linkedin" data-size="1128x191">LinkedIn Cover</option>
         <option value="highlights" data-size="1128x191">Instagram Highlights</option>
       </select>
-      <button class="btn btn-outline-secondary" type="button" id="importBtn">Import</button>
+      <button class="btn btn-outline-secondary" type="button" id="importCoverBtn" data-bs-toggle="tooltip" title="Import cover"><i class="bi bi-upload"></i></button>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Facebook Cover</label>
-      <input type="text" id="fbUrl" class="form-control mb-2" readonly>
-      <label class="form-label">LinkedIn Cover</label>
-      <input type="text" id="liUrl" class="form-control mb-2" readonly>
-      <label class="form-label">Instagram Highlights</label>
-      <input type="text" id="igUrl" class="form-control" readonly>
-    </div>
-  </div>
-  <div class="col-md-8">
-    <div id="preview" class="border bg-light d-flex align-items-center justify-content-center" style="height:300px;">
-      Creative Here
+    <div id="coverSection" style="display:none;" class="mb-3">
+      <div id="coverContainer" class="mb-2"></div>
+      <ul id="coverList" class="list-group"></ul>
     </div>
   </div>
 </div>
 <script>
-document.getElementById('importBtn').addEventListener('click', () => {
-  const sel = document.getElementById('coverType');
-  const opt = sel.options[sel.selectedIndex];
-  const size = opt.dataset.size;
-  const [w,h] = size.split('x');
-  const url = `https://placehold.co/${w}x${h}`;
-  if (sel.value === 'facebook') {
-    document.getElementById('fbUrl').value = url;
-  } else if (sel.value === 'linkedin') {
-    document.getElementById('liUrl').value = url;
+let coverLinks=[];
+function frameHtml(src,size){
+  const [w,h]=(size||'1080x1080').split('x').map(Number);
+  const ratio=(h/w*100).toFixed(2);
+  return `<div class="border border-secondary"><div class="position-relative overflow-hidden" style="width:100%;padding-top:${ratio}%"><iframe src="${src}" class="position-absolute top-0 start-0 w-100 h-100" style="border:0;" allowfullscreen></iframe></div></div>`;
+}
+function toPreview(url){
+  const m=url.match(/\/d\/([^/]+)/)||url.match(/[?&]id=([^&]+)/);
+  return m?`https://drive.google.com/file/d/${m[1]}/preview`:url;
+}
+function renderCovers(){
+  const section=document.getElementById('coverSection');
+  const container=document.getElementById('coverContainer');
+  const list=document.getElementById('coverList');
+  container.innerHTML='';
+  list.innerHTML='';
+  if(!coverLinks.length){section.style.display='none';return;}
+  section.style.display='';
+  if(coverLinks.length>1){
+    const slides=coverLinks.map((c,i)=>`
+      <div class="carousel-item${i===0?' active':''}">
+        ${frameHtml(c.src,c.size)}
+      </div>`).join('');
+    const indicators=coverLinks.map((_,i)=>`<button type="button" data-bs-target="#coverCarousel" data-bs-slide-to="${i}" class="${i===0?'active':''}" aria-current="${i===0?'true':'false'}" aria-label="Slide ${i+1}" style="width:auto;height:auto;text-indent:0;"><span class=\"badge bg-secondary\">${i+1}</span></button>`).join('');
+    container.innerHTML=`
+      <div id="coverCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
+        <div class="carousel-indicators position-static mb-2">${indicators}</div>
+        <div class="carousel-inner">${slides}</div>
+      </div>`;
+    new bootstrap.Carousel(document.getElementById('coverCarousel'));
   } else {
-    document.getElementById('igUrl').value = url;
+    container.innerHTML=frameHtml(coverLinks[0].src,coverLinks[0].size);
   }
-  document.getElementById('preview').innerHTML = `<img src="${url}" class="img-fluid" alt="${opt.text}">`;
+  coverLinks.forEach((c,i)=>{
+    const li=document.createElement('li');
+    li.className='list-group-item d-flex justify-content-between align-items-center';
+    li.textContent=`${c.type.charAt(0).toUpperCase()+c.type.slice(1)} ${i+1}`;
+    const actions=document.createElement('div');
+    actions.className='d-flex gap-1';
+    const dl=document.createElement('a');
+    dl.className='btn btn-sm btn-outline-secondary';
+    dl.innerHTML='<i class="bi bi-download"></i>';
+    const viewSrc=c.src.replace('/preview','/view');
+    dl.href=viewSrc;
+    dl.target='_blank';
+    dl.rel='noopener';
+    actions.appendChild(dl);
+    const btn=document.createElement('button');
+    btn.className='btn btn-sm btn-outline-danger';
+    btn.innerHTML='<i class="bi bi-x"></i>';
+    btn.addEventListener('click',()=>{coverLinks.splice(i,1);renderCovers();});
+    actions.appendChild(btn);
+    li.appendChild(actions);
+    list.appendChild(li);
+  });
+}
+document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
+document.getElementById('importCoverBtn').addEventListener('click',()=>{
+  const url=document.getElementById('coverUrl').value.trim();
+  const sel=document.getElementById('coverType');
+  const type=sel.value;
+  const size=sel.options[sel.selectedIndex].dataset.size;
+  if(url){coverLinks.push({src:toPreview(url),type,size});}
+  document.getElementById('coverUrl').value='';
+  renderCovers();
 });
 </script>
 <?php include 'footer.php'; ?>

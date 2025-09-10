@@ -171,7 +171,7 @@ function render_task($t, $users, $clients, $filterUser = null, $userLoadClasses 
     $toggleAttr = ' data-bs-toggle="collapse" data-bs-target="#task-'.$t['id'].'"';
     ob_start();
     ?>
-    <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>" data-due-date="<?= htmlspecialchars($t['due_date']) ?>" data-order-index="<?= $t['order_index'] ?>" data-recurrence="<?= htmlspecialchars($t['recurrence']) ?>"<?= $isSub ? ' data-parent-id="'.$t['parent_id'].'" data-parent-title="'.htmlspecialchars($t['parent_title']).'" data-sub-title="'.htmlspecialchars($t['title']).'"' : '' ?>>
+    <li class="list-group-item d-flex align-items-start <?= $t['status']==='done'?'opacity-50':'' ?> <?= $overdue?'border border-danger':'' ?>" data-task-id="<?= $t['id'] ?>" data-due-date="<?= htmlspecialchars($t['due_date']) ?>" data-order-index="<?= $t['order_index'] ?>" data-client-priority="<?= htmlspecialchars($t['client_priority'] ?? '') ?>" data-recurrence="<?= htmlspecialchars($t['recurrence']) ?>"<?= $isSub ? ' data-parent-id="'.$t['parent_id'].'" data-parent-title="'.htmlspecialchars($t['parent_title']).'" data-sub-title="'.htmlspecialchars($t['title']).'"' : '' ?>>
       <?php if(!$archivedView): ?>
       <form method="post" class="me-2 complete-form" data-bs-toggle="tooltip" title="Complete">
         <input type="hidden" name="toggle_complete" value="<?= $t['id'] ?>">
@@ -1331,6 +1331,20 @@ document.querySelectorAll('form.ajax').forEach(f=>{
 
 function insertSorted(li, list){
   if(!list) return;
+  if(list.id === 'all-list'){
+    const prioRank = { 'Critical':1, 'High':2, 'Intermed':3, 'Medium':3, 'Normal':3, 'Low':4 };
+    const liPrio = prioRank[li.dataset.clientPriority] || 5;
+    const liDate = li.dataset.dueDate || '';
+    const items = Array.from(list.children).filter(el => el !== li);
+    const before = items.find(el => {
+      const ePrio = prioRank[el.dataset.clientPriority] || 5;
+      const eDate = el.dataset.dueDate || '';
+      return ePrio > liPrio || (ePrio === liPrio && eDate > liDate);
+    });
+    if(before) list.insertBefore(li, before);
+    else list.appendChild(li);
+    return;
+  }
   const liOrder = parseInt(li.dataset.orderIndex);
   if(isNaN(liOrder)) return;
   const items = Array.from(list.children).filter(el => el !== li);
@@ -1476,6 +1490,7 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
       const opt = clientSel.selectedOptions[0];
       const cName = clientSel.value ? opt.textContent : 'Others';
       const cPrio = clientSel.value ? (opt.dataset.priority || '') : '';
+      li.dataset.clientPriority = cPrio;
       const clientWrapper = li.querySelector('.client');
       let clientSpan = clientWrapper.querySelector('.client-priority');
       if(clientSel.value){
@@ -1491,6 +1506,7 @@ document.querySelectorAll('.save-btn').forEach(btn=>{
         clientWrapper.textContent = 'Others';
       }
       li.querySelectorAll('.subtask-list li').forEach(sub=>{
+        sub.dataset.clientPriority = cPrio;
         const subClient = sub.querySelector('.client');
         let subSpan = subClient.querySelector('.client-priority');
         if(clientSel.value){
@@ -1847,6 +1863,7 @@ function initTask(li){
         const opt = clientSel.selectedOptions[0];
         const cName = clientSel.value ? opt.textContent : 'Others';
         const cPrio = clientSel.value ? (opt.dataset.priority || '') : '';
+        liEl.dataset.clientPriority = cPrio;
         const clientWrapper = liEl.querySelector('.client');
         let clientSpan = clientWrapper.querySelector('.client-priority');
         if(clientSel.value){
@@ -1862,6 +1879,7 @@ function initTask(li){
           clientWrapper.textContent = 'Others';
         }
         liEl.querySelectorAll('.subtask-list li').forEach(sub=>{
+          sub.dataset.clientPriority = cPrio;
           const subClient = sub.querySelector('.client');
           let subSpan = subClient.querySelector('.client-priority');
           if(clientSel.value){
