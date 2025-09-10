@@ -22,6 +22,11 @@ $stmt->execute([$client_id]);
 $client = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$client) die('Client not found');
 
+$stmt = $pdo->prepare('SELECT covers FROM client_covers WHERE client_id = ?');
+$stmt->execute([$client_id]);
+$coverData = $stmt->fetchColumn();
+$covers = $coverData ? json_decode($coverData, true) : [];
+
 $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', $client['name']), '-'));
 $breadcrumb_client = [
     'name' => $client['name'],
@@ -51,12 +56,14 @@ $base = "client_id=$client_id&slug=$slug";
     </div>
     <div id="coverSection" style="display:none;" class="mb-3">
       <div id="coverContainer" class="mb-2"></div>
-      <ul id="coverList" class="list-group"></ul>
+      <ul id="coverList" class="list-group mb-2"></ul>
+      <button type="button" class="btn btn-success" id="saveCoverBtn">Save</button>
     </div>
   </div>
 </div>
 <script>
-let coverLinks=[];
+const clientId = <?=$client_id?>;
+let coverLinks = <?= json_encode($covers) ?>;
 function frameHtml(src,size){
   const [w,h]=(size||'1080x1080').split('x').map(Number);
   const ratio=(h/w*100).toFixed(2);
@@ -112,15 +119,25 @@ function renderCovers(){
     list.appendChild(li);
   });
 }
-document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
-document.getElementById('importCoverBtn').addEventListener('click',()=>{
-  const url=document.getElementById('coverUrl').value.trim();
-  const sel=document.getElementById('coverType');
-  const type=sel.value;
-  const size=sel.options[sel.selectedIndex].dataset.size;
-  if(url){coverLinks.push({src:toPreview(url),type,size});}
-  document.getElementById('coverUrl').value='';
+window.addEventListener('load',()=>{
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
   renderCovers();
+  document.getElementById('importCoverBtn').addEventListener('click',()=>{
+    const url=document.getElementById('coverUrl').value.trim();
+    const sel=document.getElementById('coverType');
+    const type=sel.value;
+    const size=sel.options[sel.selectedIndex].dataset.size;
+    if(url){coverLinks.push({src:toPreview(url),type,size});}
+    document.getElementById('coverUrl').value='';
+    renderCovers();
+  });
+  document.getElementById('saveCoverBtn').addEventListener('click',()=>{
+    fetch('save_covers.php',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({client_id:clientId,covers:coverLinks})
+    }).then(()=>alert('Saved'));
+  });
 });
 </script>
 <?php include 'footer.php'; ?>
