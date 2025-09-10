@@ -314,6 +314,9 @@ function loadPosts(){
     renderVideos();
     renderComments();
     loadCreatives();
+  }).catch(()=>{
+    const list=document.getElementById('postList');
+    list.innerHTML='<div class="list-group-item text-danger">Failed to load posts</div>';
   });
 }
 function updateSizeOptions(){
