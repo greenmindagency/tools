@@ -70,7 +70,7 @@ $base = "client_id=$client_id&slug=$slug";
     </div>
   </div>
   <div class="col-md-8">
-    <div class="d-flex justify-content-between align-items-center">
+    <div class="d-flex justify-content-between align-items-center mb-3">
       <h5 id="previewTitle" class="mb-0"></h5>
       <button type="button" class="btn btn-sm btn-outline-success" id="approveCoverBtn" data-bs-toggle="tooltip" title="Mark as approved"><i class="bi bi-check2"></i> Approve</button>
     </div>
