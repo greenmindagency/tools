@@ -393,32 +393,38 @@ document.getElementById('shareBtn').addEventListener('click',()=>{
 
 function updateApproveBtn(){
   const btn=document.getElementById('approveBtn');
+  const tip = bootstrap.Tooltip.getOrCreateInstance(btn);
   if(approved){
     btn.className='btn btn-sm btn-success ms-1';
     btn.innerHTML='<i class="bi bi-check2"></i> Approved';
-    btn.disabled=true;
+    btn.disabled=false;
+    btn.setAttribute('data-bs-original-title','Click to unapprove');
+    tip.setContent({'.tooltip-inner':'Click to unapprove'});
   }else{
     btn.className='btn btn-sm btn-outline-success ms-1';
     btn.innerHTML='<i class="bi bi-check2"></i> Approve';
     btn.disabled=false;
+    btn.setAttribute('data-bs-original-title','Mark as approved');
+    tip.setContent({'.tooltip-inner':'Mark as approved'});
   }
 }
 document.getElementById('approveBtn').addEventListener('click',()=>{
   if(!currentDate) return;
   const btn=document.getElementById('approveBtn');
+  const newVal = approved ? 0 : 1;
   btn.disabled=true;
-  btn.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span> Approving...';
+  btn.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span> Updating...';
   setTimeout(()=>{
     fetch('approve_post.php',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({client_id:clientId,date:currentDate,approved:1})
+      body:JSON.stringify({client_id:clientId,date:currentDate,approved:newVal})
     }).then(()=>{
-      approved=true;
+      approved=newVal;
       const entry=currentEntries.find(e=>e.post_date===currentDate);
-      if(entry) entry.approved=1;
+      if(entry) entry.approved=newVal;
       updateApproveBtn();
-    }).catch(()=>{approved=false;updateApproveBtn();});
+    }).catch(()=>{updateApproveBtn();});
   },1000);
 });
 document.getElementById('promptSubmit').addEventListener('click',()=>{

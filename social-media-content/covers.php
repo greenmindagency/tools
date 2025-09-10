@@ -246,27 +246,36 @@ function saveCoverComments(){
 }
 function updateCoverApproveBtn(){
   const btn=document.getElementById('approveCoverBtn');
+  const tip = bootstrap.Tooltip.getOrCreateInstance(btn);
   const approved=coverLinks[activeIndex]?.approved;
-  if(approved){
-    btn.className='btn btn-sm btn-success';
-    btn.innerHTML='<i class="bi bi-check2"></i> Approved';
-    btn.disabled=true;
-  }else if(coverLinks.length){
-    btn.className='btn btn-sm btn-outline-success';
-    btn.innerHTML='<i class="bi bi-check2"></i> Approve';
-    btn.disabled=false;
-  }else{
+  if(!coverLinks.length){
     btn.className='btn btn-sm btn-outline-secondary';
     btn.innerHTML='<i class="bi bi-check2"></i> Approve';
     btn.disabled=true;
+    btn.setAttribute('data-bs-original-title','No cover selected');
+    tip.setContent({'.tooltip-inner':'No cover selected'});
+  }else if(approved){
+    btn.className='btn btn-sm btn-success';
+    btn.innerHTML='<i class="bi bi-check2"></i> Approved';
+    btn.disabled=false;
+    btn.setAttribute('data-bs-original-title','Click to unapprove');
+    tip.setContent({'.tooltip-inner':'Click to unapprove'});
+  }else{
+    btn.className='btn btn-sm btn-outline-success';
+    btn.innerHTML='<i class="bi bi-check2"></i> Approve';
+    btn.disabled=false;
+    btn.setAttribute('data-bs-original-title','Mark as approved');
+    tip.setContent({'.tooltip-inner':'Mark as approved'});
   }
 }
 document.getElementById('approveCoverBtn').addEventListener('click',()=>{
+  if(!coverLinks.length) return;
   const btn=document.getElementById('approveCoverBtn');
+  const newVal = coverLinks[activeIndex].approved ? 0 : 1;
   btn.disabled=true;
-  btn.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span> Approving...';
+  btn.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span> Updating...';
   setTimeout(()=>{
-    coverLinks[activeIndex].approved=1;
+    coverLinks[activeIndex].approved=newVal;
     updateCoverApproveBtn();
     fetch('save_covers.php',{
       method:'POST',
