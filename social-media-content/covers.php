@@ -54,16 +54,20 @@ $base = "client_id=$client_id&slug=$slug";
       </select>
       <button class="btn btn-outline-secondary" type="button" id="importCoverBtn" data-bs-toggle="tooltip" title="Import cover"><i class="bi bi-upload"></i></button>
     </div>
-    <div id="coverSection" style="display:none;" class="mb-3">
-      <div id="coverContainer" class="mb-2"></div>
+    <div id="coverSection" style="display:none;">
       <ul id="coverList" class="list-group mb-2"></ul>
-      <button type="button" class="btn btn-success" id="saveCoverBtn">Save</button>
+      <button type="button" class="btn btn-success w-100" id="saveCoverBtn">Save</button>
     </div>
+  </div>
+  <div class="col-md-8">
+    <h5 id="previewTitle"></h5>
+    <div id="previewContainer"></div>
   </div>
 </div>
 <script>
 const clientId = <?=$client_id?>;
 let coverLinks = <?= json_encode($covers) ?>;
+let activeIndex = 0;
 function frameHtml(src,size){
   const [w,h]=(size||'1080x1080').split('x').map(Number);
   const ratio=(h/w*100).toFixed(2);
@@ -73,33 +77,50 @@ function toPreview(url){
   const m=url.match(/\/d\/([^/]+)/)||url.match(/[?&]id=([^&]+)/);
   return m?`https://drive.google.com/file/d/${m[1]}/preview`:url;
 }
+function getLabel(type){
+  const opt=document.querySelector(`#coverType option[value='${type}']`);
+  return opt?opt.textContent:`${type.charAt(0).toUpperCase()+type.slice(1)} Cover`;
+}
+function normalizeCovers(){
+  const counts={};
+  coverLinks=coverLinks.map(c=>{
+    counts[c.type]=(counts[c.type]||0)+1;
+    return {
+      src:c.src,
+      type:c.type,
+      size:c.size,
+      label:c.label||getLabel(c.type),
+      option:c.option||counts[c.type]
+    };
+  });
+}
+function showPreview(i){
+  if(i<0||i>=coverLinks.length)return;
+  activeIndex=i;
+  const c=coverLinks[i];
+  document.getElementById('previewTitle').textContent=`${c.label} Option ${c.option}`;
+  document.getElementById('previewContainer').innerHTML=frameHtml(c.src,c.size);
+  document.querySelectorAll('#coverList .list-group-item').forEach((li,idx)=>{
+    li.classList.toggle('active',idx===i);
+  });
+}
 function renderCovers(){
   const section=document.getElementById('coverSection');
-  const container=document.getElementById('coverContainer');
   const list=document.getElementById('coverList');
-  container.innerHTML='';
   list.innerHTML='';
-  if(!coverLinks.length){section.style.display='none';return;}
-  section.style.display='';
-  if(coverLinks.length>1){
-    const slides=coverLinks.map((c,i)=>`
-      <div class="carousel-item${i===0?' active':''}">
-        ${frameHtml(c.src,c.size)}
-      </div>`).join('');
-    const indicators=coverLinks.map((_,i)=>`<button type="button" data-bs-target="#coverCarousel" data-bs-slide-to="${i}" class="${i===0?'active':''}" aria-current="${i===0?'true':'false'}" aria-label="Slide ${i+1}" style="width:auto;height:auto;text-indent:0;"><span class=\"badge bg-secondary\">${i+1}</span></button>`).join('');
-    container.innerHTML=`
-      <div id="coverCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
-        <div class="carousel-indicators position-static mb-2">${indicators}</div>
-        <div class="carousel-inner">${slides}</div>
-      </div>`;
-    new bootstrap.Carousel(document.getElementById('coverCarousel'));
-  } else {
-    container.innerHTML=frameHtml(coverLinks[0].src,coverLinks[0].size);
+  if(!coverLinks.length){
+    section.style.display='none';
+    document.getElementById('previewTitle').textContent='';
+    document.getElementById('previewContainer').innerHTML='';
+    return;
   }
+  section.style.display='';
   coverLinks.forEach((c,i)=>{
     const li=document.createElement('li');
-    li.className='list-group-item d-flex justify-content-between align-items-center';
-    li.textContent=`${c.type.charAt(0).toUpperCase()+c.type.slice(1)} ${i+1}`;
+    li.className='list-group-item d-flex justify-content-between align-items-center list-group-item-action';
+    li.style.cursor='pointer';
+    li.addEventListener('click',()=>showPreview(i));
+    li.appendChild(document.createTextNode(`${c.label} Option ${c.option}`));
     const actions=document.createElement('div');
     actions.className='d-flex gap-1';
     const dl=document.createElement('a');
@@ -109,25 +130,39 @@ function renderCovers(){
     dl.href=viewSrc;
     dl.target='_blank';
     dl.rel='noopener';
+    dl.addEventListener('click',e=>e.stopPropagation());
     actions.appendChild(dl);
     const btn=document.createElement('button');
     btn.className='btn btn-sm btn-outline-danger';
     btn.innerHTML='<i class="bi bi-x"></i>';
-    btn.addEventListener('click',()=>{coverLinks.splice(i,1);renderCovers();});
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      coverLinks.splice(i,1);
+      if(activeIndex>=coverLinks.length) activeIndex=coverLinks.length-1;
+      renderCovers();
+      if(coverLinks.length) showPreview(activeIndex);
+    });
     actions.appendChild(btn);
     li.appendChild(actions);
     list.appendChild(li);
   });
+  showPreview(activeIndex);
 }
 window.addEventListener('load',()=>{
   document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
+  normalizeCovers();
   renderCovers();
   document.getElementById('importCoverBtn').addEventListener('click',()=>{
     const url=document.getElementById('coverUrl').value.trim();
     const sel=document.getElementById('coverType');
     const type=sel.value;
     const size=sel.options[sel.selectedIndex].dataset.size;
-    if(url){coverLinks.push({src:toPreview(url),type,size});}
+    const label=sel.options[sel.selectedIndex].text;
+    if(url){
+      const option=coverLinks.filter(c=>c.type===type).length+1;
+      coverLinks.push({src:toPreview(url),type,size,label,option});
+      activeIndex=coverLinks.length-1;
+    }
     document.getElementById('coverUrl').value='';
     renderCovers();
   });
