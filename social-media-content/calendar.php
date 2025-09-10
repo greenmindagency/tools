@@ -39,6 +39,7 @@ $base = "client_id=$client_id&slug=$slug";
 <ul class="nav nav-tabs mb-3">
   <li class="nav-item"><a class="nav-link" href="source.php?<?=$base?>">Source</a></li>
   <li class="nav-item"><a class="nav-link" href="occasions.php?<?=$base?>">Occasions</a></li>
+  <li class="nav-item"><a class="nav-link" href="covers.php?<?=$base?>">Covers</a></li>
   <li class="nav-item"><a class="nav-link active" href="calendar.php?<?=$base?>">Calendar</a></li>
   <li class="nav-item"><a class="nav-link" href="content.php?<?=$base?>">Content</a></li>
 </ul>
