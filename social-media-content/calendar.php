@@ -74,7 +74,7 @@ $base = "client_id=$client_id&slug=$slug";
   <div class="col-md-3 d-flex justify-content-end">
     <button type="button" id="generate" class="btn btn-sm btn-primary me-2">Generate</button>
     <button type="button" id="saveCal" class="btn btn-sm btn-success me-2">Save</button>
-    <button type="button" id="shareCal" class="btn btn-sm btn-outline-secondary" title="Share calendar"><i class="bi bi-share"></i></button>
+    <button type="button" id="shareCal" class="btn btn-sm btn-outline-secondary" title="Share calendar" data-bs-toggle="tooltip"><i class="bi bi-share"></i></button>
   </div>
 </form>
 <div id="progress" class="progress mt-4 d-none"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%">0%</div></div>
@@ -112,6 +112,7 @@ let promptModal;
 let promptIdx = null;
 window.addEventListener('load', () => {
   promptModal = new bootstrap.Modal(document.getElementById('promptModal'));
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
   const langVal = localStorage.getItem('sm_langs_'+clientId);
   if(langVal) document.getElementById('langs').value = langVal;
 });

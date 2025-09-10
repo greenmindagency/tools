@@ -36,6 +36,13 @@ $title = $client['name'] . ' Covers';
 include 'header.php';
 $base = "client_id=$client_id&slug=$slug";
 ?>
+<style>
+#coverList .list-group-item.active{
+  background-color:#e9ecef;
+  border-color:#dee2e6;
+  color:inherit;
+}
+</style>
 <ul class="nav nav-tabs mb-3">
   <li class="nav-item"><a class="nav-link" href="source.php?<?=$base?>">Source</a></li>
   <li class="nav-item"><a class="nav-link" href="occasions.php?<?=$base?>">Occasions</a></li>
@@ -56,12 +63,23 @@ $base = "client_id=$client_id&slug=$slug";
     </div>
     <div id="coverSection" style="display:none;">
       <ul id="coverList" class="list-group mb-2"></ul>
-      <button type="button" class="btn btn-success w-100" id="saveCoverBtn">Save</button>
+      <div class="d-flex">
+        <button type="button" class="btn btn-sm btn-success me-2" id="saveCoverBtn" data-bs-toggle="tooltip" title="Save covers">Save</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="shareCoverBtn" data-bs-toggle="tooltip" title="Share covers"><i class="bi bi-share"></i></button>
+      </div>
     </div>
   </div>
   <div class="col-md-8">
     <h5 id="previewTitle"></h5>
     <div id="previewContainer"></div>
+  </div>
+</div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="coverToast" class="toast text-bg-success" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
   </div>
 </div>
 <script>
@@ -126,6 +144,8 @@ function renderCovers(){
     const dl=document.createElement('a');
     dl.className='btn btn-sm btn-outline-secondary';
     dl.innerHTML='<i class="bi bi-download"></i>';
+    dl.title='Download';
+    dl.setAttribute('data-bs-toggle','tooltip');
     const viewSrc=c.src.replace('/preview','/view');
     dl.href=viewSrc;
     dl.target='_blank';
@@ -135,17 +155,21 @@ function renderCovers(){
     const btn=document.createElement('button');
     btn.className='btn btn-sm btn-outline-danger';
     btn.innerHTML='<i class="bi bi-x"></i>';
+    btn.title='Remove';
+    btn.setAttribute('data-bs-toggle','tooltip');
     btn.addEventListener('click',e=>{
       e.stopPropagation();
       coverLinks.splice(i,1);
       if(activeIndex>=coverLinks.length) activeIndex=coverLinks.length-1;
       renderCovers();
       if(coverLinks.length) showPreview(activeIndex);
+      showToast('Cover removed');
     });
     actions.appendChild(btn);
     li.appendChild(actions);
     list.appendChild(li);
   });
+  list.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
   showPreview(activeIndex);
 }
 window.addEventListener('load',()=>{
@@ -162,6 +186,7 @@ window.addEventListener('load',()=>{
       const option=coverLinks.filter(c=>c.type===type).length+1;
       coverLinks.push({src:toPreview(url),type,size,label,option});
       activeIndex=coverLinks.length-1;
+      showToast('Cover imported');
     }
     document.getElementById('coverUrl').value='';
     renderCovers();
@@ -171,8 +196,25 @@ window.addEventListener('load',()=>{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({client_id:clientId,covers:coverLinks})
-    }).then(()=>alert('Saved'));
+    }).then(()=>showToast('Saved')).catch(()=>showToast('Save failed'));
+  });
+  document.getElementById('shareCoverBtn').addEventListener('click',async()=>{
+    try{
+      const res=await fetch('share_cover.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId})});
+      const js=await res.json();
+      if(js.short_url){
+        await navigator.clipboard.writeText(js.short_url);
+        showToast('Share link copied');
+      }else{
+        showToast('Share failed');
+      }
+    }catch(e){showToast('Share failed');}
   });
 });
+function showToast(msg){
+  const tEl=document.getElementById('coverToast');
+  tEl.querySelector('.toast-body').textContent=msg;
+  bootstrap.Toast.getOrCreateInstance(tEl).show();
+}
 </script>
 <?php include 'footer.php'; ?>

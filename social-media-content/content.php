@@ -29,6 +29,8 @@ $breadcrumb_client = [
     'url'  => "content.php?client_id=$client_id&slug=$slug",
 ];
 $title = $client['name'] . ' Content';
+$current = new DateTime('first day of this month');
+$selectedMonth = (isset($_GET['year'], $_GET['month'])) ? sprintf('%04d-%02d', $_GET['year'], $_GET['month']) : $current->format('Y-m');
 include 'header.php';
 $base = "client_id=$client_id&slug=$slug";
 ?>
@@ -45,13 +47,12 @@ $base = "client_id=$client_id&slug=$slug";
     <div class="d-flex mb-3">
       <select id="month" class="form-select me-2">
         <?php
-        $current = new DateTime('first day of this month');
         for ($i=-3; $i<=9; $i++) {
             $dt = (clone $current)->modify("$i month");
             $val = $dt->format('Y-m');
             $label = $dt->format('F Y');
-            $sel = $i===0 ? 'selected' : '';
-            $style = $i===0 ? "style=\"background-color:#eee;\"" : '';
+            $sel = ($val === $selectedMonth) ? 'selected' : '';
+            $style = $sel ? "style=\"background-color:#eee;\"" : '';
             echo "<option value='$val' $sel $style>$label</option>";
         }
         ?>
@@ -64,6 +65,7 @@ $base = "client_id=$client_id&slug=$slug";
     <div class="d-flex justify-content-end mb-2">
       <button type="button" class="btn btn-sm btn-outline-secondary me-1" id="genBtn" data-bs-toggle="tooltip" title="Generate content">&#9889;</button>
       <button type="button" class="btn btn-sm btn-outline-primary" id="promptBtn" data-bs-toggle="tooltip" title="Generate with prompt">&#x2728;</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="sharePostBtn" data-bs-toggle="tooltip" title="Share post"><i class="bi bi-share"></i></button>
     </div>
     <div id="metaInfo" class="mb-4">
       <div class="mb-2"><strong>Date:</strong> <span id="postDate"></span></div>
@@ -161,6 +163,7 @@ let vidSize = '1080x1920';
 const imgSizes = sizeOptions;
 const vidSizes = sizeOptions;
 let promptModal;
+let targetDate = null;
 function loadCreatives(force=false){
   const list=document.getElementById('creativeList');
   list.innerHTML='';
@@ -295,7 +298,8 @@ function loadPosts(){
       });
       list.appendChild(btn);
     });
-    const first=js.find(e=>e.post_date===prev)||js[0];
+    const first=js.find(e=>e.post_date===targetDate)||js.find(e=>e.post_date===prev)||js[0];
+    targetDate=null;
     currentDate=first.post_date;
     document.getElementById('contentText').value=first.content||'';
     document.getElementById('postDate').textContent=first.post_date;
@@ -329,6 +333,13 @@ function updateSizeOptions(){
 window.addEventListener('load',()=>{
   promptModal=new bootstrap.Modal(document.getElementById('promptModal'));
   document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
+  const params=new URLSearchParams(location.search);
+  const y=params.get('year');
+  const m=params.get('month');
+  const d=params.get('date');
+  if(y&&m&&d){
+    targetDate=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  }
   updateSizeOptions();
   loadPosts();
 });
@@ -368,6 +379,19 @@ document.getElementById('promptSubmit').addEventListener('click',()=>{
   promptModal.hide();
   document.getElementById('promptText').value='';
   if(txt) regen(txt);
+});
+document.getElementById('sharePostBtn').addEventListener('click',async()=>{
+  if(!currentDate) return;
+  try{
+    const res=await fetch('share_post.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,date:currentDate})});
+    const js=await res.json();
+    if(js.short_url){
+      await navigator.clipboard.writeText(js.short_url);
+      showToast('Share link copied');
+    }else{
+      showToast('Share failed');
+    }
+  }catch(e){showToast('Share failed');}
 });
 function renderComments(){
   const list=document.getElementById('commentList');
@@ -457,6 +481,8 @@ function renderImages(){
     const dl=document.createElement('a');
     dl.className='btn btn-sm btn-outline-secondary';
     dl.innerHTML='<i class="bi bi-download"></i>';
+    dl.title='Download';
+    dl.setAttribute('data-bs-toggle','tooltip');
     const viewSrc = src.replace('/preview','/view');
     dl.href=viewSrc;
     dl.target='_blank';
@@ -465,11 +491,14 @@ function renderImages(){
     const btn=document.createElement('button');
     btn.className='btn btn-sm btn-outline-danger';
     btn.innerHTML='<i class="bi bi-x"></i>';
+    btn.title='Remove';
+    btn.setAttribute('data-bs-toggle','tooltip');
     btn.addEventListener('click',()=>{imgLinks.splice(i,1);renderImages();});
     actions.appendChild(btn);
     li.appendChild(actions);
     list.appendChild(li);
   });
+  list.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
 }
 function renderVideos(){
   const section=document.getElementById('videoSection');
@@ -503,6 +532,8 @@ function renderVideos(){
     const dl=document.createElement('a');
     dl.className='btn btn-sm btn-outline-secondary';
     dl.innerHTML='<i class="bi bi-download"></i>';
+    dl.title='Download';
+    dl.setAttribute('data-bs-toggle','tooltip');
     const viewSrc = src.replace('/preview','/view');
     dl.href=viewSrc;
     dl.target='_blank';
@@ -511,11 +542,14 @@ function renderVideos(){
     const btn=document.createElement('button');
     btn.className='btn btn-sm btn-outline-danger';
     btn.innerHTML='<i class="bi bi-x"></i>';
+    btn.title='Remove';
+    btn.setAttribute('data-bs-toggle','tooltip');
     btn.addEventListener('click',()=>{vidLinks.splice(i,1);renderVideos();});
     actions.appendChild(btn);
     li.appendChild(actions);
     list.appendChild(li);
   });
+  list.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));
 }
 document.getElementById('mediaType').addEventListener('change',()=>{updateSizeOptions();renderImages();renderVideos();});
 document.getElementById('mediaSize').addEventListener('change',e=>{

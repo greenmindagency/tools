@@ -79,6 +79,23 @@ try {
         UNIQUE KEY uniq_client_month (client_id, year, month)
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
+    // Short links for shared covers
+    $pdo->exec("CREATE TABLE IF NOT EXISTS cover_links (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        client_id INT NOT NULL,
+        short_url VARCHAR(255),
+        UNIQUE KEY uniq_cover (client_id)
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+    // Short links for shared content posts
+    $pdo->exec("CREATE TABLE IF NOT EXISTS content_links (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        client_id INT NOT NULL,
+        post_date DATE NOT NULL,
+        short_url VARCHAR(255),
+        UNIQUE KEY uniq_post (client_id, post_date)
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
     // Manual occasions repository, scoped per client
     $pdo->exec("CREATE TABLE IF NOT EXISTS occasions (
         id INT AUTO_INCREMENT PRIMARY KEY,
