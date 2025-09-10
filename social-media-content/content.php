@@ -247,6 +247,22 @@ function showToast(msg){
   t.querySelector('.toast-body').textContent=msg;
   bootstrap.Toast.getOrCreateInstance(t).show();
 }
+function selectPost(e){
+  currentDate=e.post_date;
+  document.getElementById('contentText').value=e.content||'';
+  document.getElementById('postDate').textContent=e.post_date;
+  document.getElementById('postTitle').textContent=e.title;
+  imgLinks = e.images ? JSON.parse(e.images || '[]') || [] : [];
+  vidLinks = e.videos ? JSON.parse(e.videos || '[]') || [] : [];
+  imgSize = e.image_size || sizeOptions[0];
+  vidSize = e.video_size || sizeOptions[1];
+  comments = e.comments ? JSON.parse(e.comments || '[]') || [] : [];
+  updateSizeOptions();
+  renderImages();
+  renderVideos();
+  renderComments();
+  loadCreatives();
+}
 function loadPosts(){
   const val=document.getElementById('month').value;
   const [year,month]=val.split('-');
@@ -273,43 +289,25 @@ function loadPosts(){
       return;
     }
     js.forEach(e=>{
-      const btn=document.createElement('button');
-      btn.type='button';
-      btn.className='list-group-item list-group-item-action';
-      btn.innerHTML=`<span class="me-2 px-1 bg-secondary text-white rounded">${e.post_date}</span>${e.title}`;
-      btn.addEventListener('click',()=>{
-        currentDate=e.post_date;
-        document.getElementById('contentText').value=e.content||'';
-        document.getElementById('postDate').textContent=e.post_date;
-        document.getElementById('postTitle').textContent=e.title;
-        imgLinks = e.images ? JSON.parse(e.images || '[]') || [] : [];
-        vidLinks = e.videos ? JSON.parse(e.videos || '[]') || [] : [];
-        imgSize = e.image_size || sizeOptions[0];
-        vidSize = e.video_size || sizeOptions[1];
-        comments = e.comments ? JSON.parse(e.comments || '[]') || [] : [];
-        updateSizeOptions();
-        renderImages();
-        renderVideos();
-        renderComments();
-        loadCreatives();
+      const a=document.createElement('a');
+      a.className='list-group-item list-group-item-action';
+      a.innerHTML=`<span class="me-2 px-1 bg-secondary text-white rounded">${e.post_date}</span>${e.title}`;
+      const u=new URL(window.location);
+      u.searchParams.set('date',e.post_date);
+      a.href=u.pathname+'?'+u.searchParams.toString();
+      a.addEventListener('click',ev=>{
+        ev.preventDefault();
+        selectPost(e);
+        history.replaceState(null,'',a.href);
       });
-      list.appendChild(btn);
+      list.appendChild(a);
     });
-    const first=js.find(e=>e.post_date===prev)||js[0];
-    currentDate=first.post_date;
-    document.getElementById('contentText').value=first.content||'';
-    document.getElementById('postDate').textContent=first.post_date;
-    document.getElementById('postTitle').textContent=first.title;
-    imgLinks = first.images ? JSON.parse(first.images || '[]') || [] : [];
-    vidLinks = first.videos ? JSON.parse(first.videos || '[]') || [] : [];
-    imgSize = first.image_size || sizeOptions[0];
-    vidSize = first.video_size || sizeOptions[1];
-    comments = first.comments ? JSON.parse(first.comments || '[]') || [] : [];
-    updateSizeOptions();
-    renderImages();
-    renderVideos();
-    renderComments();
-    loadCreatives();
+    const paramDate=new URLSearchParams(window.location.search).get('date');
+    const first=js.find(e=>e.post_date===paramDate)||js.find(e=>e.post_date===prev)||js[0];
+    selectPost(first);
+    const u=new URL(window.location);
+    u.searchParams.set('date',first.post_date);
+    history.replaceState(null,'',u.pathname+'?'+u.searchParams.toString());
   });
 }
 function updateSizeOptions(){
