@@ -159,7 +159,7 @@ let vidLinks = [];
 let comments = [];
 let approved = false;
 const imgSizes = ['1080x1080','1080x1350'];
-const vidSizes = ['1080x1080','1080x1920'];
+const vidSizes = ['1080x1080','1080x1350','1080x1920'];
 let imgSize = '1080x1350';
 let vidSize = '1080x1920';
 let promptModal;
@@ -257,7 +257,7 @@ function selectPost(e){
   imgLinks = e.images ? JSON.parse(e.images || '[]') || [] : [];
   vidLinks = e.videos ? JSON.parse(e.videos || '[]') || [] : [];
   imgSize = e.image_size || imgSizes[1];
-  vidSize = e.video_size || vidSizes[1];
+  vidSize = e.video_size || vidSizes[2];
   comments = e.comments ? JSON.parse(e.comments || '[]') || [] : [];
   approved = e.approved == 1;
   updateSizeOptions();
