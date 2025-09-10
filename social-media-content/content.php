@@ -158,11 +158,10 @@ let imgLinks = [];
 let vidLinks = [];
 let comments = [];
 let approved = false;
-const sizeOptions = ['1080x1350','1080x1920'];
+const imgSizes = ['1080x1080','1080x1350'];
+const vidSizes = ['1080x1080','1080x1920'];
 let imgSize = '1080x1350';
 let vidSize = '1080x1920';
-const imgSizes = sizeOptions;
-const vidSizes = sizeOptions;
 let promptModal;
 function loadCreatives(force=false){
   const list=document.getElementById('creativeList');
@@ -257,8 +256,8 @@ function selectPost(e){
   document.getElementById('postTitle').textContent=e.title;
   imgLinks = e.images ? JSON.parse(e.images || '[]') || [] : [];
   vidLinks = e.videos ? JSON.parse(e.videos || '[]') || [] : [];
-  imgSize = e.image_size || sizeOptions[0];
-  vidSize = e.video_size || sizeOptions[1];
+  imgSize = e.image_size || imgSizes[1];
+  vidSize = e.video_size || vidSizes[1];
   comments = e.comments ? JSON.parse(e.comments || '[]') || [] : [];
   approved = e.approved == 1;
   updateSizeOptions();
@@ -486,7 +485,9 @@ function frameHtml(src,size){
   return `<div class="border border-secondary"><div class="position-relative overflow-hidden" style="width:100%;padding-top:${ratio}%"><iframe src="${src}" class="position-absolute top-0 start-0 w-100 h-100" style="border:0;" allowfullscreen></iframe></div></div>`;
 }
 function gridFrameHtml(src,size){
-  const ratioClass = size==='1080x1920' ? 'ratio-9x16' : 'ratio-4x5';
+  let ratioClass = 'ratio-4x5';
+  if(size==='1080x1920') ratioClass = 'ratio-9x16';
+  else if(size==='1080x1080') ratioClass = 'ratio-1x1';
   return `<div class="ratio ${ratioClass}"><iframe src="${src}" allowfullscreen></iframe></div>`;
 }
 function renderImages(){
