@@ -25,6 +25,12 @@ try {
         source LONGTEXT
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
+    // Store uploaded cover links for each client
+    $pdo->exec("CREATE TABLE IF NOT EXISTS client_covers (
+        client_id INT PRIMARY KEY,
+        covers LONGTEXT
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
     // Saved calendar entries for each client
     $pdo->exec("CREATE TABLE IF NOT EXISTS client_calendar (
         id INT AUTO_INCREMENT PRIMARY KEY,
