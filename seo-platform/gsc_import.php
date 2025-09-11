@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/session.php';
 require 'config.php';
+require_once __DIR__ . '/lib/cache.php';
 header('Content-Type: application/json');
 
 const CLIENT_ID     = '154567125513-3r6vh411d14igpsq52jojoq22s489d7v.apps.googleusercontent.com';
@@ -146,7 +147,12 @@ try {
             ]];
         }
 
-        $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
+        $cacheKey = hash('sha256', $site . '|' . $country . '|' . $start . '|' . $end);
+        $resp = cache_get($pdo, $clientId, $cacheKey);
+        if (!$resp) {
+            $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
+            cache_set($pdo, $clientId, $cacheKey, $resp);
+        }
         $rows = $resp['rows'] ?? [];
 
         $col = 'm' . ($idx + 1);

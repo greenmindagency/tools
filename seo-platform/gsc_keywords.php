@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/session.php';
 require 'config.php';
+require_once __DIR__ . '/lib/cache.php';
 header('Content-Type: application/json');
 
 const CLIENT_ID     = '154567125513-3r6vh411d14igpsq52jojoq22s489d7v.apps.googleusercontent.com';
@@ -101,7 +102,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         ]];
     }
     try {
-        $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
+        $cacheKey = hash('sha256', 'kwlist|' . $site . '|' . $country);
+        $resp = cache_get($pdo, $clientId, $cacheKey);
+        if (!$resp) {
+            $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
+            cache_set($pdo, $clientId, $cacheKey, $resp);
+        }
         $rows = $resp['rows'] ?? [];
         usort($rows, fn($a,$b)=>($b['impressions']??0)<=>($a['impressions']??0));
         echo json_encode(['status'=>'ok','rows'=>$rows]);
@@ -166,7 +172,12 @@ foreach ($selMap as $kw => $_) {
             ]];
         }
     try {
-        $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
+        $cacheKey = hash('sha256', 'kwpos|' . $site . '|' . $country . '|' . $start . '|' . $end);
+        $resp = cache_get($pdo, $clientId, $cacheKey);
+        if (!$resp) {
+            $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
+            cache_set($pdo, $clientId, $cacheKey, $resp);
+        }
         $rows = $resp['rows'] ?? [];
     } catch (Exception $e) {
         echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
