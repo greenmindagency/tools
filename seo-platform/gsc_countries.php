@@ -123,9 +123,11 @@ $endpoint = 'https://searchconsole.googleapis.com/webmasters/v3/sites/' . rawurl
 try {
     $cacheKey = hash('sha256', 'countrylist|' . $site . '|' . $end);
     $resp = cache_get($pdo, $clientId, $cacheKey);
+    $source = 'cache';
     if (!$resp) {
         $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
         cache_set($pdo, $clientId, $cacheKey, $resp);
+        $source = 'api';
     }
     $rows = $resp['rows'] ?? [];
     $countries = [];
@@ -136,7 +138,7 @@ try {
         $countries[] = ['code' => $code, 'impressions' => $impr];
     }
     usort($countries, fn($a,$b)=>($b['impressions']<=>$a['impressions']));
-    echo json_encode(['status'=>'ok','countries'=>$countries]);
+    echo json_encode(['status'=>'ok','countries'=>$countries,'source'=>$source]);
 } catch (Exception $e) {
     echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
 }

@@ -111,13 +111,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     try {
         $cacheKey = hash('sha256', 'kwlist|' . $site . '|' . $country . '|' . $end);
         $resp = cache_get($pdo, $clientId, $cacheKey);
+        $source = 'cache';
         if (!$resp) {
             $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
             cache_set($pdo, $clientId, $cacheKey, $resp);
+            $source = 'api';
         }
         $rows = $resp['rows'] ?? [];
         usort($rows, fn($a,$b)=>($b['impressions']??0)<=>($a['impressions']??0));
-        echo json_encode(['status'=>'ok','rows'=>$rows]);
+        echo json_encode(['status'=>'ok','rows'=>$rows,'source'=>$source]);
     } catch (Exception $e) {
         echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
     }
@@ -159,7 +161,8 @@ foreach ($selMap as $kw => $_) {
     if (isset($kwMap[$kw])) $selIds[] = $kwMap[$kw];
 }
 
-    for ($i = 0; $i < 12; $i++) {
+$allCached = true;
+for ($i = 0; $i < 12; $i++) {
         $start = date('Y-m-d', strtotime("first day of -$i month"));
         $end   = date('Y-m-d', strtotime("last day of -$i month"));
         $body = [
@@ -184,6 +187,7 @@ foreach ($selMap as $kw => $_) {
         if (!$resp) {
             $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
             cache_set($pdo, $clientId, $cacheKey, $resp);
+            $allCached = false;
         }
         $rows = $resp['rows'] ?? [];
     } catch (Exception $e) {
@@ -207,4 +211,4 @@ foreach ($selMap as $kw => $_) {
     }
 }
 
-echo json_encode(['status'=>'ok','keywords'=>count($keywords)]);
+echo json_encode(['status'=>'ok','keywords'=>count($keywords),'source'=>$allCached?'cache':'api']);

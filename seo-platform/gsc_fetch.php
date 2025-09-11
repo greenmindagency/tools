@@ -102,7 +102,7 @@ if (isset($_GET['props'])) {
     $cacheKey = 'scprops|' . date('Y-m');
     $cached = cache_get($pdo, $clientId, $cacheKey);
     if ($cached) {
-        echo json_encode(['status' => 'ok', 'sites' => $cached['sites']]);
+        echo json_encode(['status' => 'ok', 'sites' => $cached['sites'], 'source' => 'cache']);
         exit;
     }
     $accessToken = get_access_token();
@@ -122,7 +122,7 @@ if (isset($_GET['props'])) {
         $sitesResp = bearer_get('https://searchconsole.googleapis.com/webmasters/v3/sites', $accessToken);
         $sites = $sitesResp['siteEntry'] ?? [];
         cache_set($pdo, $clientId, $cacheKey, ['sites' => $sites]);
-        echo json_encode(['status' => 'ok', 'sites' => $sites]);
+        echo json_encode(['status' => 'ok', 'sites' => $sites, 'source' => 'api']);
     } catch (Exception $e) {
         echo json_encode(['status' => 'error', 'error' => $e->getMessage()]);
     }

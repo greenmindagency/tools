@@ -129,6 +129,7 @@ try {
     $months = array_values($months);
 
     $total = 0;
+    $allCached = true;
     foreach ($months as $m) {
         $start = $m['start'] ?? '';
         $end   = $m['end'] ?? '';
@@ -159,6 +160,7 @@ try {
         if (!$resp) {
             $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
             cache_set($pdo, $clientId, $cacheKey, $resp);
+            $allCached = false;
         }
         $rows = $resp['rows'] ?? [];
 
@@ -179,7 +181,7 @@ try {
         $total += $order - 1;
     }
 
-    echo json_encode(['status'=>'ok','updated'=>$total]);
+    echo json_encode(['status'=>'ok','updated'=>$total,'source'=>$allCached?'cache':'api']);
 } catch (Exception $e) {
     echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
 }
