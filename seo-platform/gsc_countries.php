@@ -65,18 +65,6 @@ function get_access_token() {
     return null;
 }
 
-function cache_path(PDO $pdo, int $clientId, string $site, string $name) {
-    $stmt = $pdo->prepare('SELECT name FROM clients WHERE id = ?');
-    $stmt->execute([$clientId]);
-    $client = $stmt->fetchColumn();
-    $client = $client ? preg_replace('/[^a-z0-9_\-]+/i', '_', strtolower($client)) : 'client_' . $clientId;
-    $host = parse_url($site, PHP_URL_HOST) ?: $site;
-    $host = preg_replace('/[^a-z0-9_\-]+/i', '_', strtolower($host));
-    $path = __DIR__ . "/backups/$client/$host";
-    if (!is_dir($path)) mkdir($path, 0777, true);
-    return "$path/$name.json";
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $clientId = (int)($_POST['client_id'] ?? 0);
     $countries = json_decode($_POST['countries'] ?? '[]', true);
@@ -110,26 +98,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-$clientId = (int)($_GET['client_id'] ?? 0);
 $site = trim($_GET['site'] ?? '');
-if (!$clientId || !$site) {
-    echo json_encode(['status'=>'error','error'=>'Missing parameters']);
+if (!$site) {
+    echo json_encode(['status'=>'error','error'=>'Missing site']);
     exit;
 }
-
-$cache = cache_path($pdo, $clientId, $site, 'countries');
-if (file_exists($cache)) {
-    $countries = json_decode(file_get_contents($cache), true) ?: [];
-    echo json_encode(['status'=>'ok','countries'=>$countries]);
-    exit;
-}
-
 $accessToken = get_access_token();
 if (!$accessToken) {
     echo json_encode(['status'=>'error','error'=>'Not authorized']);
     exit;
 }
-$start = date('Y-m-d', strtotime('first day of -12 month'));
+$start = date('Y-m-d', strtotime('first day of -15 month'));
 $end   = date('Y-m-d', strtotime('last day of previous month'));
 $body = [
     'startDate'  => $start,
@@ -150,7 +129,6 @@ try {
         $countries[] = ['code' => $code, 'impressions' => $impr];
     }
     usort($countries, fn($a,$b)=>($b['impressions']<=>$a['impressions']));
-    file_put_contents($cache, json_encode($countries));
     echo json_encode(['status'=>'ok','countries'=>$countries]);
 } catch (Exception $e) {
     echo json_encode(['status'=>'error','error'=>$e->getMessage()]);

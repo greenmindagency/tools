@@ -1,8 +1,6 @@
 <?php
 require_once __DIR__ . '/session.php';
 require 'config.php';
-require_once __DIR__ . '/lib/SimpleXLSXGen.php';
-require_once __DIR__ . '/lib/SimpleXLSX.php';
 header('Content-Type: application/json');
 
 const CLIENT_ID     = '154567125513-3r6vh411d14igpsq52jojoq22s489d7v.apps.googleusercontent.com';
@@ -67,46 +65,6 @@ function get_access_token() {
     return null;
 }
 
-function cache_path(PDO $pdo, int $clientId, string $site, string $country, string $name) {
-    $stmt = $pdo->prepare('SELECT name FROM clients WHERE id = ?');
-    $stmt->execute([$clientId]);
-    $client = $stmt->fetchColumn();
-    $client = $client ? preg_replace('/[^a-z0-9_\-]+/i', '_', strtolower($client)) : 'client_' . $clientId;
-    $host = parse_url($site, PHP_URL_HOST) ?: $site;
-    $host = preg_replace('/[^a-z0-9_\-]+/i', '_', strtolower($host));
-    $path = __DIR__ . "/backups/$client/$host";
-    if ($country) $path .= '/' . $country;
-    if (!is_dir($path)) mkdir($path, 0777, true);
-    return "$path/$name.json";
-}
-
-function save_xlsx(array $rows, string $file) {
-    $xlsxRows = [['keyword', 'position']];
-    foreach ($rows as $r) {
-        $kw = $r['keys'][0] ?? '';
-        if ($kw === '') continue;
-        $pos = isset($r['position']) ? round($r['position'], 2) : '';
-        $xlsxRows[] = [$kw, $pos];
-    }
-    \Shuchkin\SimpleXLSXGen::fromArray($xlsxRows)->saveAs($file);
-}
-
-function load_xlsx(string $file) {
-    if (!file_exists($file)) return [];
-    if ($xlsx = \Shuchkin\SimpleXLSX::parse($file)) {
-        $rows = [];
-        foreach ($xlsx->rows() as $i => $r) {
-            if ($i === 0) continue;
-            $kw = $r[0] ?? '';
-            if ($kw === '') continue;
-            $pos = isset($r[1]) && $r[1] !== '' ? (float)$r[1] : null;
-            $rows[] = ['keys' => [$kw], 'position' => $pos];
-        }
-        return $rows;
-    }
-    return [];
-}
-
 $clientId = (int)($_REQUEST['client_id'] ?? 0);
 $site     = trim($_REQUEST['site'] ?? '');
 $country  = strtolower(trim($_REQUEST['country'] ?? ''));
@@ -124,22 +82,7 @@ if (!$accessToken) {
 $endpoint = 'https://searchconsole.googleapis.com/webmasters/v3/sites/' . rawurlencode($site) . '/searchAnalytics/query';
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $cache = cache_path($pdo, $clientId, $site, $country, 'all_keywords');
-    $dir   = dirname($cache);
-    $excel = $dir . '/all.xlsx';
-    if (file_exists($excel)) {
-        $rows = load_xlsx($excel);
-        echo json_encode(['status'=>'ok','rows'=>$rows]);
-        exit;
-    }
-    if (file_exists($cache)) {
-        $rows = json_decode(file_get_contents($cache), true) ?: [];
-        save_xlsx($rows, $excel);
-        echo json_encode(['status'=>'ok','rows'=>$rows]);
-        exit;
-    }
-
-    $start = date('Y-m-d', strtotime('first day of -12 month'));
+    $start = date('Y-m-d', strtotime('first day of -15 month'));
     $end   = date('Y-m-d', strtotime('last day of previous month'));
     $body = [
         'startDate'  => $start,
@@ -161,8 +104,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
         $rows = $resp['rows'] ?? [];
         usort($rows, fn($a,$b)=>($b['impressions']??0)<=>($a['impressions']??0));
-        file_put_contents($cache, json_encode($rows));
-        save_xlsx($rows, $excel);
         echo json_encode(['status'=>'ok','rows'=>$rows]);
     } catch (Exception $e) {
         echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
@@ -224,43 +165,28 @@ foreach ($selMap as $kw => $_) {
                 ]]
             ]];
         }
-
-        $monthKey = date('Y-m', strtotime($start));
-        $cache = cache_path($pdo, $clientId, $site, $country, 'keywords_' . $monthKey);
-        $dir = dirname($cache);
-        $excel = $dir . '/' . $monthKey . '.xlsx';
-        if (file_exists($excel)) {
-            $rows = load_xlsx($excel);
-        } elseif (file_exists($cache)) {
-            $rows = json_decode(file_get_contents($cache), true) ?: [];
-            save_xlsx($rows, $excel);
-        } else {
-            try {
-                $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
-                $rows = $resp['rows'] ?? [];
-                file_put_contents($cache, json_encode($rows));
-                save_xlsx($rows, $excel);
-            } catch (Exception $e) {
-                echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
-                exit;
-            }
-        }
-
-        $col = 'm' . ($i + 1);
-        $clear = $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE id = ?");
-        foreach ($selIds as $id) {
-            $clear->execute([$id]);
-        }
-        usort($rows, fn($a,$b)=>($b['impressions']??0)<=>($a['impressions']??0));
-        $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ?, sort_order = ? WHERE id = ?");
-        $order = 1;
-        foreach ($rows as $row) {
-            $kw = strtolower(trim($row['keys'][0] ?? ''));
-            if ($kw === '' || !isset($kwMap[$kw]) || !isset($selMap[$kw])) continue;
-            $pos = isset($row['position']) ? round($row['position'], 2) : null;
-            $update->execute([$pos, $order, $kwMap[$kw]]);
-            $order++;
-        }
+    try {
+        $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
+        $rows = $resp['rows'] ?? [];
+    } catch (Exception $e) {
+        echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
+        exit;
     }
+    $col = 'm' . ($i + 1);
+    $clear = $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE id = ?");
+    foreach ($selIds as $id) {
+        $clear->execute([$id]);
+    }
+    usort($rows, fn($a,$b)=>($b['impressions']??0)<=>($a['impressions']??0));
+    $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ?, sort_order = ? WHERE id = ?");
+    $order = 1;
+    foreach ($rows as $row) {
+        $kw = strtolower(trim($row['keys'][0] ?? ''));
+        if ($kw === '' || !isset($kwMap[$kw]) || !isset($selMap[$kw])) continue;
+        $pos = isset($row['position']) ? round($row['position'], 2) : null;
+        $update->execute([$pos, $order, $kwMap[$kw]]);
+        $order++;
+    }
+}
 
 echo json_encode(['status'=>'ok','keywords'=>count($keywords)]);
