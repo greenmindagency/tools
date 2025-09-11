@@ -7,9 +7,6 @@ const CLIENT_ID     = '154567125513-3r6vh411d14igpsq52jojoq22s489d7v.apps.google
 const CLIENT_SECRET = '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';
 const TOKEN_FILE = __DIR__ . '/gsc_token.json';
 
-require_once __DIR__ . '/lib/SimpleXLSX.php';
-require_once __DIR__ . '/lib/SimpleXLSXGen.php';
-
 function http_post_json($url, $payload, $headers = []) {
     $ch = curl_init($url);
     $defaultHeaders = ['Content-Type: application/json'];
@@ -85,9 +82,6 @@ if (!$accessToken) {
 
 $endpoint = 'https://searchconsole.googleapis.com/webmasters/v3/sites/' . rawurlencode($site) . '/searchAnalytics/query';
 
-$cacheDir = __DIR__ . '/backups';
-if (!is_dir($cacheDir)) mkdir($cacheDir, 0777, true);
-
 try {
     $mapStmt = $pdo->prepare('SELECT id, keyword FROM keyword_positions WHERE client_id = ? AND country = ?');
     $mapStmt->execute([$clientId, $country]);
@@ -133,71 +127,27 @@ try {
         $idx   = (int)($m['index'] ?? 0);
         if (!$start || !$end) continue;
 
-        $monthKey = date('Y-m', strtotime($start));
-        $filePath = $cacheDir . '/' . $clientId . '_' . ($country ?: 'all') . '_' . $monthKey . '.xlsx';
-        $rows = [];
-        if (file_exists($filePath)) {
-            if ($xlsx = \Shuchkin\SimpleXLSX::parse($filePath)) {
-                $sheet = $xlsx->rows();
-                $first = $sheet[0] ?? [];
-                $hasHeader = false;
-                if ($first) {
-                    $imprCheck = str_replace(',', '', $first[2] ?? '');
-                    if (!is_numeric($imprCheck)) $hasHeader = true;
-                }
-                $startIdx = $hasHeader ? 1 : 0;
-                for ($i = $startIdx; $i < count($sheet); $i++) {
-                    $kw = strtolower(trim($sheet[$i][0] ?? ''));
-                    if ($kw === '') continue;
-                    $impr = $sheet[$i][2] !== '' ? (float)str_replace(',', '', $sheet[$i][2]) : 0;
-                    $pos = $sheet[$i][4] !== '' ? (float)str_replace(',', '.', $sheet[$i][4]) : null;
-                    $rows[] = ['keys' => [$kw], 'impressions' => $impr, 'position' => $pos];
-                }
-            }
-        }
-        if (!$rows) {
-            $body = [
-                'startDate'  => $start,
-                'endDate'    => $end,
-                'dimensions' => ['query'],
-                'rowLimit'   => 25000,
-                'dataState'  => 'all'
-            ];
-            if ($country) {
-                $body['dimensionFilterGroups'] = [[
-                    'filters' => [
-                        [
-                            'dimension' => 'country',
-                            'operator'  => 'equals',
-                            'expression'=> strtolower($country)
-                        ]
+        $body = [
+            'startDate'  => $start,
+            'endDate'    => $end,
+            'dimensions' => ['query'],
+            'rowLimit'   => 25000,
+            'dataState'  => 'all'
+        ];
+        if ($country) {
+            $body['dimensionFilterGroups'] = [[
+                'filters' => [
+                    [
+                        'dimension' => 'country',
+                        'operator'  => 'equals',
+                        'expression'=> strtolower($country)
                     ]
-                ]];
-            }
-            $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
-            $rows = $resp['rows'] ?? [];
-
-            $data = [['Keyword','Clicks','Impressions','CTR','Position']];
-            foreach ($rows as $r) {
-                $data[] = [
-                    $r['keys'][0] ?? '',
-                    $r['clicks'] ?? 0,
-                    $r['impressions'] ?? 0,
-                    isset($r['ctr']) ? $r['ctr'] : 0,
-                    isset($r['position']) ? round($r['position'],2) : 0
-                ];
-            }
-            \Shuchkin\SimpleXLSXGen::fromArray($data)->saveAs($filePath);
-            $pattern = sprintf('%s/%d_%s_*.xlsx', $cacheDir, $clientId, $country ?: 'all');
-            $existing = glob($pattern);
-            if (count($existing) > 12) {
-                sort($existing);
-                while (count($existing) > 12) {
-                    $old = array_shift($existing);
-                    @unlink($old);
-                }
-            }
+                ]
+            ]];
         }
+
+        $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
+        $rows = $resp['rows'] ?? [];
 
         $col = 'm' . ($idx + 1);
         $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE client_id = ? AND country = ?")

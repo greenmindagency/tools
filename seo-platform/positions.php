@@ -108,43 +108,28 @@ if (isset($_POST['update_positions'])) {
     }
 }
 
-if (isset($_POST['import_positions']) && !empty($_FILES['csv_files']['tmp_name'])) {
-    require_once __DIR__ . '/lib/SimpleXLSX.php';
-
-    $mapStmt = $pdo->prepare("SELECT id, keyword, sort_order FROM keyword_positions WHERE client_id = ? AND country = ?");
-    $mapStmt->execute([$client_id, $country]);
-    $kwMap = [];
-    while ($r = $mapStmt->fetch(PDO::FETCH_ASSOC)) {
-        $kwMap[strtolower(trim($r['keyword']))] = ['id' => $r['id'], 'sort_order' => $r['sort_order']];
+if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name'])) {
+    $monthIndex = (int)($_POST['position_month'] ?? 0);
+    $col = 'm' . ($monthIndex + 2);
+    $tmp = $_FILES['csv_file']['tmp_name'];
+    $rawRows = [];
+    if (is_uploaded_file($tmp)) {
+        require_once __DIR__ . '/lib/SimpleXLSX.php';
+        if ($xlsx = \Shuchkin\SimpleXLSX::parse($tmp)) {
+            $rawRows = $xlsx->rows();
+        }
     }
+    if ($rawRows) {
 
-    $cacheDir = __DIR__ . '/backups';
-    if (!is_dir($cacheDir)) mkdir($cacheDir, 0777, true);
+        $mapStmt = $pdo->prepare("SELECT id, keyword, sort_order FROM keyword_positions WHERE client_id = ? AND country = ?");
+        $mapStmt->execute([$client_id, $country]);
+        $kwMap = [];
+        while ($r = $mapStmt->fetch(PDO::FETCH_ASSOC)) {
+            $kwMap[strtolower(trim($r['keyword']))] = ['id' => $r['id'], 'sort_order' => $r['sort_order']];
+        }
 
-    $files = $_FILES['csv_files'];
-    for ($i = 0; $i < count($files['tmp_name']); $i++) {
-        $tmp  = $files['tmp_name'][$i];
-        $name = $files['name'][$i] ?? '';
-        if (!is_uploaded_file($tmp)) continue;
+        $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE client_id = ? AND country = ?")->execute([$client_id, $country]);
 
-        if (!preg_match('/(20\d{2})[-_](\d{2})/', $name, $m)) continue;
-        $fileMonth = $m[1] . '-' . $m[2];
-        $now = new DateTime('first day of this month');
-        $dtFile = DateTime::createFromFormat('Y-m', $fileMonth);
-        if (!$dtFile) continue;
-        $diffMonths = ((int)$now->format('Y') - (int)$dtFile->format('Y')) * 12 + ((int)$now->format('m') - (int)$dtFile->format('m'));
-        if ($diffMonths < 1 || $diffMonths > 12) continue;
-        $col = 'm' . ($diffMonths + 1);
-
-        $target = $cacheDir . '/' . $client_id . '_' . ($country ?: 'all') . '_' . $fileMonth . '.xlsx';
-        move_uploaded_file($tmp, $target);
-
-        if (!$xlsx = \Shuchkin\SimpleXLSX::parse($target)) continue;
-        $rawRows = $xlsx->rows();
-        if (!$rawRows) continue;
-
-        $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE client_id = ? AND country = ?")
-            ->execute([$client_id, $country]);
         $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ?, sort_order = ? WHERE id = ?");
 
         $rows = [];
@@ -158,7 +143,7 @@ if (isset($_POST['import_positions']) && !empty($_FILES['csv_files']['tmp_name']
             return ['kw' => $kw, 'impr' => $impr, 'pos' => $pos];
         };
 
-        $firstData = $rawRows[0] ?? [];
+        $firstData = $rawRows[0];
         $hasHeader = false;
         if ($firstData) {
             $imprCheck = str_replace(',', '', $firstData[2] ?? '');
@@ -167,8 +152,8 @@ if (isset($_POST['import_positions']) && !empty($_FILES['csv_files']['tmp_name']
             }
         }
         $startIdx = $hasHeader ? 1 : 0;
-        for ($j = $startIdx; $j < count($rawRows); $j++) {
-            if ($row = $parseRow($rawRows[$j])) {
+        for ($i = $startIdx; $i < count($rawRows); $i++) {
+            if ($row = $parseRow($rawRows[$i])) {
                 $rows[] = $row;
             }
         }
@@ -182,25 +167,15 @@ if (isset($_POST['import_positions']) && !empty($_FILES['csv_files']['tmp_name']
             }
             $orderIdx++;
         }
-    }
 
-    $dup2 = $pdo->prepare("DELETE kp1 FROM keyword_positions kp1
+        $dup2 = $pdo->prepare("DELETE kp1 FROM keyword_positions kp1
                       JOIN keyword_positions kp2
                         ON kp1.keyword = kp2.keyword AND kp1.id > kp2.id
                      WHERE kp1.client_id = ?
                        AND kp2.client_id = ?
                        AND kp1.country = ?
                        AND kp2.country = ?");
-    $dup2->execute([$client_id, $client_id, $country, $country]);
-
-    $pattern = sprintf('%s/%d_%s_*.xlsx', $cacheDir, $client_id, $country ?: 'all');
-    $existing = glob($pattern);
-    if (count($existing) > 12) {
-        sort($existing);
-        while (count($existing) > 12) {
-            $old = array_shift($existing);
-            @unlink($old);
-        }
+        $dup2->execute([$client_id, $client_id, $country, $country]);
     }
 }
 
@@ -307,7 +282,12 @@ include 'header.php';
 </form>
 
 <form method="POST" id="importPosForm" enctype="multipart/form-data" class="mb-4" style="display:none;">
-  <input type="file" name="csv_files[]" accept=".xlsx" multiple class="form-control">
+  <select name="position_month" class="form-select mb-2">
+    <?php foreach ($months as $idx => $m): ?>
+      <option value="<?= $idx ?>"><?= $m ?></option>
+    <?php endforeach; ?>
+  </select>
+  <input type="file" name="csv_file" accept=".xlsx" class="form-control">
   <button type="submit" name="import_positions" class="btn btn-primary btn-sm mt-2">Import Positions</button>
 </form>
 
@@ -315,7 +295,7 @@ include 'header.php';
   <div class="d-flex">
     <button type="submit" form="updatePosForm" name="update_positions" class="btn btn-success btn-sm me-2">Update</button>
     <button type="button" id="toggleAddPosForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
-    <button type="button" id="toggleImportPosForm" class="btn btn-primary btn-sm me-2">Import Positions</button>
+    <button type="button" id="toggleImportPosForm" class="btn btn-primary btn-sm me-2" style="display:none;">Import Positions</button>
     <button type="button" id="openImportKw" class="btn btn-info btn-sm me-2">Import Keywords</button>
     <button type="button" id="copyPosKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
     <?php if ($country): ?>
