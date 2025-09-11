@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/session.php';
 require 'config.php';
+require_once __DIR__ . '/lib/SimpleXLSXGen.php';
 header('Content-Type: application/json');
 
 const CLIENT_ID     = '154567125513-3r6vh411d14igpsq52jojoq22s489d7v.apps.googleusercontent.com';
@@ -78,6 +79,18 @@ function cache_path(PDO $pdo, int $clientId, string $site, string $country, stri
     return "$path/$name.json";
 }
 
+function save_xlsx(array $rows, string $cachePath) {
+    $xlsxRows = [['keyword', 'position']];
+    foreach ($rows as $r) {
+        $kw = $r['keys'][0] ?? '';
+        if ($kw === '') continue;
+        $pos = isset($r['position']) ? round($r['position'], 2) : '';
+        $xlsxRows[] = [$kw, $pos];
+    }
+    $excel = dirname($cachePath) . '/all.xlsx';
+    \Shuchkin\SimpleXLSXGen::fromArray($xlsxRows)->saveAs($excel);
+}
+
 $clientId = (int)($_REQUEST['client_id'] ?? 0);
 $site     = trim($_REQUEST['site'] ?? '');
 $country  = strtolower(trim($_REQUEST['country'] ?? ''));
@@ -98,6 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $cache = cache_path($pdo, $clientId, $site, $country, 'all_keywords');
     if (file_exists($cache)) {
         $rows = json_decode(file_get_contents($cache), true) ?: [];
+        save_xlsx($rows, $cache);
         echo json_encode(['status'=>'ok','rows'=>$rows]);
         exit;
     }
@@ -125,6 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $rows = $resp['rows'] ?? [];
         usort($rows, fn($a,$b)=>($b['impressions']??0)<=>($a['impressions']??0));
         file_put_contents($cache, json_encode($rows));
+        save_xlsx($rows, $cache);
         echo json_encode(['status'=>'ok','rows'=>$rows]);
     } catch (Exception $e) {
         echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
