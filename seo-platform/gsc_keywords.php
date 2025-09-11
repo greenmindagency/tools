@@ -65,6 +65,19 @@ function get_access_token() {
     return null;
 }
 
+function cache_path(PDO $pdo, int $clientId, string $site, string $country, string $name) {
+    $stmt = $pdo->prepare('SELECT name FROM clients WHERE id = ?');
+    $stmt->execute([$clientId]);
+    $client = $stmt->fetchColumn();
+    $client = $client ? preg_replace('/[^a-z0-9_\-]+/i', '_', strtolower($client)) : 'client_' . $clientId;
+    $host = parse_url($site, PHP_URL_HOST) ?: $site;
+    $host = preg_replace('/[^a-z0-9_\-]+/i', '_', strtolower($host));
+    $path = __DIR__ . "/backups/$client/$host";
+    if ($country) $path .= '/' . $country;
+    if (!is_dir($path)) mkdir($path, 0777, true);
+    return "$path/$name.json";
+}
+
 $clientId = (int)($_REQUEST['client_id'] ?? 0);
 $site     = trim($_REQUEST['site'] ?? '');
 $country  = strtolower(trim($_REQUEST['country'] ?? ''));
@@ -82,7 +95,14 @@ if (!$accessToken) {
 $endpoint = 'https://searchconsole.googleapis.com/webmasters/v3/sites/' . rawurlencode($site) . '/searchAnalytics/query';
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $start = date('Y-m-d', strtotime('first day of -15 month'));
+    $cache = cache_path($pdo, $clientId, $site, $country, 'all_keywords');
+    if (file_exists($cache)) {
+        $rows = json_decode(file_get_contents($cache), true) ?: [];
+        echo json_encode(['status'=>'ok','rows'=>$rows]);
+        exit;
+    }
+
+    $start = date('Y-m-d', strtotime('first day of -12 month'));
     $end   = date('Y-m-d', strtotime('last day of previous month'));
     $body = [
         'startDate'  => $start,
@@ -104,6 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
         $rows = $resp['rows'] ?? [];
         usort($rows, fn($a,$b)=>($b['impressions']??0)<=>($a['impressions']??0));
+        file_put_contents($cache, json_encode($rows));
         echo json_encode(['status'=>'ok','rows'=>$rows]);
     } catch (Exception $e) {
         echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
@@ -165,28 +186,37 @@ foreach ($selMap as $kw => $_) {
                 ]]
             ]];
         }
-    try {
-        $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
-        $rows = $resp['rows'] ?? [];
-    } catch (Exception $e) {
-        echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
-        exit;
+
+        $monthKey = date('Y-m', strtotime($start));
+        $cache = cache_path($pdo, $clientId, $site, $country, 'keywords_' . $monthKey);
+        if (file_exists($cache)) {
+            $rows = json_decode(file_get_contents($cache), true) ?: [];
+        } else {
+            try {
+                $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
+                $rows = $resp['rows'] ?? [];
+                file_put_contents($cache, json_encode($rows));
+            } catch (Exception $e) {
+                echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
+                exit;
+            }
+        }
+
+        $col = 'm' . ($i + 1);
+        $clear = $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE id = ?");
+        foreach ($selIds as $id) {
+            $clear->execute([$id]);
+        }
+        usort($rows, fn($a,$b)=>($b['impressions']??0)<=>($a['impressions']??0));
+        $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ?, sort_order = ? WHERE id = ?");
+        $order = 1;
+        foreach ($rows as $row) {
+            $kw = strtolower(trim($row['keys'][0] ?? ''));
+            if ($kw === '' || !isset($kwMap[$kw]) || !isset($selMap[$kw])) continue;
+            $pos = isset($row['position']) ? round($row['position'], 2) : null;
+            $update->execute([$pos, $order, $kwMap[$kw]]);
+            $order++;
+        }
     }
-    $col = 'm' . ($i + 1);
-    $clear = $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE id = ?");
-    foreach ($selIds as $id) {
-        $clear->execute([$id]);
-    }
-    usort($rows, fn($a,$b)=>($b['impressions']??0)<=>($a['impressions']??0));
-    $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ?, sort_order = ? WHERE id = ?");
-    $order = 1;
-    foreach ($rows as $row) {
-        $kw = strtolower(trim($row['keys'][0] ?? ''));
-        if ($kw === '' || !isset($kwMap[$kw]) || !isset($selMap[$kw])) continue;
-        $pos = isset($row['position']) ? round($row['position'], 2) : null;
-        $update->execute([$pos, $order, $kwMap[$kw]]);
-        $order++;
-    }
-}
 
 echo json_encode(['status'=>'ok','keywords'=>count($keywords)]);
