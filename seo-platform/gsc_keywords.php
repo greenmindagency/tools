@@ -2,6 +2,7 @@
 require_once __DIR__ . '/session.php';
 require 'config.php';
 require_once __DIR__ . '/lib/SimpleXLSXGen.php';
+require_once __DIR__ . '/lib/SimpleXLSX.php';
 header('Content-Type: application/json');
 
 const CLIENT_ID     = '154567125513-3r6vh411d14igpsq52jojoq22s489d7v.apps.googleusercontent.com';
@@ -79,7 +80,7 @@ function cache_path(PDO $pdo, int $clientId, string $site, string $country, stri
     return "$path/$name.json";
 }
 
-function save_xlsx(array $rows, string $cachePath) {
+function save_xlsx(array $rows, string $file) {
     $xlsxRows = [['keyword', 'position']];
     foreach ($rows as $r) {
         $kw = $r['keys'][0] ?? '';
@@ -87,8 +88,23 @@ function save_xlsx(array $rows, string $cachePath) {
         $pos = isset($r['position']) ? round($r['position'], 2) : '';
         $xlsxRows[] = [$kw, $pos];
     }
-    $excel = dirname($cachePath) . '/all.xlsx';
-    \Shuchkin\SimpleXLSXGen::fromArray($xlsxRows)->saveAs($excel);
+    \Shuchkin\SimpleXLSXGen::fromArray($xlsxRows)->saveAs($file);
+}
+
+function load_xlsx(string $file) {
+    if (!file_exists($file)) return [];
+    if ($xlsx = \Shuchkin\SimpleXLSX::parse($file)) {
+        $rows = [];
+        foreach ($xlsx->rows() as $i => $r) {
+            if ($i === 0) continue;
+            $kw = $r[0] ?? '';
+            if ($kw === '') continue;
+            $pos = isset($r[1]) && $r[1] !== '' ? (float)$r[1] : null;
+            $rows[] = ['keys' => [$kw], 'position' => $pos];
+        }
+        return $rows;
+    }
+    return [];
 }
 
 $clientId = (int)($_REQUEST['client_id'] ?? 0);
@@ -109,9 +125,16 @@ $endpoint = 'https://searchconsole.googleapis.com/webmasters/v3/sites/' . rawurl
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $cache = cache_path($pdo, $clientId, $site, $country, 'all_keywords');
+    $dir   = dirname($cache);
+    $excel = $dir . '/all.xlsx';
+    if (file_exists($excel)) {
+        $rows = load_xlsx($excel);
+        echo json_encode(['status'=>'ok','rows'=>$rows]);
+        exit;
+    }
     if (file_exists($cache)) {
         $rows = json_decode(file_get_contents($cache), true) ?: [];
-        save_xlsx($rows, $cache);
+        save_xlsx($rows, $excel);
         echo json_encode(['status'=>'ok','rows'=>$rows]);
         exit;
     }
@@ -139,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $rows = $resp['rows'] ?? [];
         usort($rows, fn($a,$b)=>($b['impressions']??0)<=>($a['impressions']??0));
         file_put_contents($cache, json_encode($rows));
-        save_xlsx($rows, $cache);
+        save_xlsx($rows, $excel);
         echo json_encode(['status'=>'ok','rows'=>$rows]);
     } catch (Exception $e) {
         echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
@@ -204,13 +227,19 @@ foreach ($selMap as $kw => $_) {
 
         $monthKey = date('Y-m', strtotime($start));
         $cache = cache_path($pdo, $clientId, $site, $country, 'keywords_' . $monthKey);
-        if (file_exists($cache)) {
+        $dir = dirname($cache);
+        $excel = $dir . '/' . $monthKey . '.xlsx';
+        if (file_exists($excel)) {
+            $rows = load_xlsx($excel);
+        } elseif (file_exists($cache)) {
             $rows = json_decode(file_get_contents($cache), true) ?: [];
+            save_xlsx($rows, $excel);
         } else {
             try {
                 $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
                 $rows = $resp['rows'] ?? [];
                 file_put_contents($cache, json_encode($rows));
+                save_xlsx($rows, $excel);
             } catch (Exception $e) {
                 echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
                 exit;

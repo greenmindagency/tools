@@ -108,19 +108,34 @@ if (isset($_POST['update_positions'])) {
     }
 }
 
-if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name'])) {
+
+if (isset($_POST['import_positions']) && !empty($_FILES['csv_files']['tmp_name'])) {
     $monthIndex = (int)($_POST['position_month'] ?? 0);
     $col = 'm' . ($monthIndex + 2);
-    $tmp = $_FILES['csv_file']['tmp_name'];
+    $files = $_FILES['csv_files'];
     $rawRows = [];
-    if (is_uploaded_file($tmp)) {
-        require_once __DIR__ . '/lib/SimpleXLSX.php';
-        if ($xlsx = \Shuchkin\SimpleXLSX::parse($tmp)) {
-            $rawRows = $xlsx->rows();
+    require_once __DIR__ . '/lib/SimpleXLSX.php';
+    for ($i = 0; $i < count($files['tmp_name']); $i++) {
+        $tmp = $files['tmp_name'][$i];
+        if (!is_uploaded_file($tmp)) continue;
+
+        $monthKey = date('Y-m', strtotime('-' . ($monthIndex + 1) . ' month'));
+        $clientSlug = preg_replace('/[^a-z0-9_\-]+/i', '_', strtolower($client['name']));
+        $host = parse_url($scDomain, PHP_URL_HOST) ?: $scDomain;
+        $host = preg_replace('/[^a-z0-9_\-]+/i', '_', strtolower($host));
+        $dir = __DIR__ . "/backups/$clientSlug/$host" . ($country ? "/$country" : '');
+        if (!is_dir($dir)) mkdir($dir, 0777, true);
+        $dest = $dir . '/' . $monthKey . '_' . basename($files['name'][$i]);
+        move_uploaded_file($tmp, $dest);
+
+        if ($xlsx = \Shuchkin\SimpleXLSX::parse($dest)) {
+            foreach ($xlsx->rows() as $row) {
+                $rawRows[] = $row;
+            }
         }
     }
-    if ($rawRows) {
 
+    if ($rawRows) {
         $mapStmt = $pdo->prepare("SELECT id, keyword, sort_order FROM keyword_positions WHERE client_id = ? AND country = ?");
         $mapStmt->execute([$client_id, $country]);
         $kwMap = [];
@@ -128,7 +143,8 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
             $kwMap[strtolower(trim($r['keyword']))] = ['id' => $r['id'], 'sort_order' => $r['sort_order']];
         }
 
-        $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE client_id = ? AND country = ?")->execute([$client_id, $country]);
+        $pdo->prepare("UPDATE keyword_positions SET `$col` = NULL, sort_order = NULL WHERE client_id = ? AND country = ?")
+            ->execute([$client_id, $country]);
 
         $update = $pdo->prepare("UPDATE keyword_positions SET `$col` = ?, sort_order = ? WHERE id = ?");
 
@@ -168,13 +184,13 @@ if (isset($_POST['import_positions']) && isset($_FILES['csv_file']['tmp_name']))
             $orderIdx++;
         }
 
-        $dup2 = $pdo->prepare("DELETE kp1 FROM keyword_positions kp1
-                      JOIN keyword_positions kp2
-                        ON kp1.keyword = kp2.keyword AND kp1.id > kp2.id
-                     WHERE kp1.client_id = ?
-                       AND kp2.client_id = ?
-                       AND kp1.country = ?
-                       AND kp2.country = ?");
+        $dup2 = $pdo->prepare("DELETE kp1 FROM keyword_positions kp1"
+                      . " JOIN keyword_positions kp2"
+                      . " ON kp1.keyword = kp2.keyword AND kp1.id > kp2.id"
+                      . " WHERE kp1.client_id = ?"
+                      . " AND kp2.client_id = ?"
+                      . " AND kp1.country = ?"
+                      . " AND kp2.country = ?");
         $dup2->execute([$client_id, $client_id, $country, $country]);
     }
 }
@@ -282,12 +298,15 @@ include 'header.php';
 </form>
 
 <form method="POST" id="importPosForm" enctype="multipart/form-data" class="mb-4" style="display:none;">
-  <select name="position_month" class="form-select mb-2">
-    <?php foreach ($months as $idx => $m): ?>
-      <option value="<?= $idx ?>"><?= $m ?></option>
-    <?php endforeach; ?>
-  </select>
-  <input type="file" name="csv_file" accept=".xlsx" class="form-control">
+  <div class="input-group mb-2">
+    <select name="position_month" class="form-select">
+      <?php foreach ($months as $idx => $m): ?>
+        <option value="<?= $idx ?>"><?= $m ?></option>
+      <?php endforeach; ?>
+    </select>
+    <a id="gscLink" class="btn btn-outline-secondary" target="_blank" title="Open in Search Console"><i class="bi bi-box-arrow-up-right"></i></a>
+  </div>
+  <input type="file" name="csv_files[]" accept=".xlsx" multiple class="form-control">
   <button type="submit" name="import_positions" class="btn btn-primary btn-sm mt-2">Import Positions</button>
 </form>
 
@@ -466,7 +485,27 @@ document.getElementById('toggleAddPosForm').addEventListener('click', function()
 document.getElementById('toggleImportPosForm').addEventListener('click', function() {
   const form = document.getElementById('importPosForm');
   form.style.display = (form.style.display === 'none' || form.style.display === '') ? 'block' : 'none';
+  updateGscLink();
 });
+
+const monthSelect = document.querySelector('#importPosForm select[name="position_month"]');
+const gscLink = document.getElementById('gscLink');
+function updateGscLink(){
+  if(!gscLink) return;
+  const site = document.getElementById('scDomain').value.trim();
+  if(!site){ gscLink.href = '#'; return; }
+  const idx = parseInt(monthSelect.value,10);
+  const start = new Date();
+  start.setUTCDate(1);
+  start.setUTCMonth(start.getUTCMonth() - (idx + 1));
+  const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth()+1, 0));
+  const fmt = d => d.toISOString().slice(0,10);
+  let url = `https://search.google.com/search-console/performance/search?resource_id=${encodeURIComponent(site)}&start_date=${fmt(start)}&end_date=${fmt(end)}`;
+  if (currentCountry) url += `&country=${currentCountry}`;
+  gscLink.href = url;
+}
+monthSelect?.addEventListener('change', updateGscLink);
+updateGscLink();
 
 function showCopiedToast(msg) {
   const el = document.getElementById('copyToast');
