@@ -8,7 +8,7 @@ function cache_init(PDO $pdo): void {
         response LONGTEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (client_id, cache_key),
-        FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+        INDEX idx_client (client_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci");
 }
 
@@ -26,4 +26,10 @@ function cache_set(PDO $pdo, int $clientId, string $key, $data): void {
     $stmt->execute([$clientId, $key, json_encode($data)]);
     // keep only the most recent 12 months of cache entries
     $pdo->exec("DELETE FROM gsc_cache WHERE created_at < DATE_SUB(NOW(), INTERVAL 13 MONTH)");
+}
+
+function cache_clear_client(PDO $pdo, int $clientId): void {
+    cache_init($pdo);
+    $stmt = $pdo->prepare('DELETE FROM gsc_cache WHERE client_id = ?');
+    $stmt->execute([$clientId]);
 }

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/session.php';
 require 'config.php';
+require_once __DIR__ . '/lib/cache.php';
 header('Content-Type: application/json');
 
 const CLIENT_ID     = '154567125513-3r6vh411d14igpsq52jojoq22s489d7v.apps.googleusercontent.com';
@@ -98,9 +99,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
+$clientId = (int)($_GET['client_id'] ?? 0);
 $site = trim($_GET['site'] ?? '');
-if (!$site) {
-    echo json_encode(['status'=>'error','error'=>'Missing site']);
+if (!$clientId || !$site) {
+    echo json_encode(['status'=>'error','error'=>'Missing parameters']);
     exit;
 }
 $accessToken = get_access_token();
@@ -119,7 +121,12 @@ $body = [
 ];
 $endpoint = 'https://searchconsole.googleapis.com/webmasters/v3/sites/' . rawurlencode($site) . '/searchAnalytics/query';
 try {
-    $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
+    $cacheKey = hash('sha256', 'countrylist|' . $site);
+    $resp = cache_get($pdo, $clientId, $cacheKey);
+    if (!$resp) {
+        $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
+        cache_set($pdo, $clientId, $cacheKey, $resp);
+    }
     $rows = $resp['rows'] ?? [];
     $countries = [];
     foreach ($rows as $r) {

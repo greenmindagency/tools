@@ -892,7 +892,7 @@ document.getElementById('importCountryBtn').addEventListener('click', () => {
   selectedCountries = new Set(existingCountries);
   document.getElementById('countryFilter').value = '';
   countryFilterVal = '';
-  fetch('gsc_countries.php?site=' + encodeURIComponent(site))
+  fetch('gsc_countries.php?client_id=<?= $client_id ?>&site=' + encodeURIComponent(site))
     .then(r=>r.json()).then(data=>{
       if (data.status === 'ok') {
         countryData = data.countries;

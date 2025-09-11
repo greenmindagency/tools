@@ -10,6 +10,7 @@ $slugify = function(string $name): string {
     return strtolower(trim($name, '-'));
 };
 require 'config.php';
+require_once __DIR__ . '/lib/cache.php';
 $pdo->exec("ALTER TABLE clients ADD COLUMN IF NOT EXISTS username VARCHAR(255)");
 $pdo->exec("ALTER TABLE clients ADD COLUMN IF NOT EXISTS pass_hash VARCHAR(255)");
 
@@ -28,6 +29,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_SESSION['is_admin'] ?? false)) {
     // delete client and all related data
     if (isset($_POST['delete_client'])) {
         $cid = (int)$_POST['delete_client'];
+        cache_clear_client($pdo, $cid);
+        $pdo->exec("CREATE TABLE IF NOT EXISTS sc_countries (
+            client_id INT,
+            country VARCHAR(3),
+            PRIMARY KEY (client_id, country)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        $pdo->prepare("DELETE FROM sc_countries WHERE client_id = ?")->execute([$cid]);
         $pdo->prepare("DELETE FROM keyword_positions WHERE client_id = ?")->execute([$cid]);
         $pdo->prepare("DELETE FROM keywords WHERE client_id = ?")->execute([$cid]);
         $pdo->prepare("DELETE FROM sc_domains WHERE client_id = ?")->execute([$cid]);
