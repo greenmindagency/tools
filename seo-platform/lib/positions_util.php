@@ -5,8 +5,7 @@ function rotate_position_months(PDO $pdo, int $clientId, string $country): void 
         client_id INT NOT NULL,
         country VARCHAR(3) NOT NULL DEFAULT '',
         last_month CHAR(7) NOT NULL,
-        PRIMARY KEY (client_id, country),
-        FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+        PRIMARY KEY (client_id, country)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci");
 
     $current = date('Y-m');

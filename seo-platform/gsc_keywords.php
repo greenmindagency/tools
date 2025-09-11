@@ -74,7 +74,12 @@ if (!$clientId || !$site) {
     echo json_encode(['status'=>'error','error'=>'Missing parameters']);
     exit;
 }
-rotate_position_months($pdo, $clientId, $country);
+try {
+    rotate_position_months($pdo, $clientId, $country);
+} catch (Exception $e) {
+    echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
+    exit;
+}
 
 $accessToken = get_access_token();
 if (!$accessToken) {

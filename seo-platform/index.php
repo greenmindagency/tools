@@ -36,6 +36,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_SESSION['is_admin'] ?? false)) {
             PRIMARY KEY (client_id, country)
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
         $pdo->prepare("DELETE FROM sc_countries WHERE client_id = ?")->execute([$cid]);
+        $pdo->exec("CREATE TABLE IF NOT EXISTS keyword_months (
+            client_id INT NOT NULL,
+            country VARCHAR(3) NOT NULL DEFAULT '',
+            last_month CHAR(7) NOT NULL,
+            PRIMARY KEY (client_id, country)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci");
+        $pdo->prepare("DELETE FROM keyword_months WHERE client_id = ?")->execute([$cid]);
         $pdo->prepare("DELETE FROM keyword_positions WHERE client_id = ?")->execute([$cid]);
         $pdo->prepare("DELETE FROM keywords WHERE client_id = ?")->execute([$cid]);
         $pdo->prepare("DELETE FROM sc_domains WHERE client_id = ?")->execute([$cid]);
