@@ -1,8 +1,6 @@
 <?php
 require_once __DIR__ . '/session.php';
 require 'config.php';
-require_once __DIR__ . '/lib/cache.php';
-require_once __DIR__ . '/lib/positions_util.php';
 header('Content-Type: application/json');
 
 const CLIENT_ID     = '154567125513-3r6vh411d14igpsq52jojoq22s489d7v.apps.googleusercontent.com';
@@ -74,12 +72,6 @@ if (!$clientId || !$site) {
     echo json_encode(['status'=>'error','error'=>'Missing parameters']);
     exit;
 }
-try {
-    rotate_position_months($pdo, $clientId, $country);
-} catch (Exception $e) {
-    echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
-    exit;
-}
 
 $accessToken = get_access_token();
 if (!$accessToken) {
@@ -109,17 +101,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         ]];
     }
     try {
-        $cacheKey = hash('sha256', 'kwlist|' . $site . '|' . $country . '|' . $end);
-        $resp = cache_get($pdo, $clientId, $cacheKey);
-        $source = 'cache';
-        if (!$resp) {
-            $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
-            cache_set($pdo, $clientId, $cacheKey, $resp);
-            $source = 'api';
-        }
+        $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
         $rows = $resp['rows'] ?? [];
         usort($rows, fn($a,$b)=>($b['impressions']??0)<=>($a['impressions']??0));
-        echo json_encode(['status'=>'ok','rows'=>$rows,'source'=>$source]);
+        echo json_encode(['status'=>'ok','rows'=>$rows]);
     } catch (Exception $e) {
         echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
     }
@@ -161,8 +146,7 @@ foreach ($selMap as $kw => $_) {
     if (isset($kwMap[$kw])) $selIds[] = $kwMap[$kw];
 }
 
-$allCached = true;
-for ($i = 0; $i < 12; $i++) {
+    for ($i = 0; $i < 12; $i++) {
         $start = date('Y-m-d', strtotime("first day of -$i month"));
         $end   = date('Y-m-d', strtotime("last day of -$i month"));
         $body = [
@@ -182,13 +166,7 @@ for ($i = 0; $i < 12; $i++) {
             ]];
         }
     try {
-        $cacheKey = hash('sha256', 'kwpos|' . $site . '|' . $country . '|' . $start . '|' . $end);
-        $resp = cache_get($pdo, $clientId, $cacheKey);
-        if (!$resp) {
-            $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
-            cache_set($pdo, $clientId, $cacheKey, $resp);
-            $allCached = false;
-        }
+        $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
         $rows = $resp['rows'] ?? [];
     } catch (Exception $e) {
         echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
@@ -211,4 +189,4 @@ for ($i = 0; $i < 12; $i++) {
     }
 }
 
-echo json_encode(['status'=>'ok','keywords'=>count($keywords),'source'=>$allCached?'cache':'api']);
+echo json_encode(['status'=>'ok','keywords'=>count($keywords)]);

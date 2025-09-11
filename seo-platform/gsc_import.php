@@ -1,8 +1,6 @@
 <?php
 require_once __DIR__ . '/session.php';
 require 'config.php';
-require_once __DIR__ . '/lib/cache.php';
-require_once __DIR__ . '/lib/positions_util.php';
 header('Content-Type: application/json');
 
 const CLIENT_ID     = '154567125513-3r6vh411d14igpsq52jojoq22s489d7v.apps.googleusercontent.com';
@@ -75,12 +73,6 @@ if (!$clientId || !$site) {
     echo json_encode(['status'=>'error','error'=>'Missing parameters']);
     exit;
 }
-try {
-    rotate_position_months($pdo, $clientId, $country);
-} catch (Exception $e) {
-    echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
-    exit;
-}
 
 $accessToken = get_access_token();
 if (!$accessToken) {
@@ -129,7 +121,6 @@ try {
     $months = array_values($months);
 
     $total = 0;
-    $allCached = true;
     foreach ($months as $m) {
         $start = $m['start'] ?? '';
         $end   = $m['end'] ?? '';
@@ -155,13 +146,7 @@ try {
             ]];
         }
 
-        $cacheKey = hash('sha256', $site . '|' . $country . '|' . $start . '|' . $end);
-        $resp = cache_get($pdo, $clientId, $cacheKey);
-        if (!$resp) {
-            $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
-            cache_set($pdo, $clientId, $cacheKey, $resp);
-            $allCached = false;
-        }
+        $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);
         $rows = $resp['rows'] ?? [];
 
         $col = 'm' . ($idx + 1);
@@ -181,7 +166,7 @@ try {
         $total += $order - 1;
     }
 
-    echo json_encode(['status'=>'ok','updated'=>$total,'source'=>$allCached?'cache':'api']);
+    echo json_encode(['status'=>'ok','updated'=>$total]);
 } catch (Exception $e) {
     echo json_encode(['status'=>'error','error'=>$e->getMessage()]);
 }

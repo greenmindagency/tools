@@ -516,7 +516,7 @@ if (removeBtn) {
 const changeBtn = document.getElementById('changeScDomain');
 if (changeBtn) {
   changeBtn.addEventListener('click', function() {
-    fetch('gsc_fetch.php?props=1&client_id=<?= $client_id ?>')
+    fetch('gsc_fetch.php?props=1')
       .then(r => r.json())
       .then(data => {
         if (data.status === 'auth' && data.url) {
@@ -892,7 +892,7 @@ document.getElementById('importCountryBtn').addEventListener('click', () => {
   selectedCountries = new Set(existingCountries);
   document.getElementById('countryFilter').value = '';
   countryFilterVal = '';
-  fetch('gsc_countries.php?client_id=<?= $client_id ?>&site=' + encodeURIComponent(site))
+  fetch('gsc_countries.php?site=' + encodeURIComponent(site))
     .then(r=>r.json()).then(data=>{
       if (data.status === 'ok') {
         countryData = data.countries;
