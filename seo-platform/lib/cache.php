@@ -24,4 +24,6 @@ function cache_set(PDO $pdo, int $clientId, string $key, $data): void {
     cache_init($pdo);
     $stmt = $pdo->prepare('REPLACE INTO gsc_cache (client_id, cache_key, response, created_at) VALUES (?, ?, ?, NOW())');
     $stmt->execute([$clientId, $key, json_encode($data)]);
+    // keep only the most recent 12 months of cache entries
+    $pdo->exec("DELETE FROM gsc_cache WHERE created_at < DATE_SUB(NOW(), INTERVAL 13 MONTH)");
 }

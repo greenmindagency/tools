@@ -2,6 +2,7 @@
 require_once __DIR__ . '/session.php';
 require 'config.php';
 require_once __DIR__ . '/lib/cache.php';
+require_once __DIR__ . '/lib/positions_util.php';
 header('Content-Type: application/json');
 
 const CLIENT_ID     = '154567125513-3r6vh411d14igpsq52jojoq22s489d7v.apps.googleusercontent.com';
@@ -74,6 +75,8 @@ if (!$clientId || !$site) {
     echo json_encode(['status'=>'error','error'=>'Missing parameters']);
     exit;
 }
+
+rotate_position_months($pdo, $clientId, $country);
 
 $accessToken = get_access_token();
 if (!$accessToken) {
