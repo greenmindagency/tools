@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         ]];
     }
     try {
-        $cacheKey = hash('sha256', 'kwlist|' . $site . '|' . $country);
+        $cacheKey = hash('sha256', 'kwlist|' . $site . '|' . $country . '|' . $end);
         $resp = cache_get($pdo, $clientId, $cacheKey);
         if (!$resp) {
             $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);

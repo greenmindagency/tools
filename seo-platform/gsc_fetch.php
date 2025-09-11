@@ -6,6 +6,7 @@ const REDIRECT_URI  = 'https://greenmindagency.com/tools/seo-platform/gsc_fetch.
 
 const TOKEN_FILE = __DIR__ . '/gsc_token.json';
 require 'config.php';
+require_once __DIR__ . '/lib/cache.php';
 
 function http_post_json($url, $payload, $headers = []) {
     $ch = curl_init($url);
@@ -97,6 +98,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['client_id'], $_POST['
 // Provide property list for modal
 if (isset($_GET['props'])) {
     header('Content-Type: application/json');
+    $clientId = (int)($_GET['client_id'] ?? 0);
+    $cacheKey = 'scprops|' . date('Y-m');
+    $cached = cache_get($pdo, $clientId, $cacheKey);
+    if ($cached) {
+        echo json_encode(['status' => 'ok', 'sites' => $cached['sites']]);
+        exit;
+    }
     $accessToken = get_access_token();
     if (!$accessToken) {
         $authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
@@ -113,6 +121,7 @@ if (isset($_GET['props'])) {
     try {
         $sitesResp = bearer_get('https://searchconsole.googleapis.com/webmasters/v3/sites', $accessToken);
         $sites = $sitesResp['siteEntry'] ?? [];
+        cache_set($pdo, $clientId, $cacheKey, ['sites' => $sites]);
         echo json_encode(['status' => 'ok', 'sites' => $sites]);
     } catch (Exception $e) {
         echo json_encode(['status' => 'error', 'error' => $e->getMessage()]);

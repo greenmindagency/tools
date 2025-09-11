@@ -516,7 +516,7 @@ if (removeBtn) {
 const changeBtn = document.getElementById('changeScDomain');
 if (changeBtn) {
   changeBtn.addEventListener('click', function() {
-    fetch('gsc_fetch.php?props=1')
+    fetch('gsc_fetch.php?props=1&client_id=<?= $client_id ?>')
       .then(r => r.json())
       .then(data => {
         if (data.status === 'auth' && data.url) {

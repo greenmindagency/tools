@@ -121,7 +121,7 @@ $body = [
 ];
 $endpoint = 'https://searchconsole.googleapis.com/webmasters/v3/sites/' . rawurlencode($site) . '/searchAnalytics/query';
 try {
-    $cacheKey = hash('sha256', 'countrylist|' . $site);
+    $cacheKey = hash('sha256', 'countrylist|' . $site . '|' . $end);
     $resp = cache_get($pdo, $clientId, $cacheKey);
     if (!$resp) {
         $resp = http_post_json($endpoint, $body, ['Authorization: Bearer ' . $accessToken]);

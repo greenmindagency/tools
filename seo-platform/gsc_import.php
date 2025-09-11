@@ -82,8 +82,6 @@ try {
     exit;
 }
 
-rotate_position_months($pdo, $clientId, $country);
-
 $accessToken = get_access_token();
 if (!$accessToken) {
     echo json_encode(['status'=>'error','error'=>'Not authorized']);
