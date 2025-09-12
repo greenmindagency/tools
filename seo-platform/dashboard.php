@@ -827,6 +827,29 @@ let sortKey = 'impressions';
 let sortDir = 'desc';
 const existingKeywords = new Set(<?= json_encode($existingKeywords) ?>);
 
+function nextFridayMidnight(from) {
+  const d = from ? new Date(from) : new Date();
+  const day = d.getDay();
+  let diff = (5 - day + 7) % 7;
+  if (diff === 0) diff = 7;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0,0,0,0);
+  return d.getTime();
+}
+function getCache(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (Date.now() < obj.expiry) return obj.data;
+  } catch(e) {}
+  return null;
+}
+function setCache(key, data) {
+  const expiry = nextFridayMidnight();
+  localStorage.setItem(key, JSON.stringify({expiry, data}));
+}
+
 document.getElementById('openImportKw')?.addEventListener('click', () => {
   const site = document.getElementById('scDomain').value.trim();
   if (!site) { alert('No Search Console property connected'); return; }
@@ -835,19 +858,27 @@ document.getElementById('openImportKw')?.addEventListener('click', () => {
   modal.show();
   const tbody = document.querySelector('#kwTable tbody');
   tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
-  fetch('gsc_keywords.php?client_id=<?= $client_id ?>&site=' + encodeURIComponent(site))
-    .then(r => r.json()).then(data => {
-      if (data.status === 'ok') {
-        kwData = data.rows;
-        renderKwTable();
-      } else {
-        tbody.innerHTML = '<tr><td colspan="5">Failed to load</td></tr>';
-        alert(data.error || 'Failed to load');
-      }
-    }).catch(err => {
-      tbody.innerHTML = '<tr><td colspan="5">Error</td></tr>';
-      alert('Error: ' + err);
-    });
+  const cacheKey = 'gscKwDash_' + site + '_<?= $client_id ?>';
+  const cached = getCache(cacheKey);
+  if (cached) {
+    kwData = cached;
+    renderKwTable();
+  } else {
+    fetch('gsc_keywords.php?client_id=<?= $client_id ?>&site=' + encodeURIComponent(site))
+      .then(r => r.json()).then(data => {
+        if (data.status === 'ok') {
+          kwData = data.rows;
+          setCache(cacheKey, kwData);
+          renderKwTable();
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5">Failed to load</td></tr>';
+          alert(data.error || 'Failed to load');
+        }
+      }).catch(err => {
+        tbody.innerHTML = '<tr><td colspan="5">Error</td></tr>';
+        alert('Error: ' + err);
+      });
+  }
 });
 
 function renderKwTable() {
