@@ -261,6 +261,7 @@ document.getElementById('saveBtn').addEventListener('click',()=>{
 });
 document.getElementById('deleteBtn').addEventListener('click',()=>{
   if(!current) return;
+  if(!confirm('Delete this entry?')) return;
   entries=entries.filter(e=>e!==current);
   const [year,month]=document.getElementById('month').value.split('-').map(Number);
   fetch('save_content.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,year,month,entries})})
