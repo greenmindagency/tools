@@ -95,18 +95,25 @@ $base = "client_id=$client_id&slug=$slug";
     <option value="<?= htmlspecialchars($c) ?>"></option>
   <?php endforeach; ?>
 </datalist>
-<style>
-.status-badge{min-width:120px;font-size:0.75rem;}
-.status-wip{background-color:#fff3cd;}
-.status-review{background-color:#fff3cd;}
-.status-approved{background-color:#d1e7dd;}
-.status-published{background-color:#d1e7dd;}
-.status-edit{background-color:#f8d7da;}
-</style>
+  <style>
+  .status-badge{min-width:120px;font-size:0.75rem;color:#000;}
+  .status-wip{background-color:#fff3cd !important;}
+  .status-review{background-color:#fff3cd !important;}
+  .status-approved{background-color:#d1e7dd !important;}
+  .status-published{background-color:#d1e7dd !important;}
+  .status-edit{background-color:#f8d7da !important;}
+  </style>
 <script>
 const clientId = <?=$client_id?>;
 let entries = [];
 let current = null;
+function ensureCurrent(){
+  if(!current){
+    const [y,m]=document.getElementById('month').value.split('-');
+    current={post_date:'',title:'',cluster:'',doc_link:'',status:'Work in Progress'};
+    entries.push(current);
+  }
+}
 function statusClass(stat){
   switch(stat){
     case 'Work in Progress': return 'status-wip';
@@ -124,8 +131,9 @@ function applyStatusColor(sel){
 function loadSaved(){
   const [year,month] = document.getElementById('month').value.split('-').map(Number);
   fetch(`load_content.php?client_id=${clientId}&year=${year}&month=${month}`)
-    .then(r=>r.json())
-    .then(js=>{entries=js;renderList();if(entries.length){selectEntry(entries[0]);}else{clearForm();}});
+    .then(r=>r.ok?r.json():Promise.reject())
+    .then(js=>{entries=js;renderList();if(entries.length){selectEntry(entries[0]);}else{clearForm();}})
+    .catch(()=>{entries=[];renderList();clearForm();showToast('Load failed');});
 }
 
 function renderList(){
@@ -188,6 +196,15 @@ function loadKeywords(cluster){
     .then(js=>{span.textContent=js.join(' | ');});
 }
 
+function showToast(msg){
+  const toast=document.createElement('div');
+  toast.className='toast align-items-center text-bg-primary border-0 position-fixed bottom-0 end-0 m-3';
+  toast.innerHTML=`<div class="d-flex"><div class="toast-body">${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+  document.body.appendChild(toast);
+  new bootstrap.Toast(toast,{delay:2000}).show();
+  toast.addEventListener('hidden.bs.toast',()=>toast.remove());
+}
+
 document.getElementById('month').addEventListener('change',loadSaved);
 document.getElementById('addContent').addEventListener('click',()=>{
   const [y,m]=document.getElementById('month').value.split('-');
@@ -196,31 +213,51 @@ document.getElementById('addContent').addEventListener('click',()=>{
   renderList();
   selectEntry(newEntry);
 });
+document.getElementById('contentDate').addEventListener('change',()=>{
+  ensureCurrent();
+  current.post_date=document.getElementById('contentDate').value;
+  renderList();
+});
+document.getElementById('contentTitle').addEventListener('input',()=>{
+  ensureCurrent();
+  current.title=document.getElementById('contentTitle').value.trim();
+  renderList();
+});
 document.getElementById('contentCluster').addEventListener('change',()=>{
-  if(current){current.cluster=document.getElementById('contentCluster').value.trim();loadKeywords(current.cluster);}
+  ensureCurrent();
+  current.cluster=document.getElementById('contentCluster').value.trim();
+  loadKeywords(current.cluster);
+  renderList();
 });
 document.getElementById('status').addEventListener('change',e=>{
-  if(current){current.status=e.target.value;}
+  ensureCurrent();
+  current.status=e.target.value;
   applyStatusColor(e.target);
+  renderList();
 });
 document.getElementById('updateDoc').addEventListener('click',()=>{
-  if(!current) return;
+  ensureCurrent();
   const link=prompt('Enter Google Doc link', current.doc_link||'');
   if(link!==null){
     current.doc_link=link.trim();
     document.getElementById('docLink').href=current.doc_link||'#';
     document.getElementById('docLink').textContent=current.doc_link?'Doc Link':'';
+    renderList();
   }
 });
 document.getElementById('saveBtn').addEventListener('click',()=>{
   if(current){
     current.post_date=document.getElementById('contentDate').value;
     current.title=document.getElementById('contentTitle').value.trim();
+    current.cluster=document.getElementById('contentCluster').value.trim();
+    current.status=document.getElementById('status').value;
+    current.doc_link=document.getElementById('docLink').href === '#' ? '' : document.getElementById('docLink').href;
   }
   const [year,month]=document.getElementById('month').value.split('-').map(Number);
   fetch('save_content.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,year,month,entries})})
-    .then(r=>r.json())
-    .then(()=>loadSaved());
+    .then(r=>r.ok?r.json():Promise.reject())
+    .then(()=>{showToast('Content saved');loadSaved();})
+    .catch(()=>showToast('Save failed'));
 });
 document.getElementById('deleteBtn').addEventListener('click',()=>{
   if(!current) return;

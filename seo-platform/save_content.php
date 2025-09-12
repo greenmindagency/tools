@@ -17,6 +17,13 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS client_content (
   doc_link TEXT,
   status VARCHAR(50)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+foreach ([
+    'cluster VARCHAR(255)',
+    'doc_link TEXT',
+    'status VARCHAR(50)'
+] as $col) {
+    try { $pdo->exec("ALTER TABLE client_content ADD COLUMN $col"); } catch (PDOException $e) {}
+}
 try{
     $pdo->beginTransaction();
     if($year && $month){
