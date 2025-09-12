@@ -89,36 +89,22 @@ try {
     while ($r = $mapStmt->fetch(PDO::FETCH_ASSOC)) {
         $kwMap[strtolower(trim($r['keyword']))] = $r['id'];
     }
-    // determine which months to fetch: empty columns plus latest months
+    // determine which months to fetch: only columns with no data
     $months = [];
-    $hasEmpty = false;
     for ($i = 0; $i < 13; $i++) {
         $col = 'm' . ($i + 1);
         $cntStmt = $pdo->prepare("SELECT COUNT(*) FROM keyword_positions WHERE client_id = ? AND country = ? AND `$col` IS NOT NULL");
         $cntStmt->execute([$clientId, $country]);
         if ($cntStmt->fetchColumn() == 0) {
-            $hasEmpty = true;
             $start = date('Y-m-d', strtotime("first day of -$i month"));
             $end   = date('Y-m-d', strtotime("last day of -$i month"));
-            $months[$i] = ['start' => $start, 'end' => $end, 'index' => $i];
+            $months[] = ['start' => $start, 'end' => $end, 'index' => $i];
         }
     }
-    // always refresh current month
-    $months[0] = [
-        'start' => date('Y-m-d', strtotime('first day of this month')),
-        'end'   => date('Y-m-d', strtotime('last day of this month')),
-        'index' => 0
-    ];
-    // if no empty columns, also refresh previous month
-    if (!$hasEmpty) {
-        $months[1] = [
-            'start' => date('Y-m-d', strtotime('first day of -1 month')),
-            'end'   => date('Y-m-d', strtotime('last day of -1 month')),
-            'index' => 1
-        ];
+    if (!$months) {
+        echo json_encode(['status' => 'ok', 'updated' => 0]);
+        exit;
     }
-    ksort($months);
-    $months = array_values($months);
 
     $total = 0;
     foreach ($months as $m) {

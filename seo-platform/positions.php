@@ -80,25 +80,6 @@ $scDomainStmt = $pdo->prepare("SELECT domain FROM sc_domains WHERE client_id = ?
 $scDomainStmt->execute([$client_id]);
 $scDomain = $scDomainStmt->fetchColumn() ?: '';
 
-
-
-if (isset($_POST['add_position_keywords'])) {
-    $text = trim($_POST['pos_keywords'] ?? '');
-    $lines = array_values(array_filter(array_map('trim', preg_split('/\r\n|\n|\r/', $text)), 'strlen'));
-    $ins = $pdo->prepare("INSERT INTO keyword_positions (client_id, keyword, country) VALUES (?, ?, ?)");
-    foreach ($lines as $kw) {
-        $ins->execute([$client_id, $kw, $country]);
-    }
-    $dup = $pdo->prepare("DELETE kp1 FROM keyword_positions kp1
-                  JOIN keyword_positions kp2
-                    ON kp1.keyword = kp2.keyword AND kp1.id > kp2.id
-                 WHERE kp1.client_id = ?
-                   AND kp2.client_id = ?
-                   AND kp1.country = ?
-                   AND kp2.country = ?");
-    $dup->execute([$client_id, $client_id, $country, $country]);
-}
-
 if (isset($_POST['update_positions'])) {
     $deleteIds = array_keys(array_filter($_POST['delete_pos'] ?? [], fn($v) => $v == '1'));
     if ($deleteIds) {
@@ -276,11 +257,6 @@ include 'header.php';
   </div>
 </div>
 
-<form method="POST" id="addPosForm" class="mb-4" style="display:none;">
-  <textarea name="pos_keywords" class="form-control" rows="6" placeholder="One keyword per line"></textarea>
-  <button type="submit" name="add_position_keywords" class="btn btn-primary btn-sm mt-2">Add Keywords</button>
-</form>
-
 <form method="POST" id="importPosForm" enctype="multipart/form-data" class="mb-4" style="display:none;">
   <select name="position_month" class="form-select mb-2">
     <?php foreach ($months as $idx => $m): ?>
@@ -294,7 +270,6 @@ include 'header.php';
 <div class="d-flex justify-content-between mb-2 sticky-controls">
   <div class="d-flex">
     <button type="submit" form="updatePosForm" name="update_positions" class="btn btn-success btn-sm me-2">Update</button>
-    <button type="button" id="toggleAddPosForm" class="btn btn-warning btn-sm me-2">Update Keywords</button>
     <button type="button" id="toggleImportPosForm" class="btn btn-primary btn-sm me-2" style="display:none;">Import Positions</button>
     <button type="button" id="openImportKw" class="btn btn-info btn-sm me-2">Import Keywords</button>
     <button type="button" id="copyPosKeywords" class="btn btn-secondary btn-sm me-2">Copy Keywords</button>
@@ -457,16 +432,33 @@ if (removeAllPosBtn) {
     }
   });
 }
-
-document.getElementById('toggleAddPosForm').addEventListener('click', function() {
-  const form = document.getElementById('addPosForm');
-  form.style.display = (form.style.display === 'none' || form.style.display === '') ? 'block' : 'none';
-});
-
 document.getElementById('toggleImportPosForm').addEventListener('click', function() {
   const form = document.getElementById('importPosForm');
   form.style.display = (form.style.display === 'none' || form.style.display === '') ? 'block' : 'none';
 });
+
+function nextFridayMidnight(from) {
+  const d = from ? new Date(from) : new Date();
+  const day = d.getDay();
+  let diff = (5 - day + 7) % 7;
+  if (diff === 0) diff = 7;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0,0,0,0);
+  return d.getTime();
+}
+function getCache(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (Date.now() < obj.expiry) return obj.data;
+  } catch(e) {}
+  return null;
+}
+function setCache(key, data) {
+  const expiry = nextFridayMidnight();
+  localStorage.setItem(key, JSON.stringify({expiry, data}));
+}
 
 function showCopiedToast(msg) {
   const el = document.getElementById('copyToast');
@@ -892,19 +884,27 @@ document.getElementById('importCountryBtn').addEventListener('click', () => {
   selectedCountries = new Set(existingCountries);
   document.getElementById('countryFilter').value = '';
   countryFilterVal = '';
-  fetch('gsc_countries.php?site=' + encodeURIComponent(site))
-    .then(r=>r.json()).then(data=>{
-      if (data.status === 'ok') {
-        countryData = data.countries;
-        renderCountryTable();
-      } else {
-        tbody.innerHTML = '<tr><td colspan="3">Failed to load</td></tr>';
-        alert(data.error || 'Failed to load');
-      }
-    }).catch(err=>{
-      tbody.innerHTML = '<tr><td colspan="3">Error</td></tr>';
-      alert('Error: '+err);
-    });
+  const cacheKey = 'gscCountry_' + site + '_<?= $client_id ?>';
+  const cached = getCache(cacheKey);
+  if (cached) {
+    countryData = cached;
+    renderCountryTable();
+  } else {
+    fetch('gsc_countries.php?site=' + encodeURIComponent(site))
+      .then(r=>r.json()).then(data=>{
+        if (data.status === 'ok') {
+          countryData = data.countries;
+          setCache(cacheKey, countryData);
+          renderCountryTable();
+        } else {
+          tbody.innerHTML = '<tr><td colspan="3">Failed to load</td></tr>';
+          alert(data.error || 'Failed to load');
+        }
+      }).catch(err=>{
+        tbody.innerHTML = '<tr><td colspan="3">Error</td></tr>';
+        alert('Error: '+err);
+      });
+  }
 });
 
 document.getElementById('countryFilter').addEventListener('input', e => {
@@ -962,7 +962,11 @@ if (fetchBtn) {
     }).then(r=>r.json()).then(data=>{
       fetchBtn.disabled = false;
       if (data.status === 'ok') {
-        location.reload();
+        if (data.updated > 0) {
+          location.reload();
+        } else {
+          alert('No empty month columns to fetch.');
+        }
       } else {
         alert(data.error || 'Import failed');
       }
@@ -988,19 +992,27 @@ document.getElementById('openImportKw')?.addEventListener('click', () => {
   modal.show();
   const tbody = document.querySelector('#kwTable tbody');
   tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
-  fetch('gsc_keywords.php?client_id=<?= $client_id ?>&site=' + encodeURIComponent(site) + '&country=' + encodeURIComponent(currentCountry))
-    .then(r => r.json()).then(data => {
-      if (data.status === 'ok') {
-        kwData = data.rows;
-        renderKwTable();
-      } else {
-        tbody.innerHTML = '<tr><td colspan="5">Failed to load</td></tr>';
-        alert(data.error || 'Failed to load');
-      }
-    }).catch(err => {
-      tbody.innerHTML = '<tr><td colspan="5">Error</td></tr>';
-      alert('Error: ' + err);
-    });
+  const cacheKey = 'gscKw_' + site + '_' + currentCountry + '_<?= $client_id ?>';
+  const cached = getCache(cacheKey);
+  if (cached) {
+    kwData = cached;
+    renderKwTable();
+  } else {
+    fetch('gsc_keywords.php?client_id=<?= $client_id ?>&site=' + encodeURIComponent(site) + '&country=' + encodeURIComponent(currentCountry))
+      .then(r => r.json()).then(data => {
+        if (data.status === 'ok') {
+          kwData = data.rows;
+          setCache(cacheKey, kwData);
+          renderKwTable();
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5">Failed to load</td></tr>';
+          alert(data.error || 'Failed to load');
+        }
+      }).catch(err => {
+        tbody.innerHTML = '<tr><td colspan="5">Error</td></tr>';
+        alert('Error: ' + err);
+      });
+  }
 });
 
 function renderKwTable() {
