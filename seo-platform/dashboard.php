@@ -145,8 +145,9 @@ include 'header.php';
 </style>
 <ul class="nav nav-tabs mb-3">
   <li class="nav-item"><a class="nav-link active" href="dashboard.php?client_id=<?php echo $client_id; ?>&slug=<?php echo $slug; ?>">Keywords</a></li>
-  <li class="nav-item"><a class="nav-link" href="positions.php?client_id=<?php echo $client_id; ?>&slug=<?php echo $slug; ?>">Keyword Position</a></li>
   <li class="nav-item"><a class="nav-link" href="clusters.php?client_id=<?php echo $client_id; ?>&slug=<?php echo $slug; ?>">Clusters</a></li>
+  <li class="nav-item"><a class="nav-link" href="content.php?client_id=<?php echo $client_id; ?>&slug=<?php echo $slug; ?>">Content</a></li>
+  <li class="nav-item"><a class="nav-link" href="positions.php?client_id=<?php echo $client_id; ?>&slug=<?php echo $slug; ?>">Keyword Position</a></li>
 </ul>
 
 <input type="hidden" id="scDomain" value="<?= htmlspecialchars($scDomain) ?>">

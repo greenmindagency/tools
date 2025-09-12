@@ -302,8 +302,9 @@ include 'header.php';
 ?>
 <ul class="nav nav-tabs mb-3">
   <li class="nav-item"><a class="nav-link" href="dashboard.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>">Keywords</a></li>
-  <li class="nav-item"><a class="nav-link" href="positions.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>">Keyword Position</a></li>
   <li class="nav-item"><a class="nav-link active" href="clusters.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>">Clusters</a></li>
+  <li class="nav-item"><a class="nav-link" href="content.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>">Content</a></li>
+  <li class="nav-item"><a class="nav-link" href="positions.php?client_id=<?= $client_id ?>&slug=<?= $slug ?>">Keyword Position</a></li>
 </ul>
 <!-- Add Keyword Form -->
 <form method="POST" id="addKeywordsForm" class="mb-4" style="display:none;">
