@@ -5,34 +5,35 @@ header('Content-Type: application/json');
 
 $input = json_decode(file_get_contents('php://input'), true) ?: [];
 $client_id = $_SESSION['client_id'] ?? ($input['client_id'] ?? 0);
+$year = (int)($input['year'] ?? 0);
+$month = (int)($input['month'] ?? 0);
 $entries = $input['entries'] ?? [];
 $pdo->exec("CREATE TABLE IF NOT EXISTS client_content (
+  id INT AUTO_INCREMENT PRIMARY KEY,
   client_id INT,
   post_date DATE,
   title TEXT,
   cluster VARCHAR(255),
   doc_link TEXT,
-  status VARCHAR(50),
-  PRIMARY KEY (client_id, post_date)
+  status VARCHAR(50)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 try{
     $pdo->beginTransaction();
-    $check = $pdo->prepare('SELECT 1 FROM client_content WHERE client_id=? AND post_date=?');
+    if($year && $month){
+        $start = sprintf('%04d-%02d-01',$year,$month);
+        $end = date('Y-m-t', strtotime($start));
+        $del = $pdo->prepare('DELETE FROM client_content WHERE client_id=? AND post_date BETWEEN ? AND ?');
+        $del->execute([$client_id,$start,$end]);
+    }
     $ins = $pdo->prepare('INSERT INTO client_content (client_id, post_date, title, cluster, doc_link, status) VALUES (?,?,?,?,?,?)');
-    $upd = $pdo->prepare('UPDATE client_content SET title=?, cluster=?, doc_link=?, status=? WHERE client_id=? AND post_date=?');
     foreach($entries as $row){
         $date = $row['post_date'] ?? '';
+        if(!$date) continue;
         $title = $row['title'] ?? '';
         $cluster = $row['cluster'] ?? '';
         $link = $row['doc_link'] ?? '';
         $status = $row['status'] ?? '';
-        if(!$date) continue;
-        $check->execute([$client_id,$date]);
-        if($check->fetch()){
-            $upd->execute([$title,$cluster,$link,$status,$client_id,$date]);
-        }else{
-            $ins->execute([$client_id,$date,$title,$cluster,$link,$status]);
-        }
+        $ins->execute([$client_id,$date,$title,$cluster,$link,$status]);
     }
     $pdo->commit();
     echo json_encode(['status'=>'ok']);
