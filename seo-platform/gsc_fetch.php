@@ -1,7 +1,7 @@
 <?php
 /* ======================= CONFIG: EDIT THESE ======================= */
 const CLIENT_ID     = '154567125513-3r6vh411d14igpsq52jojoq22s489d7v.apps.googleusercontent.com';
-const CLIENT_SECRET = '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';
+const CLIENT_SECRET = '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';
 const REDIRECT_URI  = 'https://greenmindagency.com/tools/seo-platform/gsc_fetch.php';
 
 const TOKEN_FILE = __DIR__ . '/gsc_token.json';
