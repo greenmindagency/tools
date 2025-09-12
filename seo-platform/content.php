@@ -43,10 +43,11 @@ $base = "client_id=$client_id&slug=$slug";
   <li class="nav-item"><a class="nav-link active" href="content.php?<?=$base?>">Content</a></li>
   <li class="nav-item"><a class="nav-link" href="positions.php?<?=$base?>">Keyword Position</a></li>
 </ul>
-<form class="row g-2 align-items-center mb-3" onsubmit="return false;">
+
+<div class="row">
   <div class="col-md-3">
     <label class="form-label">Month</label>
-    <select id="month" class="form-select">
+    <select id="month" class="form-select mb-3">
       <?php
         $current = new DateTime('first day of this month');
         $selectedMonth = (isset($_GET['year'], $_GET['month'])) ? sprintf('%04d-%02d', $_GET['year'], $_GET['month']) : $current->format('Y-m');
@@ -60,146 +61,138 @@ $base = "client_id=$client_id&slug=$slug";
         }
       ?>
     </select>
+    <div id="contentList" class="list-group small mb-2"></div>
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="addContent">Add Content</button>
   </div>
-  <div class="col-md-9 d-flex justify-content-end align-items-end">
-    <button type="button" id="saveCal" class="btn btn-sm btn-success me-2">Save</button>
-    <button type="button" id="shareCal" class="btn btn-sm btn-outline-secondary" title="Share calendar"><i class="bi bi-share"></i></button>
-  </div>
-</form>
-<div id="calendar" class="mt-4"></div>
-<div class="modal fade" id="contentModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Content Details</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div class="mb-3">
-          <label class="form-label">Title</label>
-          <input type="text" id="contentTitle" class="form-control">
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Cluster</label>
-          <input type="text" id="contentCluster" class="form-control" list="clusterList">
-          <datalist id="clusterList">
-            <?php foreach ($clusters as $c): ?>
-              <option value="<?= htmlspecialchars($c) ?>"></option>
-            <?php endforeach; ?>
-          </datalist>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Doc Link</label>
-          <input type="url" id="contentLink" class="form-control" placeholder="https://docs.google.com/...">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary" id="modalSave">Save</button>
-      </div>
+  <div class="col-md-9">
+    <div class="d-flex justify-content-end mb-2">
+      <button type="button" class="btn btn-sm btn-success me-2" id="saveBtn">Save</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="shareBtn" title="Share month"><i class="bi bi-share"></i></button>
+      <button type="button" class="btn btn-sm btn-outline-danger" id="deleteBtn" title="Delete entry"><i class="bi bi-trash"></i></button>
     </div>
+    <table class="table">
+      <tbody>
+        <tr><th style="width:150px">Date</th><td><input type="date" id="contentDate" class="form-control"></td></tr>
+        <tr><th>Title</th><td><input type="text" id="contentTitle" class="form-control"></td></tr>
+        <tr><th>Keywords</th><td><span id="keywordsText"></span></td></tr>
+        <tr><th>Cluster</th><td><input type="text" id="contentCluster" class="form-control" list="clusterList"></td></tr>
+        <tr><th>Link</th><td><a href="#" target="_blank" id="docLink"></a><button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="updateDoc">Update Doc</button></td></tr>
+        <tr><th>Status</th><td>
+          <select id="status" class="form-select form-select-sm">
+            <option>Work in Progress</option>
+            <option>Under Review</option>
+            <option>Approved - Unpublished</option>
+            <option>Published</option>
+            <option>Request Edit</option>
+          </select>
+        </td></tr>
+      </tbody>
+    </table>
   </div>
 </div>
+<datalist id="clusterList">
+  <?php foreach ($clusters as $c): ?>
+    <option value="<?= htmlspecialchars($c) ?>"></option>
+  <?php endforeach; ?>
+</datalist>
 <script>
 const clientId = <?=$client_id?>;
 let entries = [];
-let editDate = null;
-let contentModal;
+let current = null;
+
 function loadSaved(){
-  const [year,month]=document.getElementById('month').value.split('-').map(Number);
+  const [year,month] = document.getElementById('month').value.split('-').map(Number);
   fetch(`load_content.php?client_id=${clientId}&year=${year}&month=${month}`)
     .then(r=>r.json())
-    .then(js=>{entries=js;render(entries,year,month);});
+    .then(js=>{entries=js;renderList();if(entries.length){selectEntry(entries[0]);}else{clearForm();}});
 }
-function render(entries,year,month){
-  const cal=document.getElementById('calendar');
-  cal.innerHTML='';
-  const table=document.createElement('table');
-  table.className='table table-bordered text-center';
-  const head=document.createElement('thead');
-  head.innerHTML='<tr><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th></tr>';
-  table.appendChild(head);
-  const body=document.createElement('tbody');
-  table.appendChild(body);
-  let row=document.createElement('tr');
-  const firstDow=new Date(year,month-1,1).getDay();
-  for(let i=0;i<firstDow;i++){row.appendChild(document.createElement('td'));}
-  const days=new Date(year,month,0).getDate();
-  for(let d=1; d<=days; d++){
-    const dateStr=`${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const td=document.createElement('td');
-    td.className='align-top p-2';
-    td.dataset.date=dateStr;
-    td.addEventListener('dragover',ev=>ev.preventDefault());
-    td.addEventListener('drop',ev=>{
-      const from=ev.dataTransfer.getData('text/plain');
-      if(from && from!==dateStr){
-        fetch('move_content.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,from,to:dateStr})})
-          .then(()=>loadSaved());
-      }
-    });
-    const lbl=document.createElement('div');
-    lbl.className='fw-bold mb-1';
-    lbl.textContent=d;
-    td.appendChild(lbl);
-    const entry=entries.find(e=>e.post_date===dateStr);
-    if(entry){
-      const title=document.createElement('div');
-      title.className='title d-block p-1 border rounded bg-light text-start';
-      title.textContent=entry.title||'';
-      title.draggable=true;
-      title.addEventListener('dragstart',ev=>{ev.dataTransfer.setData('text/plain', entry.post_date);});
-      title.addEventListener('click',()=>{
-        editDate=entry.post_date;
-        document.getElementById('contentTitle').value=entry.title||'';
-        document.getElementById('contentCluster').value=entry.cluster||'';
-        document.getElementById('contentLink').value=entry.doc_link||'';
-        contentModal.show();
-      });
-      td.appendChild(title);
-    }else{
-      td.addEventListener('click',()=>{
-        editDate=dateStr;
-        document.getElementById('contentTitle').value='';
-        document.getElementById('contentCluster').value='';
-        document.getElementById('contentLink').value='';
-        contentModal.show();
-      });
-    }
-    row.appendChild(td);
-    if((firstDow+d)%7===0 || d===days){body.appendChild(row);row=document.createElement('tr');}
-  }
-  cal.appendChild(table);
+
+function renderList(){
+  const list=document.getElementById('contentList');
+  list.innerHTML='';
+  entries.sort((a,b)=>a.post_date.localeCompare(b.post_date));
+  entries.forEach(e=>{
+    const a=document.createElement('a');
+    a.href='#';
+    a.className='list-group-item list-group-item-action';
+    a.textContent=`${e.post_date} ${e.title||''}`;
+    a.addEventListener('click',()=>selectEntry(e));
+    list.appendChild(a);
+  });
+}
+
+function selectEntry(entry){
+  current=entry;
+  document.getElementById('contentDate').value=entry.post_date||'';
+  document.getElementById('contentTitle').value=entry.title||'';
+  document.getElementById('contentCluster').value=entry.cluster||'';
+  document.getElementById('docLink').href=entry.doc_link||'#';
+  document.getElementById('docLink').textContent=entry.doc_link? 'Doc Link' : '';
+  document.getElementById('status').value=entry.status||'Work in Progress';
+  loadKeywords(entry.cluster);
+}
+
+function clearForm(){
+  current=null;
+  document.getElementById('contentDate').value='';
+  document.getElementById('contentTitle').value='';
+  document.getElementById('contentCluster').value='';
+  document.getElementById('docLink').href='#';
+  document.getElementById('docLink').textContent='';
+  document.getElementById('status').value='Work in Progress';
+  document.getElementById('keywordsText').textContent='';
+}
+
+function loadKeywords(cluster){
+  const span=document.getElementById('keywordsText');
+  span.textContent='';
+  if(!cluster) return;
+  fetch(`get_cluster_keywords.php?client_id=${clientId}&cluster=${encodeURIComponent(cluster)}`)
+    .then(r=>r.json())
+    .then(js=>{span.textContent=js.join(' | ');});
 }
 
 document.getElementById('month').addEventListener('change',loadSaved);
-document.getElementById('saveCal').addEventListener('click',()=>{
-  const [year,month]=document.getElementById('month').value.split('-').map(Number);
-  fetch('save_content.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,year,month,entries})})
-    .then(()=>alert('Saved'));
+document.getElementById('addContent').addEventListener('click',()=>{
+  const [y,m]=document.getElementById('month').value.split('-');
+  const newEntry={post_date:`${y}-${m}-01`,title:'',cluster:'',doc_link:'',status:'Work in Progress'};
+  entries.push(newEntry);
+  renderList();
+  selectEntry(newEntry);
 });
-document.getElementById('shareCal').addEventListener('click',()=>{
+document.getElementById('contentCluster').addEventListener('change',()=>{
+  if(current){current.cluster=document.getElementById('contentCluster').value.trim();loadKeywords(current.cluster);}
+});
+document.getElementById('updateDoc').addEventListener('click',()=>{
+  if(!current) return;
+  const link=prompt('Enter Google Doc link', current.doc_link||'');
+  if(link!==null){
+    current.doc_link=link.trim();
+    document.getElementById('docLink').href=current.doc_link||'#';
+    document.getElementById('docLink').textContent=current.doc_link?'Doc Link':'';
+  }
+});
+document.getElementById('saveBtn').addEventListener('click',()=>{
+  if(current){
+    current.post_date=document.getElementById('contentDate').value;
+    current.title=document.getElementById('contentTitle').value.trim();
+    current.status=document.getElementById('status').value;
+  }
+  fetch('save_content.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,entries})})
+    .then(()=>loadSaved());
+});
+document.getElementById('deleteBtn').addEventListener('click',()=>{
+  if(!current) return;
+  entries=entries.filter(e=>e!==current);
+  fetch('save_content.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,entries})})
+    .then(()=>{loadSaved();});
+});
+document.getElementById('shareBtn').addEventListener('click',()=>{
   const [year,month]=document.getElementById('month').value.split('-').map(Number);
   fetch('share_content.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,year,month})})
     .then(r=>r.json()).then(js=>{if(js.short_url) navigator.clipboard.writeText(js.short_url);});
 });
-document.getElementById('modalSave').addEventListener('click',()=>{
-  const title=document.getElementById('contentTitle').value.trim();
-  const cluster=document.getElementById('contentCluster').value.trim();
-  const link=document.getElementById('contentLink').value.trim();
-  const existing=entries.find(e=>e.post_date===editDate);
-  if(existing){
-    existing.title=title;
-    existing.cluster=cluster;
-    existing.doc_link=link;
-  }else{
-    entries.push({post_date:editDate,title,cluster,doc_link:link});
-  }
-  contentModal.hide();
-  const [year,month]=document.getElementById('month').value.split('-').map(Number);
-  render(entries,year,month);
-});
 
-window.addEventListener('load',()=>{contentModal=new bootstrap.Modal(document.getElementById('contentModal'));loadSaved();});
+window.addEventListener('load',loadSaved);
 </script>
 <?php include 'footer.php'; ?>
