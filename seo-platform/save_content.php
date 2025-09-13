@@ -15,12 +15,14 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS client_content (
   title TEXT,
   cluster VARCHAR(255),
   doc_link TEXT,
-  status VARCHAR(50)
+  status VARCHAR(50),
+  comments TEXT
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 foreach ([
     'cluster VARCHAR(255)',
     'doc_link TEXT',
-    'status VARCHAR(50)'
+    'status VARCHAR(50)',
+    'comments TEXT'
 ] as $col) {
     try { $pdo->exec("ALTER TABLE client_content ADD COLUMN $col"); } catch (PDOException $e) {}
 }
@@ -33,7 +35,7 @@ try{
         $del = $pdo->prepare('DELETE FROM client_content WHERE client_id=? AND post_date BETWEEN ? AND ?');
         $del->execute([$client_id,$start,$end]);
     }
-    $ins = $pdo->prepare('INSERT INTO client_content (client_id, post_date, title, cluster, doc_link, status) VALUES (?,?,?,?,?,?)');
+    $ins = $pdo->prepare('INSERT INTO client_content (client_id, post_date, title, cluster, doc_link, status, comments) VALUES (?,?,?,?,?,?,?)');
     foreach($entries as $row){
         $date = $row['post_date'] ?? '';
         if(!$date) continue;
@@ -41,7 +43,8 @@ try{
         $cluster = $row['cluster'] ?? '';
         $link = $row['doc_link'] ?? '';
         $status = $row['status'] ?? '';
-        $ins->execute([$client_id,$date,$title,$cluster,$link,$status]);
+        $comments = $row['comments'] ?? '';
+        $ins->execute([$client_id,$date,$title,$cluster,$link,$status,$comments]);
     }
     $pdo->commit();
 

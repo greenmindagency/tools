@@ -88,6 +88,16 @@ $base = "client_id=$client_id&slug=$slug";
         </td></tr>
       </tbody>
     </table>
+    <div class="mt-3">
+      <h6>Comments</h6>
+      <div class="comments-wrapper">
+        <div id="commentList" class="mb-2"></div>
+        <div class="mb-2 position-relative">
+          <textarea id="commentText" class="form-control form-control-sm" style="padding-right:5rem;" placeholder="Comment now"></textarea>
+          <button type="button" class="btn btn-sm btn-primary position-absolute bottom-0 end-0 m-1" id="addCommentBtn">Comment</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 <datalist id="clusterList">
@@ -105,12 +115,15 @@ $base = "client_id=$client_id&slug=$slug";
   </style>
 <script>
 const clientId = <?=$client_id?>;
+const currentUser = <?= json_encode($_SESSION['username'] ?? '') ?>;
+const isAdmin = <?= json_encode($isAdmin) ?>;
 let entries = [];
 let current = null;
+let comments = [];
 function ensureCurrent(){
   if(!current){
     const [y,m]=document.getElementById('month').value.split('-');
-    current={post_date:'',title:'',cluster:'',doc_link:'',status:'Work in Progress'};
+    current={post_date:'',title:'',cluster:'',doc_link:'',status:'Work in Progress',comments:'[]'};
     entries.push(current);
   }
 }
@@ -171,6 +184,8 @@ function selectEntry(entry){
   const sel=document.getElementById('status');
   sel.value=entry.status||'Work in Progress';
   applyStatusColor(sel);
+  comments = entry.comments ? JSON.parse(entry.comments || '[]') || [] : [];
+  renderComments();
   loadKeywords(entry.cluster);
 }
 
@@ -185,6 +200,8 @@ function clearForm(){
   sel.value='Work in Progress';
   applyStatusColor(sel);
   document.getElementById('keywordsText').textContent='';
+  comments=[];
+  renderComments();
 }
 
 function loadKeywords(cluster){
@@ -205,10 +222,61 @@ function showToast(msg){
   toast.addEventListener('hidden.bs.toast',()=>toast.remove());
 }
 
+function renderComments(){
+  const list=document.getElementById('commentList');
+  list.innerHTML='';
+  comments.forEach((c,i)=>{
+    const div=document.createElement('div');
+    div.className='mb-2 comment-item';
+    const text=document.createElement('span');
+    text.className='comment-text';
+    text.innerHTML=`<strong>${c.user}:</strong> ${c.text}`;
+    div.appendChild(text);
+    if(isAdmin || c.user===currentUser){
+      const actions=document.createElement('span');
+      actions.className='float-end ms-2';
+      const edit=document.createElement('a');
+      edit.href='#';
+      edit.className='text-decoration-none me-2';
+      edit.innerHTML='<i class="bi bi-pencil"></i>';
+      edit.addEventListener('click',e=>{e.preventDefault();const t=prompt("Edit comment",c.text);if(t!==null){c.text=t;renderComments();saveComments();}});
+      actions.appendChild(edit);
+      const del=document.createElement('a');
+      del.href='#';
+      del.className='text-decoration-none text-danger';
+      del.innerHTML='<i class="bi bi-trash"></i>';
+      del.addEventListener('click',e=>{e.preventDefault();comments.splice(i,1);renderComments();saveComments();});
+      actions.appendChild(del);
+      div.appendChild(actions);
+    }
+    list.appendChild(div);
+  });
+}
+
+document.getElementById('addCommentBtn').addEventListener('click',()=>{
+  const text=document.getElementById('commentText').value.trim();
+  if(currentUser && text){
+    comments.push({user:currentUser,text});
+    document.getElementById('commentText').value='';
+    renderComments();
+    saveComments();
+  }
+});
+
+function saveComments(){
+  if(!current || !current.post_date) return;
+  current.comments = JSON.stringify(comments);
+  fetch('save_comments.php',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({client_id:clientId,date:current.post_date,comments})
+  });
+}
+
 document.getElementById('month').addEventListener('change',loadSaved);
 document.getElementById('addContent').addEventListener('click',()=>{
   const [y,m]=document.getElementById('month').value.split('-');
-  const newEntry={post_date:`${y}-${m}-01`,title:'',cluster:'',doc_link:'',status:'Work in Progress'};
+  const newEntry={post_date:`${y}-${m}-01`,title:'',cluster:'',doc_link:'',status:'Work in Progress',comments:'[]'};
   entries.push(newEntry);
   renderList();
   selectEntry(newEntry);
@@ -252,6 +320,7 @@ document.getElementById('saveBtn').addEventListener('click',()=>{
     current.cluster=document.getElementById('contentCluster').value.trim();
     current.status=document.getElementById('status').value;
     current.doc_link=document.getElementById('docLink').href === '#' ? '' : document.getElementById('docLink').href;
+    current.comments=JSON.stringify(comments);
   }
   const [year,month]=document.getElementById('month').value.split('-').map(Number);
   fetch('save_content.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:clientId,year,month,entries})})
