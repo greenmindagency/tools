@@ -24,6 +24,7 @@ foreach ([
 ] as $col) {
     try { $pdo->exec("ALTER TABLE client_content ADD COLUMN $col"); } catch (PDOException $e) {}
 }
+try { $pdo->exec("ALTER TABLE keywords ADD COLUMN content_link TEXT"); } catch (PDOException $e) {}
 try{
     $pdo->beginTransaction();
     if($year && $month){
@@ -43,6 +44,18 @@ try{
         $ins->execute([$client_id,$date,$title,$cluster,$link,$status]);
     }
     $pdo->commit();
+
+    try {
+        $clr = $pdo->prepare('UPDATE keywords SET content_link = "" WHERE client_id = ?');
+        $clr->execute([$client_id]);
+        $map = $pdo->prepare('SELECT cluster, doc_link FROM client_content WHERE client_id = ? AND cluster <> "" AND doc_link <> "" GROUP BY cluster');
+        $map->execute([$client_id]);
+        $upd = $pdo->prepare('UPDATE keywords SET content_link = ? WHERE client_id = ? AND cluster_name = ?');
+        while ($row = $map->fetch(PDO::FETCH_ASSOC)) {
+            $upd->execute([$row['doc_link'], $client_id, $row['cluster']]);
+        }
+    } catch (Exception $e) {}
+
     echo json_encode(['status'=>'ok']);
 }catch(Exception $e){
     $pdo->rollBack();
