@@ -76,6 +76,13 @@ $base = "client_id=$client_id&slug=$slug";
         <tr><th>Title</th><td><input type="text" id="contentTitle" class="form-control"></td></tr>
         <tr><th>Keywords</th><td><span id="keywordsText"></span></td></tr>
         <tr><th>Cluster</th><td><input type="text" id="contentCluster" class="form-control" list="clusterList"></td></tr>
+        <tr><th>Type</th><td><select id="contentType" class="form-select form-select-sm">
+            <option>Blog Post</option>
+            <option>Landing Page</option>
+            <option>Service Page</option>
+            <option>Product Page</option>
+            <option>Other</option>
+          </select></td></tr>
         <tr><th>Link</th><td><a href="#" target="_blank" id="docLink"></a><button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="updateDoc">Update Doc</button></td></tr>
         <tr><th>Status</th><td>
           <select id="status" class="form-select form-select-sm">
@@ -123,7 +130,7 @@ let comments = [];
 function ensureCurrent(){
   if(!current){
     const [y,m]=document.getElementById('month').value.split('-');
-    current={post_date:'',title:'',cluster:'',doc_link:'',status:'Work in Progress',comments:'[]'};
+    current={post_date:'',title:'',cluster:'',type:'Blog Post',doc_link:'',status:'Work in Progress',comments:'[]'};
     entries.push(current);
   }
 }
@@ -145,7 +152,7 @@ function loadSaved(){
   const [year,month] = document.getElementById('month').value.split('-').map(Number);
   fetch(`load_content.php?client_id=${clientId}&year=${year}&month=${month}`)
     .then(r=>r.ok?r.json():Promise.reject())
-    .then(js=>{entries=js;renderList();if(entries.length){selectEntry(entries[0]);}else{clearForm();}})
+    .then(js=>{entries=js.map(e=>({...e,type:e.type||'Blog Post'}));renderList();if(entries.length){selectEntry(entries[0]);}else{clearForm();}})
     .catch(()=>{entries=[];renderList();clearForm();showToast('Load failed');});
 }
 
@@ -179,6 +186,7 @@ function selectEntry(entry){
   document.getElementById('contentDate').value=entry.post_date||'';
   document.getElementById('contentTitle').value=entry.title||'';
   document.getElementById('contentCluster').value=entry.cluster||'';
+  document.getElementById('contentType').value=entry.type||'Blog Post';
   document.getElementById('docLink').href=entry.doc_link||'#';
   document.getElementById('docLink').textContent=entry.doc_link? 'Doc Link' : '';
   const sel=document.getElementById('status');
@@ -194,6 +202,7 @@ function clearForm(){
   document.getElementById('contentDate').value='';
   document.getElementById('contentTitle').value='';
   document.getElementById('contentCluster').value='';
+  document.getElementById('contentType').value='Blog Post';
   document.getElementById('docLink').href='#';
   document.getElementById('docLink').textContent='';
   const sel=document.getElementById('status');
@@ -276,7 +285,7 @@ function saveComments(){
 document.getElementById('month').addEventListener('change',loadSaved);
 document.getElementById('addContent').addEventListener('click',()=>{
   const [y,m]=document.getElementById('month').value.split('-');
-  const newEntry={post_date:`${y}-${m}-01`,title:'',cluster:'',doc_link:'',status:'Work in Progress',comments:'[]'};
+  const newEntry={post_date:`${y}-${m}-01`,title:'',cluster:'',type:'Blog Post',doc_link:'',status:'Work in Progress',comments:'[]'};
   entries.push(newEntry);
   renderList();
   selectEntry(newEntry);
@@ -296,6 +305,10 @@ document.getElementById('contentCluster').addEventListener('change',()=>{
   current.cluster=document.getElementById('contentCluster').value.trim();
   loadKeywords(current.cluster);
   renderList();
+});
+document.getElementById('contentType').addEventListener('change',()=>{
+  ensureCurrent();
+  current.type=document.getElementById('contentType').value;
 });
 document.getElementById('status').addEventListener('change',e=>{
   ensureCurrent();
@@ -318,6 +331,7 @@ document.getElementById('saveBtn').addEventListener('click',()=>{
     current.post_date=document.getElementById('contentDate').value;
     current.title=document.getElementById('contentTitle').value.trim();
     current.cluster=document.getElementById('contentCluster').value.trim();
+    current.type=document.getElementById('contentType').value;
     current.status=document.getElementById('status').value;
     current.doc_link=document.getElementById('docLink').href === '#' ? '' : document.getElementById('docLink').href;
     current.comments=JSON.stringify(comments);

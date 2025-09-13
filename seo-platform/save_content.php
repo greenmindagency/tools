@@ -14,12 +14,14 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS client_content (
   post_date DATE,
   title TEXT,
   cluster VARCHAR(255),
+  content_type VARCHAR(100),
   doc_link TEXT,
   status VARCHAR(50),
   comments TEXT
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 foreach ([
     'cluster VARCHAR(255)',
+    'content_type VARCHAR(100)',
     'doc_link TEXT',
     'status VARCHAR(50)',
     'comments TEXT'
@@ -27,6 +29,7 @@ foreach ([
     try { $pdo->exec("ALTER TABLE client_content ADD COLUMN $col"); } catch (PDOException $e) {}
 }
 try { $pdo->exec("ALTER TABLE keywords ADD COLUMN content_link TEXT"); } catch (PDOException $e) {}
+try { $pdo->exec("ALTER TABLE keywords ADD COLUMN page_type VARCHAR(100)"); } catch (PDOException $e) {}
 try{
     $pdo->beginTransaction();
     if($year && $month){
@@ -35,27 +38,30 @@ try{
         $del = $pdo->prepare('DELETE FROM client_content WHERE client_id=? AND post_date BETWEEN ? AND ?');
         $del->execute([$client_id,$start,$end]);
     }
-    $ins = $pdo->prepare('INSERT INTO client_content (client_id, post_date, title, cluster, doc_link, status, comments) VALUES (?,?,?,?,?,?,?)');
+    $ins = $pdo->prepare('INSERT INTO client_content (client_id, post_date, title, cluster, content_type, doc_link, status, comments) VALUES (?,?,?,?,?,?,?,?)');
     foreach($entries as $row){
         $date = $row['post_date'] ?? '';
         if(!$date) continue;
         $title = $row['title'] ?? '';
         $cluster = $row['cluster'] ?? '';
+        $type = $row['type'] ?? '';
         $link = $row['doc_link'] ?? '';
         $status = $row['status'] ?? '';
         $comments = $row['comments'] ?? '';
-        $ins->execute([$client_id,$date,$title,$cluster,$link,$status,$comments]);
+        $ins->execute([$client_id,$date,$title,$cluster,$type,$link,$status,$comments]);
     }
     $pdo->commit();
 
     try {
-        $clr = $pdo->prepare('UPDATE keywords SET content_link = "" WHERE client_id = ?');
+        $clr = $pdo->prepare('UPDATE keywords SET content_link = "", page_type = "" WHERE client_id = ?');
         $clr->execute([$client_id]);
-        $map = $pdo->prepare('SELECT cluster, doc_link FROM client_content WHERE client_id = ? AND cluster <> "" AND doc_link <> "" GROUP BY cluster');
+        $map = $pdo->prepare('SELECT cluster, doc_link, content_type AS type FROM client_content WHERE client_id = ? AND cluster <> "" GROUP BY cluster');
         $map->execute([$client_id]);
-        $upd = $pdo->prepare('UPDATE keywords SET content_link = ? WHERE client_id = ? AND cluster_name = ?');
+        $upd = $pdo->prepare('UPDATE keywords SET content_link = ?, page_type = ? WHERE client_id = ? AND cluster_name = ?');
         while ($row = $map->fetch(PDO::FETCH_ASSOC)) {
-            $upd->execute([$row['doc_link'], $client_id, $row['cluster']]);
+            if ($row['doc_link'] !== '' || $row['type'] !== '') {
+                $upd->execute([$row['doc_link'], $row['type'], $client_id, $row['cluster']]);
+            }
         }
     } catch (Exception $e) {}
 
