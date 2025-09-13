@@ -17,6 +17,7 @@ try {
       post_date DATE,
       title TEXT,
       cluster VARCHAR(255),
+      content_type VARCHAR(100),
       doc_link TEXT,
       status VARCHAR(50),
       comments TEXT
@@ -24,6 +25,10 @@ try {
     try { $pdo->exec("ALTER TABLE client_content ADD COLUMN comments TEXT"); } catch (PDOException $e) {}
     $stmt = $pdo->prepare('UPDATE client_content SET comments = ? WHERE client_id = ? AND post_date = ?');
     $stmt->execute([json_encode($comments), $client_id, $date]);
+    if ($stmt->rowCount() === 0) {
+        $ins = $pdo->prepare('INSERT INTO client_content (client_id, post_date, comments) VALUES (?,?,?)');
+        $ins->execute([$client_id, $date, json_encode($comments)]);
+    }
     echo json_encode(['status'=>'ok']);
 } catch (Exception $e) {
     http_response_code(500);

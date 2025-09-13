@@ -263,12 +263,12 @@ function renderComments(){
 
 document.getElementById('addCommentBtn').addEventListener('click',()=>{
   const text=document.getElementById('commentText').value.trim();
-  if(currentUser && text){
-    comments.push({user:currentUser,text});
-    document.getElementById('commentText').value='';
-    renderComments();
-    saveComments();
-  }
+  if(!currentUser || !text) return;
+  ensureCurrent();
+  comments.push({user:currentUser,text});
+  document.getElementById('commentText').value='';
+  renderComments();
+  saveComments();
 });
 
 function saveComments(){
