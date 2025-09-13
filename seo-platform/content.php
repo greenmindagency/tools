@@ -126,6 +126,15 @@ const isAdmin = <?= json_encode($isAdmin) ?>;
 let entries = [];
 let current = null;
 let comments = [];
+if(!currentUser){
+  const ct=document.getElementById('commentText');
+  const btn=document.getElementById('addCommentBtn');
+  if(ct){
+    ct.placeholder='Log in to comment';
+    ct.disabled=true;
+  }
+  if(btn) btn.disabled=true;
+}
 function ensureCurrent(){
   if(!current){
     const [y,m]=document.getElementById('month').value.split('-');
@@ -263,7 +272,11 @@ function renderComments(){
 
 document.getElementById('addCommentBtn').addEventListener('click',()=>{
   const text=document.getElementById('commentText').value.trim();
-  if(!currentUser || !text) return;
+  if(!currentUser){
+    showToast('Please log in to comment');
+    return;
+  }
+  if(!text) return;
   ensureCurrent();
   comments.push({user:currentUser,text});
   document.getElementById('commentText').value='';
