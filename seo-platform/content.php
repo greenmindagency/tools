@@ -33,6 +33,7 @@ $title = $client['name'] . ' Content Plan';
 $clusterStmt = $pdo->prepare("SELECT DISTINCT cluster_name FROM keywords WHERE client_id = ? AND cluster_name <> '' ORDER BY cluster_name");
 $clusterStmt->execute([$client_id]);
 $clusters = $clusterStmt->fetchAll(PDO::FETCH_COLUMN);
+$pageTypes = ['', 'Home', 'Service', 'Blog', 'Page', 'Article', 'Product', 'Other'];
 
 include 'header.php';
 $base = "client_id=$client_id&slug=$slug";
@@ -77,11 +78,9 @@ $base = "client_id=$client_id&slug=$slug";
         <tr><th>Keywords</th><td><span id="keywordsText"></span></td></tr>
         <tr><th>Cluster</th><td><input type="text" id="contentCluster" class="form-control" list="clusterList"></td></tr>
         <tr><th>Type</th><td><select id="contentType" class="form-select form-select-sm">
-            <option>Blog Post</option>
-            <option>Landing Page</option>
-            <option>Service Page</option>
-            <option>Product Page</option>
-            <option>Other</option>
+            <?php foreach ($pageTypes as $pt): ?>
+              <option value="<?= htmlspecialchars($pt) ?>"><?= htmlspecialchars($pt) ?></option>
+            <?php endforeach; ?>
           </select></td></tr>
         <tr><th>Link</th><td><a href="#" target="_blank" id="docLink"></a><button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="updateDoc">Update Doc</button></td></tr>
         <tr><th>Status</th><td>
@@ -130,7 +129,7 @@ let comments = [];
 function ensureCurrent(){
   if(!current){
     const [y,m]=document.getElementById('month').value.split('-');
-    current={post_date:'',title:'',cluster:'',type:'Blog Post',doc_link:'',status:'Work in Progress',comments:'[]'};
+    current={post_date:'',title:'',cluster:'',type:'',doc_link:'',status:'Work in Progress',comments:'[]'};
     entries.push(current);
   }
 }
@@ -152,7 +151,7 @@ function loadSaved(){
   const [year,month] = document.getElementById('month').value.split('-').map(Number);
   fetch(`load_content.php?client_id=${clientId}&year=${year}&month=${month}`)
     .then(r=>r.ok?r.json():Promise.reject())
-    .then(js=>{entries=js.map(e=>({...e,type:e.type||'Blog Post'}));renderList();if(entries.length){selectEntry(entries[0]);}else{clearForm();}})
+    .then(js=>{entries=js.map(e=>({...e,type:e.type||''}));renderList();if(entries.length){selectEntry(entries[0]);}else{clearForm();}})
     .catch(()=>{entries=[];renderList();clearForm();showToast('Load failed');});
 }
 
@@ -186,7 +185,7 @@ function selectEntry(entry){
   document.getElementById('contentDate').value=entry.post_date||'';
   document.getElementById('contentTitle').value=entry.title||'';
   document.getElementById('contentCluster').value=entry.cluster||'';
-  document.getElementById('contentType').value=entry.type||'Blog Post';
+  document.getElementById('contentType').value=entry.type||'';
   document.getElementById('docLink').href=entry.doc_link||'#';
   document.getElementById('docLink').textContent=entry.doc_link? 'Doc Link' : '';
   const sel=document.getElementById('status');
@@ -202,7 +201,7 @@ function clearForm(){
   document.getElementById('contentDate').value='';
   document.getElementById('contentTitle').value='';
   document.getElementById('contentCluster').value='';
-  document.getElementById('contentType').value='Blog Post';
+  document.getElementById('contentType').value='';
   document.getElementById('docLink').href='#';
   document.getElementById('docLink').textContent='';
   const sel=document.getElementById('status');
@@ -285,7 +284,7 @@ function saveComments(){
 document.getElementById('month').addEventListener('change',loadSaved);
 document.getElementById('addContent').addEventListener('click',()=>{
   const [y,m]=document.getElementById('month').value.split('-');
-  const newEntry={post_date:`${y}-${m}-01`,title:'',cluster:'',type:'Blog Post',doc_link:'',status:'Work in Progress',comments:'[]'};
+  const newEntry={post_date:`${y}-${m}-01`,title:'',cluster:'',type:'',doc_link:'',status:'Work in Progress',comments:'[]'};
   entries.push(newEntry);
   renderList();
   selectEntry(newEntry);
